@@ -8,7 +8,7 @@
   <strong>Architecture-aware autonomous software engineering that learns from every execution.</strong>
 </p>
 
-Overdrive **0.3** is an independent software development methodology for coding agents that understands the system before changing it.
+**First public release (1.0.0).** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
 
 It combines architecture-aware discovery, a single authoritative spec, adaptive execution, autonomous decision-making, test-driven development, systematic debugging, isolated workspaces, code review, evidence-based verification, and a **local Experience Engine** (SQLite, FTS5, TurboVec, lazy MiniLM) that compounds operational knowledge across runs without a memory-management workflow.
 
@@ -130,7 +130,7 @@ The executor is expected to inspect reality instead of blindly following a prewr
 
 ## Installation
 
-Overdrive ships as a public GitHub release with plugin metadata for Cursor, Claude Code, and Codex. Clone the repository, install the skills, and load the plugin from your checkout.
+Overdrive ships with plugin metadata for Cursor, Claude Code, and Codex. When published, releases will be available at [https://github.com/gfrancodev/overdrive](https://github.com/gfrancodev/overdrive). Clone the repository, install the skills, and load the plugin from your checkout.
 
 ```bash
 git clone https://github.com/gfrancodev/overdrive.git
@@ -516,7 +516,7 @@ second approval workflow.
 
 ## Experience Engine
 
-Overdrive 0.3 ships a **Local Runtime** that compounds operational experience without a user-facing memory workflow. You still plan, execute, debug, review, and auto-run exactly as before. Recall and capture happen as a side effect of normal development.
+Overdrive 1.0 ships a **Local Runtime** that compounds operational experience without a user-facing memory workflow. You still plan, execute, debug, review, and auto-run exactly as before. Recall and capture happen as a side effect of normal development.
 
 ```text
 normal development
@@ -746,7 +746,7 @@ bash -n scripts/*.sh
 ### Releases
 
 GitHub Actions runs on every push to `main` and on pull requests (`.github/workflows/ci.yml`).
-Tagging `v0.3.0` (or any `v*` tag) triggers `.github/workflows/release.yml`, which rebuilds
+When the repository is published, tagging `v1.0.0` (or any `v*` tag) will trigger `.github/workflows/release.yml`, which rebuilds
 all six runtime binaries and TurboVec libraries and attaches one zip per OS/arch pair to
 [GitHub Releases](https://github.com/gfrancodev/overdrive/releases).
 The repo also keeps prebuilt artifacts under `runtime/` for zero-toolchain installs; see

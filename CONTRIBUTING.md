@@ -130,7 +130,7 @@ for all supported targets before tagging a release (zero-toolchain plugin instal
 
 ## Releases
 
-Push a tag on `main` (for example `v0.3.0`) to trigger `.github/workflows/release.yml`.
+Push a tag on `main` (for example `v1.0.0`) to trigger `.github/workflows/release.yml`.
 The workflow builds all six runtime binaries and TurboVec FFI libraries on GitHub
 runners (ubuntu, macos, windows) and attaches one zip per OS/arch pair:
 
@@ -149,12 +149,12 @@ binaries when runtime code changes so `validate.py` stays green. Local cross-bui
 need Go, Rust, Zig, and `cargo-zigbuild`; without Zig, only native targets (such as
 `linux-amd64` on Linux) rebuild locally. Other targets can be rebuilt in CI.
 
-**Cutting a release (example `0.3.0`):**
+**Cutting a release (example `1.0.0`):**
 
 1. Align version in `constants.go`, plugin manifests, and `CHANGELOG.md`.
 2. Rebuild and commit `runtime/bin/` + `runtime/lib/` if runtime code changed.
 3. Run `python3 scripts/validate.py` and `OVERDRIVE_EMBEDDER=stub python3 -m pytest tests/ -q`.
-4. Push to `main`, then `git tag v0.3.0 && git push origin v0.3.0`.
+4. Push to `main`, then `git tag v1.0.0 && git push origin v1.0.0`.
 5. Confirm the Release workflow succeeded and assets are attached on GitHub Releases.
 
 ## Questions

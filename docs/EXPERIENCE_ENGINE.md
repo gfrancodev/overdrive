@@ -1,6 +1,6 @@
 # Overdrive Experience Engine
 
-Overdrive 0.3 adds a full **Local Runtime** for persistent operational experience without adding a memory-management workflow for the user.
+Overdrive 1.0 adds a full **Local Runtime** for persistent operational experience without adding a memory-management workflow for the user.
 
 The user still asks Overdrive to plan, execute, debug, review, or auto-run work exactly as before. Experience is retrieved and captured internally as a consequence of normal development.
 
@@ -57,7 +57,7 @@ The Experience Engine is a transversal runtime capability, not a skill:
 
 The runtime is a single prebuilt binary per OS/arch plus a bundled TurboVec FFI library. It requires no daemon, Docker, database server, Python runtime, GPU, cloud API, or user-side toolchain.
 
-## Local Runtime stack (0.3)
+## Local Runtime stack (1.0)
 
 | Component | Role |
 |---|---|

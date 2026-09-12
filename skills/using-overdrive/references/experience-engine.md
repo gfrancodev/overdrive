@@ -179,7 +179,7 @@ working memory       <= session slice only
 
 Keep the experience slice small enough that live code and the current spec remain dominant.
 
-## Storage (0.3)
+## Storage (1.0)
 
 ```text
 ~/.overdrive/experience-v2.db      # SQLite + WAL + FTS5

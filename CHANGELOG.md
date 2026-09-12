@@ -1,6 +1,19 @@
 # Changelog
 
-## 0.3.0 - 2026-09-12
+## 1.0.0 - 2026-09-12
+
+First public release of Overdrive.
+
+- Architecture-aware methodology for coding agents: discover before deciding, spec before execution, verify before completion.
+- Full skill suite for planning, execution, TDD, debugging, code review, verification, git worktrees, and branch finishing.
+- **Local Runtime** (Experience Engine): SQLite + WAL + FTS5, TurboVec SIMD rerank, lazy MiniLM embeddings, working memory, decision ledger, conflict resolution, evidence scoring, and automatic forgetting.
+- Prebuilt runtime binaries and TurboVec FFI libraries for Linux, macOS, and Windows (x64 and ARM64).
+- Plugin metadata for Cursor, Claude Code, and Codex with cross-runtime skill installation.
+- CI and release workflows for validation and multi-platform artifact builds.
+
+### Development history
+
+#### 0.3.0 - 2026-09-12
 
 - Replaced JSON store with **SQLite + WAL + FTS5** (`~/.overdrive/experience-v2.db`) and automatic migration from `experience-v1.json`.
 - Integrated official **[TurboVec](https://github.com/RyanCodrai/turbovec)** `IdMapIndex` via a prebuilt Rust FFI library shipped per OS/arch (`runtime/lib/`).
@@ -10,12 +23,12 @@
 - Backend identifier is now `sqlite-fts5-turbovec-v1`. Installers copy runtime + TurboVec library; users never build Go/Rust/Cargo.
 - Updated protocol docs, architecture diagrams, and skills to reflect the full Local Runtime stack.
 
-## 0.2.2 - 2026-09-12
+#### 0.2.2 - 2026-09-12
 
 - Added plugin logo (`assets/logo.png`) and wired it into Cursor, Claude, and Codex manifests.
 - Added Codex marketplace branding color aligned with the logo palette.
 
-## 0.2.1 - 2026-09-12
+#### 0.2.1 - 2026-09-12
 
 - Made `/auto-run` a zero-approval-gate runtime policy: once started, Overdrive never asks the user for routine approvals, confirmations, execution-mode choices, continuation, or delivery choices.
 - Replaced protected stop conditions with **Autonomous Boundaries**. Unrequested consequential actions are deferred while all safe/reversible work continues.
@@ -24,7 +37,7 @@
 - Propagated auto-run behavior into planning, execution, worktree isolation, branch finishing, commands, architecture docs, README, and agent instructions.
 - Added host-authorization handling: platform-enforced prompts cannot be bypassed, so blocked actions are deferred rather than turned into Overdrive approval questions.
 
-## 0.2.0 - 2026-09-12
+#### 0.2.0 - 2026-09-12
 
 - Added the automatic local Experience Engine as a transversal runtime capability, not a user-facing skill.
 - Added a zero-dependency Go runtime with Git-remote project identity, scoped memory, trust/evidence scoring, secret redaction, atomic persistence, cross-process locking, and hybrid lexical/hashed retrieval.
@@ -35,7 +48,7 @@
 - Added Experience Engine architecture and internal protocol documentation.
 - Kept semantic infrastructure deliberately lightweight; TurboVec is reserved as a future ANN backend when benchmarks justify it.
 
-## 0.1.0 - 2026-09-08
+#### 0.1.0 - 2026-09-08
 
 - Initial release of Overdrive.
 - Replaced brainstorming + writing-plans with architecture-aware `plan`.

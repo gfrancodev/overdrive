@@ -57,7 +57,7 @@ The Experience Engine is a transversal runtime capability, not a public skill.
           ~/.overdrive/experience-v2.tvim
 ```
 
-The shipped 0.3 runtime is a prebuilt Go binary (no user CGO) with embedded SQLite, FTS5 lexical search, official TurboVec reranking via a bundled FFI library, lazy embeddings with hashed fail-open fallback, working memory, decision ledger, conflict records, evidence scoring, and automatic forgetting on session start. It has no daemon and no resident model unless the embedding pack was downloaded.
+The shipped 1.0 runtime is a prebuilt Go binary (no user CGO) with embedded SQLite, FTS5 lexical search, official TurboVec reranking via a bundled FFI library, lazy embeddings with hashed fail-open fallback, working memory, decision ledger, conflict records, evidence scoring, and automatic forgetting on session start. It has no daemon and no resident model unless the embedding pack was downloaded.
 
 Memory kinds: fact, rule, decision, preference, procedure, lesson, anti-pattern, episode.
 Memory scopes: global, organization, repository, module.

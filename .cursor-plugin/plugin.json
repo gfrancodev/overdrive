@@ -2,7 +2,7 @@
   "name": "overdrive",
   "displayName": "Overdrive",
   "description": "Architecture-aware autonomous software engineering with automatic local experience learning",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "author": {
     "name": "Gustavo Franco",
     "email": "contact@gfrancodev.com"
