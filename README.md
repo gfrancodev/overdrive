@@ -805,6 +805,6 @@ Overdrive complies with the MIT License by including Jesse Vincent’s copyright
 
 ## License
 
-MIT License. Copyright (c) 2026 Gustavo Franco.
+MIT License. Copyright (c) 2026 KUBBI TECHNOLOGY LTDA. (CNPJ 61.159.692/0001-00). Maintainer: Gustavo Franco.
 
 This project also acknowledges material inspired by Superpowers (MIT License, Copyright (c) 2025 Jesse Vincent). See [`LICENSE`](LICENSE) for the complete license text, including both copyright notices and the MIT permission notice required for redistribution and derivative works.
