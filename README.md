@@ -34,7 +34,9 @@ Overdrive is not a replacement for other agent methodologies. [Superpowers](http
 - [Experience Engine](#experience-engine)
 - [What's Inside](#whats-inside)
 - [Philosophy](#philosophy)
+- [What Makes Overdrive Different](#what-makes-overdrive-different)
 - [Development and Validation](#development-and-validation)
+- [Security](#security)
 - [Contributing](#contributing)
 - [Code of Conduct](#code-of-conduct)
 - [Acknowledgements](#acknowledgements)
@@ -536,6 +538,8 @@ next run starts better informed
 
 The engine stores compact facts, rules, decisions, preferences, procedures, lessons, anti-patterns, and episodes at global, organization, repository, or module scope. History is advisory. Current code, ADRs, tests, and explicit requirements always win.
 
+Capture only compact, verified, reusable knowledge. Never store raw prompts, whole source files, or terminal transcripts. Agent capture discipline is the primary defense; runtime redaction is a secondary fail-safe.
+
 **Local Runtime stack (`sqlite-fts5-turbovec-v1`):**
 
 | Piece | Role |
@@ -768,6 +772,10 @@ visual fidelity
 design-system compliance
 rework
 ```
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for supported versions and how to report vulnerabilities.
 
 ## Contributing
 
