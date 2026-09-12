@@ -1,0 +1,29 @@
+# Overdrive CI: structure validation, pytest (stub embedder), and shell syntax checks.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    name: Validate and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate package structure
+        run: python3 scripts/validate.py
+
+      - name: Run pytest (stub embedder)
+        env:
+          OVERDRIVE_EMBEDDER: stub
+        run: python3 -m pytest tests/ -q
+
+      - name: Check shell script syntax
+        run: bash -n scripts/*.sh

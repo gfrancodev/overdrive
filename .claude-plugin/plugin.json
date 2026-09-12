@@ -1,0 +1,25 @@
+{
+  "name": "overdrive",
+  "description": "Architecture-aware autonomous software engineering with automatic local experience learning",
+  "version": "0.3.0",
+  "author": {
+    "name": "Gustavo Franco",
+    "email": "contact@gfrancodev.com"
+  },
+  "homepage": "https://github.com/gfrancodev/overdrive",
+  "repository": "https://github.com/gfrancodev/overdrive",
+  "license": "MIT",
+  "logo": "assets/logo.png",
+  "keywords": [
+    "skills",
+    "agentic",
+    "architecture",
+    "planning",
+    "tdd",
+    "debugging",
+    "autonomous-development",
+    "experience",
+    "memory",
+    "local-first"
+  ]
+}

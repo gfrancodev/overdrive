@@ -1,0 +1,11 @@
+[package]
+name = "overdrive-turbovec-ffi"
+version = "0.3.0"
+edition = "2021"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+turbovec = { git = "https://github.com/RyanCodrai/turbovec" }

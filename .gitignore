@@ -1,0 +1,11 @@
+__pycache__/
+.pytest_cache/
+.overdrive/
+.worktrees/
+*.zip
+
+# Rust FFI build artifacts (shipped libs live in runtime/lib/)
+runtime/turbovec-ffi/target/
+
+# Go build cache (if building outside scripts/)
+runtime/experience/*.exe

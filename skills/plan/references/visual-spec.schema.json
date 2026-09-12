@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Overdrive Visual Specification",
+  "type": "object",
+  "properties": {
+    "meta": {
+      "type": "object",
+      "properties": {
+        "surface": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "formFactors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "observed": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "inferred": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "unknown": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "designSystem": {
+      "type": "object",
+      "properties": {
+        "detected": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "string"
+        },
+        "components": {
+          "type": "object"
+        },
+        "tokens": {
+          "type": "object"
+        }
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "typography": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "components": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "states": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "responsive": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "interactions": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "accessibility": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "value": {},
+          "source": {
+            "type": "string"
+          },
+          "rationale": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "source"
+        ]
+      }
+    }
+  },
+  "required": [
+    "meta",
+    "observed",
+    "inferred",
+    "unknown",
+    "designSystem"
+  ]
+}

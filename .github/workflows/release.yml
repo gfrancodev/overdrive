@@ -1,0 +1,140 @@
+# Overdrive release: build all runtime binaries and TurboVec libs, publish platform zips.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: linux-amd64
+            goos: linux
+            goarch: amd64
+            bin: overdrive-runtime-linux-amd64
+            lib: liboverdrive_turbovec_ffi.so
+          - runner: ubuntu-latest
+            target: linux-arm64
+            goos: linux
+            goarch: arm64
+            bin: overdrive-runtime-linux-arm64
+            lib: liboverdrive_turbovec_ffi.so
+          - runner: macos-latest
+            target: darwin-arm64
+            goos: darwin
+            goarch: arm64
+            bin: overdrive-runtime-darwin-arm64
+            lib: liboverdrive_turbovec_ffi.dylib
+          - runner: macos-latest
+            target: darwin-amd64
+            goos: darwin
+            goarch: amd64
+            bin: overdrive-runtime-darwin-amd64
+            lib: liboverdrive_turbovec_ffi.dylib
+          - runner: windows-latest
+            target: windows-amd64
+            goos: windows
+            goarch: amd64
+            bin: overdrive-runtime-windows-amd64.exe
+            lib: overdrive_turbovec_ffi.dll
+          - runner: windows-latest
+            target: windows-arm64
+            goos: windows
+            goarch: arm64
+            bin: overdrive-runtime-windows-arm64.exe
+            lib: overdrive_turbovec_ffi.dll
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache-dependency-path: runtime/experience/go.sum
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Zig and cargo-zigbuild (Linux)
+        if: runner.os == 'Linux'
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.13.0
+
+      - name: Install Zig and cargo-zigbuild (macOS)
+        if: runner.os == 'macOS'
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.13.0
+
+      - name: Install Zig and cargo-zigbuild (Windows)
+        if: runner.os == 'Windows'
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.13.0
+
+      - name: Install cargo-zigbuild
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild
+
+      - name: Build runtime and TurboVec FFI
+        shell: bash
+        run: bash scripts/build-runtime.sh "${{ matrix.target }}"
+
+      - name: Verify artifacts
+        shell: bash
+        run: |
+          test -s "runtime/bin/${{ matrix.bin }}"
+          test -s "runtime/lib/${{ matrix.target }}/${{ matrix.lib }}"
+          test "$(wc -c < "runtime/bin/${{ matrix.bin }}")" -gt 100000
+          test "$(wc -c < "runtime/lib/${{ matrix.target }}/${{ matrix.lib }}")" -gt 10000
+
+      - name: Package platform zip (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p "dist/${{ matrix.target }}"
+          cp "runtime/bin/${{ matrix.bin }}" "dist/${{ matrix.target }}/"
+          cp "runtime/lib/${{ matrix.target }}/${{ matrix.lib }}" "dist/${{ matrix.target }}/"
+          (cd dist && zip -r "overdrive-runtime-${{ matrix.target }}.zip" "${{ matrix.target }}")
+
+      - name: Package platform zip (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "dist/${{ matrix.target }}" | Out-Null
+          Copy-Item "runtime/bin/${{ matrix.bin }}" "dist/${{ matrix.target }}/"
+          Copy-Item "runtime/lib/${{ matrix.target }}/${{ matrix.lib }}" "dist/${{ matrix.target }}/"
+          Compress-Archive -Path "dist/${{ matrix.target }}" -DestinationPath "dist/overdrive-runtime-${{ matrix.target }}.zip" -Force
+
+      - name: Upload platform artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: overdrive-runtime-${{ matrix.target }}
+          path: dist/overdrive-runtime-${{ matrix.target }}.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true

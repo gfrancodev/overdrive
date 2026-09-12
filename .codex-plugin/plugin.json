@@ -1,0 +1,45 @@
+{
+  "name": "overdrive",
+  "displayName": "Overdrive",
+  "description": "Architecture-aware autonomous software engineering with automatic local experience learning",
+  "version": "0.3.0",
+  "author": {
+    "name": "Gustavo Franco",
+    "email": "contact@gfrancodev.com"
+  },
+  "homepage": "https://github.com/gfrancodev/overdrive",
+  "repository": "https://github.com/gfrancodev/overdrive",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "agentic",
+    "architecture",
+    "planning",
+    "tdd",
+    "debugging",
+    "autonomous-development",
+    "experience",
+    "memory",
+    "local-first"
+  ],
+  "skills": "./skills/",
+  "hooks": {},
+  "interface": {
+    "displayName": "Overdrive",
+    "shortDescription": "Architecture-aware delivery that learns from verified execution",
+    "longDescription": "Overdrive discovers current architecture, recalls only relevant prior experience, creates one authoritative spec, executes adaptively, verifies delivery, and silently compounds reusable project knowledge across runs.",
+    "developerName": "Overdrive contributors",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Plan this change following the existing project architecture.",
+      "/auto-run implement this request end to end."
+    ],
+    "logo": "./assets/logo.png",
+    "brandColor": "#00B4FF"
+  }
+}
