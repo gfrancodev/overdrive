@@ -17,6 +17,14 @@ jobs:
         with:
           python-version: "3.12"
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache-dependency-path: runtime/experience/go.sum
+
+      - name: Install test dependencies
+        run: pip install pytest
+
       - name: Validate package structure
         run: python3 scripts/validate.py
 
