@@ -2,6 +2,7 @@ __pycache__/
 .pytest_cache/
 .overdrive/
 .worktrees/
+dist/
 *.zip
 
 # Rust FFI build artifacts (shipped libs live in runtime/lib/)
