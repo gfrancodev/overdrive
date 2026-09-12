@@ -747,10 +747,10 @@ bash -n scripts/*.sh
 
 GitHub Actions runs on every push to `main` and on pull requests (`.github/workflows/ci.yml`).
 Tagging `v0.3.0` (or any `v*` tag) triggers `.github/workflows/release.yml`, which rebuilds
-all six runtime binaries and TurboVec libraries and attaches platform zips plus an
-all-platforms tarball to [GitHub Releases](https://github.com/gfrancodev/overdrive/releases).
+all six runtime binaries and TurboVec libraries and attaches one zip per OS/arch pair to
+[GitHub Releases](https://github.com/gfrancodev/overdrive/releases).
 The repo also keeps prebuilt artifacts under `runtime/` for zero-toolchain installs; see
-[CONTRIBUTING.md](CONTRIBUTING.md#releases-github-actions) for the maintainer checklist.
+[CONTRIBUTING.md](CONTRIBUTING.md#releases) for the maintainer checklist.
 
 The project is expected to evolve toward a dedicated behavioral eval harness that measures Overdrive against controlled baselines and alternative agent workflows using identical fixtures, models, tasks, and repeated runs.
 
