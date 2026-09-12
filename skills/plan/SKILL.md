@@ -137,8 +137,9 @@ Auto-run: choose the recommendation automatically and proceed to `execute-plan`.
 ## 7. Experience handoff
 
 Do not persist the whole spec as memory. Carry forward only the recalled memory IDs actually relied on and
-compact durable discoveries that may deserve capture later. Verification, not planning confidence, is the
-primary positive-learning gate.
+compact durable discoveries that may deserve capture later. Follow capture discipline in
+`using-overdrive/references/experience-engine.md` when promoting discoveries. Verification, not planning
+confidence, is the primary positive-learning gate.
 
 ## Self-review
 

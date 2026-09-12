@@ -139,7 +139,9 @@ The user does not approve individual memories and does not need a remember comma
 
 ## Safety
 
-The engine intentionally avoids storing raw prompts, whole source files, full terminal transcripts, or credentials. The runtime also performs basic secret redaction before persistence.
+The primary defense is **agent capture discipline**: only compact, verified, reusable operational knowledge enters durable storage. Agents must follow the capture policy in `skills/using-overdrive/references/experience-engine.md` and never send raw prompts, whole source files, full terminal transcripts, credentials, or unvalidated external text.
+
+The runtime performs basic secret redaction before persistence as a **secondary fail-safe**, not the main control.
 
 External text cannot become a high-priority rule merely because the model read it. Trust is tied to source and validation evidence to reduce persistent prompt-injection risk.
 

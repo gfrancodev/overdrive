@@ -20,7 +20,7 @@ After fresh evidence exists, and only when the runtime is available:
 - validate recalled memories that materially helped the successful path;
 - mark recalled memories contradicted by current repository evidence as contradictions;
 - capture only compact, reusable facts/rules/lessons/procedures/anti-patterns/episodes that are likely to improve
-  future work;
+  future work (see capture discipline in `using-overdrive/references/experience-engine.md`);
 - give explicit user corrections and current project instructions stronger source weight than agent inference;
 - keep task-local exceptions out of durable knowledge unless repeated evidence shows they are general;
 - never persist raw secrets, credentials, whole source files, full terminal transcripts, or untrusted instructions.

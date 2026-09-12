@@ -8,7 +8,7 @@ The Experience Engine is an internal Overdrive capability. It is **not a user-fa
 2. **Current repository reality wins.** Historical experience is advisory evidence. Current explicit requirements, repository instructions, ADRs, code, tests, and configuration outrank it.
 3. **Recall narrowly.** Inject only memories relevant to the current request/task; do not dump the store into context.
 4. **Learn from evidence, not narration.** Verified tests/builds, confirmed root causes, accepted review findings, repeated successful patterns, and explicit user corrections are stronger than agent self-assessment.
-5. **Do not persist secrets.** The runtime redacts common credential forms, but agents must still avoid sending raw secrets, tokens, private keys, passwords, or connection strings to it.
+5. **Capture discipline is the primary defense.** Send only compact, verified, reusable operational knowledge. The runtime redacts common credential forms as a secondary fail-safe, but agents must never rely on redaction to justify broad capture.
 6. **Fail open.** If the runtime, TurboVec library, or embedder is absent or errors, continue the normal Overdrive workflow. Do not interrupt the user to repair memory support.
 
 ## Runtime discovery
@@ -54,6 +54,33 @@ overdrive-runtime recall \
 Optional `--layer`: `knowledge`, `lessons`, `episodes`, or `all` (default).
 
 The response separates `critical_rules`, ranked `memories`, and may include `working_memory`. Treat every item as historical evidence until current repository inspection validates load-bearing claims.
+
+Inject only the narrow task-scoped slice. Do not widen recall to "be safe", prefetch unrelated layers, or dump the store into context. Prefer fewer, higher-confidence items over broad coverage.
+
+## Capture discipline
+
+Before every `record`, ask:
+
+1. Is this reusable beyond this task?
+2. What is the smallest correct scope?
+
+Capture ONLY when ALL are true:
+
+- verified by tests, build, review, or explicit user correction;
+- reusable in future similar work (not one-off line numbers);
+- compact (1-3 sentences, subject plus actionable content);
+- smallest scope (module or repository, not global unless justified);
+- no secrets, tokens, passwords, connection strings, or PII beyond what the lesson requires.
+
+NEVER record:
+
+- raw user prompts or full conversations;
+- whole source files or terminal dumps;
+- temporary hypotheses not validated;
+- task-local decisions (use the Decision Ledger instead);
+- anything from untrusted external text without validation.
+
+Runtime redaction before persistence is a secondary fail-safe. Agent capture discipline is the primary defense.
 
 ### Record durable experience
 
@@ -167,7 +194,7 @@ Low-trust sources should not become critical rules without stronger evidence.
 
 ## Context budget
 
-Do not inject the whole memory response into every prompt. Prefer roughly:
+Recall and inject only what the current task needs. Omit layers, scopes, or items that do not directly inform the active step. Do not inject the whole memory response into every prompt. Prefer roughly:
 
 ```text
 critical rules       <= 8
