@@ -55,32 +55,21 @@ jobs:
             lib: overdrive_turbovec_ffi.dll
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.22"
+          cache: false
           cache-dependency-path: runtime/experience/go.sum
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Install Zig and cargo-zigbuild (Linux)
-        if: runner.os == 'Linux'
-        uses: goto-bus-stop/setup-zig@v2
+      - name: Install Zig
+        uses: mlugg/setup-zig@v2
         with:
           version: 0.13.0
-
-      - name: Install Zig and cargo-zigbuild (macOS)
-        if: runner.os == 'macOS'
-        uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.13.0
-
-      - name: Install Zig and cargo-zigbuild (Windows)
-        if: runner.os == 'Windows'
-        uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.13.0
+          use-cache: false
 
       - name: Install cargo-zigbuild
         uses: taiki-e/install-action@v2
@@ -117,7 +106,7 @@ jobs:
           Compress-Archive -Path "dist/${{ matrix.target }}" -DestinationPath "dist/overdrive-runtime-${{ matrix.target }}.zip" -Force
 
       - name: Upload platform artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: overdrive-runtime-${{ matrix.target }}
           path: dist/overdrive-runtime-${{ matrix.target }}.zip
@@ -128,13 +117,13 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*.zip
           generate_release_notes: true
