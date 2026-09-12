@@ -117,12 +117,6 @@ OVERDRIVE_EMBEDDER=stub python -m pytest tests/test_experience_runtime.py -q
 - [ ] Plugin/runtime versions stay aligned when shipping a release
 - [ ] No secrets, credentials, or personal data committed
 
-## Releases
-
-Publishing a release is tag-driven. Push a version tag on `main` (for example `v0.3.0`) to trigger `.github/workflows/release.yml`. The workflow builds all six Go runtime binaries and six TurboVec FFI libraries (matching `scripts/build-runtime.sh` targets), then attaches one zip per platform to the GitHub Release. Each zip contains the runtime binary and TurboVec library for that OS/arch pair.
-
-Maintainers must commit refreshed `runtime/bin/` and `runtime/lib/` artifacts before tagging so plugin installs and `validate.py` stay green. Cross-compiling TurboVec FFI locally requires Go, Rust, Zig, and `cargo-zigbuild`; without Zig, native `linux-amd64` builds succeed on Linux while other targets may need CI runners (ubuntu, macos, windows) or a prior successful build tree.
-
 ## Release alignment
 
 When changing shipped runtime behavior, update together:
@@ -134,50 +128,34 @@ When changing shipped runtime behavior, update together:
 Prebuilt artifacts under `runtime/bin/` and `runtime/lib/` must remain present
 for all supported targets before tagging a release (zero-toolchain plugin install).
 
-### Releases (GitHub Actions)
+## Releases
 
-Pushing a tag `v*` (for example `v0.3.0`) or running the **Release** workflow manually
-triggers `.github/workflows/release.yml`. CI rebuilds all six Go runtime binaries and
-TurboVec FFI libraries, verifies them against the same size checks as `validate.py`,
-and publishes GitHub Release assets:
+Push a tag on `main` (for example `v0.3.0`) to trigger `.github/workflows/release.yml`.
+The workflow builds all six runtime binaries and TurboVec FFI libraries on GitHub
+runners (ubuntu, macos, windows) and attaches one zip per OS/arch pair:
 
-- `overdrive-runtime-<version>-<platform>.zip` (one binary + one TurboVec lib per platform)
-- `overdrive-runtime-<version>-all-platforms.tar.gz` (full `runtime/bin` and `runtime/lib` tree)
+- `overdrive-runtime-linux-amd64.zip`
+- `overdrive-runtime-linux-arm64.zip`
+- `overdrive-runtime-darwin-amd64.zip`
+- `overdrive-runtime-darwin-arm64.zip`
+- `overdrive-runtime-windows-amd64.zip`
+- `overdrive-runtime-windows-arm64.zip`
 
-The repository still ships prebuilt `runtime/bin/` and `runtime/lib/` in git for frictionless
-plugin installs. Release assets are the canonical rebuild for each tag; refresh committed
-binaries on `main` when runtime code changes so `validate.py` and CI stay green.
+Each zip contains the runtime binary and matching TurboVec library for that target.
+
+The repository also ships prebuilt `runtime/bin/` and `runtime/lib/` in git so
+`./scripts/install.sh` works without downloading release assets. Refresh committed
+binaries when runtime code changes so `validate.py` stays green. Local cross-builds
+need Go, Rust, Zig, and `cargo-zigbuild`; without Zig, only native targets (such as
+`linux-amd64` on Linux) rebuild locally. Other targets can be rebuilt in CI.
 
 **Cutting a release (example `0.3.0`):**
 
 1. Align version in `constants.go`, plugin manifests, and `CHANGELOG.md`.
-2. Rebuild and commit `runtime/bin/` + `runtime/lib/` (`./scripts/build-runtime.sh`) if runtime code changed.
+2. Rebuild and commit `runtime/bin/` + `runtime/lib/` if runtime code changed.
 3. Run `python3 scripts/validate.py` and `OVERDRIVE_EMBEDDER=stub python3 -m pytest tests/ -q`.
-4. Commit, push to `main`, then `git tag v0.3.0 && git push origin v0.3.0`.
-5. Confirm the Release workflow on GitHub Actions and download assets from GitHub Releases.
-
-## Releases
-
-Tagged releases (`v0.3.0`, `v0.3.1`, etc.) trigger `.github/workflows/release.yml`.
-That workflow rebuilds all six runtime binaries and TurboVec libraries on GitHub
-runners and attaches platform zip archives to the GitHub Release:
-
-- `overdrive-runtime-linux.zip`
-- `overdrive-runtime-macos.zip`
-- `overdrive-runtime-windows.zip`
-
-The repository also ships prebuilt artifacts under `runtime/bin/` and
-`runtime/lib/` so `./scripts/install.sh` works without downloading release
-assets. After cutting a tag, verify CI on `main` and confirm release artifacts
-before announcing the version.
-
-Maintainer checklist for a new version:
-
-1. Align version in `constants.go`, plugin manifests, and `CHANGELOG.md`.
-2. Run local validation (`pytest`, `validate.py`).
-3. Commit and push to `main`.
-4. Tag and push: `git tag v0.3.0 && git push origin v0.3.0`.
-5. Confirm the Release workflow succeeded and assets are attached.
+4. Push to `main`, then `git tag v0.3.0 && git push origin v0.3.0`.
+5. Confirm the Release workflow succeeded and assets are attached on GitHub Releases.
 
 ## Questions
 
