@@ -783,7 +783,7 @@ bash -n scripts/*.sh
 ### Releases
 
 GitHub Actions runs on every push to `main` and on pull requests (`.github/workflows/ci.yml`).
-When the repository is published, tagging `v1.0.0` (or any `v*` tag) will trigger `.github/workflows/release.yml`, which rebuilds
+Tagging a version (for example `v1.2.0`, or any `v*` tag on `main`) triggers `.github/workflows/release.yml`, which rebuilds
 all six runtime binaries and TurboVec libraries and attaches one zip per OS/arch pair to
 [GitHub Releases](https://github.com/gfrancodev/overdrive/releases).
 The repo also keeps prebuilt artifacts under `runtime/` for zero-toolchain installs; see
