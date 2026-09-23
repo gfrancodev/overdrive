@@ -1,0 +1,414 @@
+{
+  "meta": {
+    "surface": "Login card, marketing hero",
+    "platform": "web",
+    "formFactors": [
+      "desktop-1440",
+      "tablet-768"
+    ],
+    "classification": {
+      "kind": "frontend-ui",
+      "signals": [
+        "form inputs visible",
+        "button component",
+        "typography hierarchy",
+        "card container with shadow",
+        "navigation chrome absent, focused surface"
+      ],
+      "confidence": "high"
+    },
+    "fidelityMode": "reference-exact",
+    "designSystemChoice": {
+      "askedUser": true,
+      "method": "user-answer",
+      "rationale": "User chose pixel-faithful reproduction over project Tailwind tokens."
+    },
+    "sources": [
+      {
+        "type": "url",
+        "uri": "https://example.com/login",
+        "localPath": ".overdrive/visual-sources/example-login/index.html",
+        "assetDir": ".overdrive/visual-sources/example-login/assets"
+      }
+    ],
+    "designSystemSpecPath": ".overdrive/visual-sources/example-login/design-system.visual-spec.json"
+  },
+  "observed": {
+    "viewport": "1440x900",
+    "background": "linear gradient top #F8FAFC to bottom #EEF2FF",
+    "cardCentered": true
+  },
+  "inferred": {
+    "tabletLayout": {
+      "cardWidth": "min(100% - 32px, 420px)",
+      "confidence": "medium",
+      "rationale": "Reference shows fixed card; mobile not shown, safe shrink with side padding."
+    }
+  },
+  "unknown": {
+    "hoverButton": "not visible in static reference",
+    "focusRing": "not visible, apply project a11y or platform default",
+    "errorState": "not shown"
+  },
+  "tokens": {
+    "color.text.primary": {
+      "value": "#0F172A",
+      "source": "wget-css",
+      "binding": true
+    },
+    "color.brand.primary": {
+      "value": "#4F46E5",
+      "source": "computed-style",
+      "binding": true
+    },
+    "radius.card": {
+      "value": "16px",
+      "source": "visual-reference",
+      "binding": true
+    }
+  },
+  "typography": {
+    "faces": [
+      {
+        "family": "Inter",
+        "localPath": ".overdrive/visual-sources/example-login/assets/inter.woff2",
+        "weightRange": "400-700",
+        "style": "normal"
+      }
+    ],
+    "textStyles": {
+      "heading-lg": {
+        "fontSize": "28px",
+        "fontWeight": "700",
+        "lineHeight": "36px",
+        "letterSpacing": "-0.02em"
+      }
+    }
+  },
+  "css": {
+    "input-email": {
+      "computedStyles": {
+        "padding": {
+          "value": "12px 14px",
+          "source": "devtools-computed"
+        },
+        "border": {
+          "value": "1px solid #E2E8F0",
+          "source": "wget-css"
+        }
+      }
+    }
+  },
+  "motion": {
+    "transitions": [
+      {
+        "id": "btn-bg",
+        "target": "elements.btn-submit",
+        "property": "background-color",
+        "duration": "150ms",
+        "easing": "ease",
+        "binding": true
+      }
+    ],
+    "animations": [
+      {
+        "name": "card-fade-in",
+        "keyframes": [
+          {
+            "offset": "0%",
+            "properties": {
+              "opacity": "0",
+              "transform": "translateY(8px)"
+            }
+          },
+          {
+            "offset": "100%",
+            "properties": {
+              "opacity": "1",
+              "transform": "translateY(0)"
+            }
+          }
+        ],
+        "duration": "300ms",
+        "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "binding": true
+      }
+    ]
+  },
+  "navigation": {
+    "patterns": [
+      {
+        "type": "tabs",
+        "id": "auth-tabs"
+      }
+    ],
+    "items": [
+      {
+        "id": "tab-login",
+        "label": "Sign in",
+        "active": true,
+        "iconAssetRef": "icon-tab-custom"
+      },
+      {
+        "id": "tab-register",
+        "label": "Register",
+        "active": false,
+        "iconAssetRef": "icon-chevron"
+      }
+    ],
+    "transitions": [
+      {
+        "type": "slide",
+        "duration": "200ms",
+        "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "motionRef": "nav-underline-slide"
+      }
+    ]
+  },
+  "layout": {
+    "root": {
+      "id": "page",
+      "role": "main",
+      "display": "flex",
+      "direction": "column",
+      "alignItems": "center",
+      "justifyContent": "center",
+      "minHeight": "100vh",
+      "children": [
+        {
+          "id": "login-card",
+          "role": "card",
+          "display": "flex",
+          "direction": "column",
+          "gap": "24px",
+          "padding": "40px",
+          "width": "420px",
+          "children": [
+            {
+              "id": "title",
+              "role": "heading",
+              "elementRef": "title"
+            },
+            {
+              "id": "submit",
+              "role": "button",
+              "elementRef": "btn-submit"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "elements": {
+    "title": {
+      "tag": "h1",
+      "text": "Welcome back",
+      "fontFamily": "Inter, system-ui, sans-serif",
+      "fontSize": "28px",
+      "fontWeight": "700",
+      "lineHeight": "36px",
+      "letterSpacing": "-0.02em",
+      "color": "#0F172A"
+    },
+    "btn-submit": {
+      "tag": "button",
+      "text": "Sign in",
+      "fontSize": "15px",
+      "fontWeight": "600",
+      "color": "#FFFFFF",
+      "backgroundColor": "#4F46E5",
+      "borderRadius": "10px",
+      "transition": "background-color 150ms ease"
+    }
+  },
+  "assets": {
+    "logo": {
+      "type": "image",
+      "uri": "https://example.com/assets/logo.svg",
+      "localPath": ".overdrive/visual-sources/example-login/assets/logo.svg",
+      "acquisition": "download",
+      "dimensions": {
+        "width": 120,
+        "height": 32
+      },
+      "objectFit": "contain"
+    },
+    "icon-tab-custom": {
+      "type": "icon",
+      "iconKind": "custom-svg",
+      "customized": true,
+      "acquisition": "inline-copy",
+      "localPath": ".overdrive/visual-sources/example-login/assets/icon-tab.svg",
+      "viewBox": "0 0 24 24",
+      "strokeWidth": "1.5",
+      "fill": "none",
+      "color": "#4F46E5"
+    },
+    "icon-chevron": {
+      "type": "icon",
+      "iconKind": "library-component",
+      "customized": false,
+      "library": "lucide",
+      "iconName": "chevron-right",
+      "acquisition": "consult",
+      "color": "#64748B"
+    }
+  },
+  "microDetails": [
+    {
+      "id": "md-001",
+      "category": "layout",
+      "path": "layout.root.children[0]",
+      "property": "width",
+      "value": "420px",
+      "binding": true,
+      "source": "visual-reference",
+      "evidence": "Card width at 1440px viewport"
+    },
+    {
+      "id": "md-002",
+      "category": "typography",
+      "path": "elements.title",
+      "property": "fontSize",
+      "value": "28px",
+      "binding": true,
+      "source": "computed-style",
+      "evidence": "wget CSS + screenshot cross-check"
+    },
+    {
+      "id": "md-003",
+      "category": "color",
+      "path": "elements.btn-submit",
+      "property": "backgroundColor",
+      "value": "#4F46E5",
+      "binding": true,
+      "source": "wget-css",
+      "evidence": ".btn-primary { background: #4F46E5 }"
+    },
+    {
+      "id": "md-004",
+      "category": "motion",
+      "path": "motion.transitions[0]",
+      "property": "duration",
+      "value": "150ms",
+      "binding": true,
+      "source": "transition-css",
+      "evidence": "Button background transition"
+    },
+    {
+      "id": "md-005",
+      "category": "motion",
+      "path": "motion.animations[0]",
+      "property": "duration",
+      "value": "300ms",
+      "binding": true,
+      "source": "keyframes-css",
+      "evidence": "@keyframes card-fade-in"
+    },
+    {
+      "id": "md-006",
+      "category": "navigation",
+      "path": "navigation.transitions[0]",
+      "property": "duration",
+      "value": "200ms",
+      "binding": true,
+      "source": "keyframes-css",
+      "evidence": "Tab underline slide animation"
+    },
+    {
+      "id": "md-007",
+      "category": "css",
+      "path": "css.input-email.computedStyles.padding",
+      "property": "value",
+      "value": "12px 14px",
+      "binding": true,
+      "source": "devtools-computed",
+      "evidence": "CDP getComputedStyle on email input"
+    },
+    {
+      "id": "md-008",
+      "category": "image",
+      "path": "assets.logo",
+      "property": "dimensions.width",
+      "value": 120,
+      "binding": true,
+      "source": "asset-download",
+      "evidence": "Downloaded logo.svg from wget mirror"
+    },
+    {
+      "id": "md-009",
+      "category": "icon",
+      "path": "assets.icon-tab-custom",
+      "property": "strokeWidth",
+      "value": "1.5",
+      "binding": true,
+      "source": "asset-download",
+      "evidence": "Custom tab icon SVG, customized true"
+    },
+    {
+      "id": "md-010",
+      "category": "icon",
+      "path": "assets.icon-chevron",
+      "property": "iconName",
+      "value": "chevron-right",
+      "binding": true,
+      "source": "icon-library",
+      "evidence": "Lucide chevron-right matches reference glyph"
+    },
+    {
+      "id": "md-011",
+      "category": "border",
+      "path": "elements.btn-submit",
+      "property": "borderRadius",
+      "value": "10px",
+      "binding": true,
+      "source": "visual-reference",
+      "evidence": "Measured button corners"
+    },
+    {
+      "id": "md-012",
+      "category": "spacing",
+      "path": "layout.root.children[0]",
+      "property": "padding",
+      "value": "40px",
+      "binding": true,
+      "source": "visual-reference",
+      "evidence": "Card inner padding uniform"
+    },
+    {
+      "id": "md-013",
+      "category": "shadow",
+      "path": "tokens.radius.card",
+      "property": "value",
+      "value": "16px",
+      "binding": true,
+      "source": "visual-reference",
+      "evidence": "Do not round to project 12px token in reference-exact mode"
+    },
+    {
+      "id": "md-014",
+      "category": "interaction",
+      "path": "motion.transitions[0]",
+      "property": "property",
+      "value": "background-color",
+      "binding": true,
+      "source": "transition-css",
+      "trigger": "hover"
+    },
+    {
+      "id": "md-015",
+      "category": "layout",
+      "path": "layout.root",
+      "property": "minHeight",
+      "value": "100vh",
+      "binding": true,
+      "source": "wget-css",
+      "evidence": "Full viewport centering"
+    }
+  ],
+  "designSystem": {
+    "detected": true,
+    "source": "tailwind.config.ts + src/components/ui",
+    "specPath": ".overdrive/visual-sources/example-login/design-system.visual-spec.json"
+  }
+}

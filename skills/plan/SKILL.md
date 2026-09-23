@@ -79,9 +79,23 @@ Keep the recall slice small. Do not inject unrelated project history into the sp
 
 Do not make the caller chain many skills. Detect what this request actually needs.
 
-Activate visual reasoning when there is a screenshot/Figma/reference, a page/component build,
-a meaningful visual change, or explicit fidelity requirement. Read
-`references/visual-reasoning.md` and use `references/visual-spec.schema.json` as the contract.
+Activate visual reasoning when **any** visual input is present (screenshot, image, video, URL, HTML,
+Figma, or "make it look like this site"), a page/component build, a meaningful visual change, or explicit
+fidelity requirement.
+
+Run the **mandatory frontend classification gate** first (see `references/visual-reasoning.md`).
+When classified as frontend-related, produce binding JSON artifacts:
+
+- `visual-spec.json`: surface contract (`references/visual-spec.schema.json`)
+- `design-system.visual-spec.json`: token/component contract (`references/design-system.visual-spec.json`)
+
+Ask once whether to use `reference-exact` or `project-design-system` fidelity when a project design system
+exists (normal mode only). Record paths, `fidelityMode`, and `microDetails` in the main spec. The JSON is
+the implementation contract, not a prose summary.
+
+Follow `references/micro-detail-taxonomy.md` for exhaustive categories: layout, typography, css, motion,
+navigation, image, icon, and interaction. Classify icons (custom vs library) and document image acquisition
+(download, consult, generate) before implementation.
 
 Also reason about data, security, infrastructure, migration, API compatibility, and performance
 when the request or discovered architecture makes them load-bearing. Keep these analyses inside
@@ -104,7 +118,7 @@ The spec should contain only useful implementation context:
 - decisions and constraints;
 - architecture / data flow / interfaces;
 - compatibility and migration where relevant;
-- Visual Spec when activated;
+- Visual Spec JSON paths, `fidelityMode`, and binding `microDetails` when activated;
 - error/failure handling;
 - security/privacy where relevant;
 - testing strategy;
@@ -148,6 +162,9 @@ Before handoff, verify:
 - no contradiction with discovered architecture;
 - no unsupported architectural novelty;
 - unknown vs inferred visual decisions are explicit;
+- frontend references produced `visual-spec.json` with exhaustive `microDetails` when classification requires it;
+- `fidelityMode` and design-system choice are recorded;
+- taxonomy categories covered (motion, navigation, image, icon) with binding `microDetails`;
 - acceptance criteria are observable;
 - task ordering follows dependency reality;
 - the spec is sufficient without a second verbose implementation-plan document.

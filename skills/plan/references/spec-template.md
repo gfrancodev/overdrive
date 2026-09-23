@@ -17,7 +17,17 @@ Only load-bearing decisions. Include rationale and constraints.
 Components, boundaries, data flow, interfaces, persistence, failure behavior.
 
 ## Visual Specification
-Include only when visual reasoning is activated. Reference the structured Visual Spec.
+Include only when visual reasoning is activated (frontend classification gate passed).
+
+- **Classification**: kind, signals, confidence
+- **Fidelity mode**: `reference-exact` | `project-design-system`
+- **Design system choice**: user answer, auto-run ruling, or no project design system
+- **Artifacts** (binding contracts, not prose substitutes):
+  - `visual-spec.json` path
+  - `design-system.visual-spec.json` path
+- **Binding microDetails count** and critical regions to verify
+- **Reconciliation** summary when `project-design-system` mode
+- **Taxonomy coverage**: motion, navigation, image, icon categories in `microDetails`
 
 ## Security / Privacy
 Relevant controls only.

@@ -167,7 +167,7 @@ Default location:
 └── runs/<run>/ledger.md
 ```
 
-The repository ships prebuilt runtimes and TurboVec libraries for Linux, macOS, and Windows x64/ARM64. The installer selects the local artifacts automatically — **no user build step**.
+The repository ships prebuilt runtimes and TurboVec libraries for Linux, macOS, and Windows x64/ARM64. The installer selects the local artifacts automatically: **no user build step**.
 
 There is no resident service. The binary starts on demand, performs a small operation, and exits.
 

@@ -3,9 +3,9 @@
 Thank you for your interest in improving Overdrive.
 
 Overdrive is an opinionated agentic skills framework and software development
-methodology. Contributions that preserve its core principles — architecture-first
+methodology. Contributions that preserve its core principles (architecture-first
 discovery, a single authoritative spec, evidence-based verification, and
-transversal local experience learning — are especially welcome.
+transversal local experience learning) are especially welcome.
 
 Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before participating. We
 follow the [Contributor Covenant](https://www.contributor-covenant.org/version/2/0/code_of_conduct.html),
@@ -28,6 +28,11 @@ the same family of community standards used by projects such as
    - why the change fits Overdrive’s architecture-first philosophy.
 3. Keep pull requests focused. Prefer several small, reviewable changes over one
    large mixed diff.
+
+## Prose conventions
+
+Do not use the em dash character (U+2014) in skills, docs, commands, or README prose.
+Use commas, colons, parentheses, or separate sentences instead.
 
 ## Skill changes are behavior changes
 

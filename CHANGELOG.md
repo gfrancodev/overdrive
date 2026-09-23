@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased
+
+## 1.1.0 - 2026-09-23
+
+### Micro-detail taxonomy and assets
+
+- New `micro-detail-taxonomy.md` checklist: layout, typography, css, motion, navigation, image, icon, interaction.
+- Extended `visual-spec.schema.json`: `css`, `motion`, `navigation`, structured `typography`, hardened `assets` with `iconKind`, `customized`, `acquisition`.
+- Extended `design-system.visual-spec.schema.json`: motion keyframes/transitions, navigation tokens, `icons` section.
+- Step 3B asset/icon acquisition: download, consult, generate (images); custom vs library icon classification.
+- Step 4A exhaustive extraction: CSS computed styles, micro-animations, animated navigation.
+- `design-system.visual-spec.example.json` added; `visual-spec.example.json` expanded (15+ microDetails).
+- Verification by category including motion replay and icon/image fidelity.
+- Prose convention: no em dash (U+2014) in package markdown; structural test enforces it.
+
+### Visual Spec fidelity
+
+- Mandatory **frontend classification gate** for any visual input (image, video, URL, HTML, Figma, site reference).
+- **Fidelity mode** choice: `reference-exact` (binding reference micro-details) vs `project-design-system`
+  (explicit `reconciliation` mappings). Normal mode asks once when a project design system exists; auto-run
+  resolves via Decision Ledger without questions.
+- Hardened `visual-spec.schema.json` with `classification`, `fidelityMode`, layout tree, `elements`,
+  `microDetails` checklist, and `reconciliation`.
+- New `design-system.visual-spec.schema.json` for token/component anatomy contracts.
+- New `visual-spec.example.json` demonstrating expected granularity.
+- Reference acquisition guidance: `wget` mirror to `.overdrive/visual-sources/<slug>/` for URL references.
+- `execute-plan`, subagent briefs, and `verification-before-completion` now treat Visual Spec JSON as binding
+  implementation contract.
+
 ## 1.0.0 - 2026-09-12
 
 First public release of Overdrive.

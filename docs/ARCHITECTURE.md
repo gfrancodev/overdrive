@@ -83,23 +83,32 @@ not automatically conventions. Architectural deviation must be explicit, scoped,
 ## Visual pipeline
 
 ```text
-visual reference
+visual input (image / video / URL / HTML / Figma)
   ↓
-visual extraction
-  ↓
-Observed / Inferred / Unknown
+frontend classification gate
   ↓
 design-system discovery
   ↓
-reconciliation
+fidelity mode (reference-exact | project-design-system)
+  ↓
+reference acquisition (wget mirror, frames, CSS parse)
+  ↓
+visual-spec.json + design-system.visual-spec.json
+  ↓
+observed / inferred / unknown + microDetails checklist
+  ↓
+reconciliation (project-design-system mode only)
   ↓
 responsive + states + accessibility
   ↓
-Visual Spec embedded in main Spec
+paths embedded in main Spec → execute-plan obeys JSON contract
 ```
 
-Coordinates may be captured as evidence, but layout relationships, hierarchy, spacing, proportions, grids, and
-component semantics are the primary representation.
+The Visual Spec JSON is the **binding implementation contract**. `microDetails` with `binding: true` must not be
+silently rounded to project tokens in `reference-exact` mode. Layout relationships, hierarchy, spacing,
+proportions, grids, and component semantics are the primary representation. Use `micro-detail-taxonomy.md` for exhaustive
+categories including motion, navigation, css, image, and icon. Assets may be downloaded, consulted from
+the project, or generated only when they fit the reference perfectly; icons must be classified as custom or library; coordinates may supplement evidence.
 
 ## Execution selection
 

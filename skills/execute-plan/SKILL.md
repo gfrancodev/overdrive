@@ -10,8 +10,12 @@ binding; implementation details are discovered against the current code for each
 ## 1. Load and verify the spec
 
 Read the full spec once. Confirm the ordered tasks, relevant decisions, dependencies, acceptance criteria,
-and execution analysis. If project state changed, reconcile facts before implementation without silently
-changing load-bearing requirements.
+and execution analysis. If the spec references Visual Spec JSON artifacts, load `visual-spec.json` and
+`design-system.visual-spec.json`: they are **binding contracts**. Implement against `microDetails` with
+`binding: true` by category (see `micro-detail-taxonomy.md`). Do not round reference values in
+`reference-exact` mode. Implement `motion`, `navigation`, and `assets` from JSON; use correct icons
+(custom SVG vs library component). Never substitute a similar library icon for `customized: true`. If project state changed, reconcile
+facts before implementation without silently changing load-bearing requirements.
 
 Use an isolated worktree unless the user explicitly chooses otherwise.
 
@@ -79,7 +83,8 @@ the relevant code and follow established patterns.
 
 After all tasks:
 - run broad tests/lint/typecheck/build appropriate to the project;
-- run visual verification for Visual Specs at required viewports;
+- run visual verification for Visual Specs at required viewports; verify each binding `microDetails` entry by category;
+- replay navigation/motion interactions when `motion` or `navigation` bindings exist;
 - request whole-change code review for meaningful changes;
 - fix load-bearing findings;
 - use `verification-before-completion` before claiming success;

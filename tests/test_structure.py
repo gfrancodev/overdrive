@@ -61,8 +61,65 @@ def test_plan_has_visual_reasoning_and_typeui_is_conditional():
     assert 'visual' in text
     assert 'screenshot' in ref
     assert 'design system' in ref
-    assert 'typeui' in ref
+    assert 'micro-detail-taxonomy' in ref
     assert 'observed' in ref and 'inferred' in ref and 'unknown' in ref
+
+
+def test_visual_spec_has_fidelity_classification_and_microdetails():
+    ref = (ROOT / 'skills/plan/references/visual-reasoning.md').read_text().lower()
+    plan = (ROOT / 'skills/plan/SKILL.md').read_text().lower()
+    schema = json.loads((ROOT / 'skills/plan/references/visual-spec.schema.json').read_text())
+    ds_schema = json.loads((ROOT / 'skills/plan/references/design-system.visual-spec.schema.json').read_text())
+    example = json.loads((ROOT / 'skills/plan/references/visual-spec.example.json').read_text())
+
+    assert 'classification gate' in ref
+    assert 'reference-exact' in ref
+    assert 'project-design-system' in ref
+    assert 'wget' in ref
+    assert 'microdetails' in ref
+    assert 'visual-spec.json' in ref
+    assert 'design-system.visual-spec.json' in ref
+
+    assert 'classification gate' in plan or 'frontend classification' in plan
+    assert 'reference-exact' in plan
+    assert 'microdetails' in plan
+
+    assert 'classification' in schema['properties']['meta']['properties']
+    assert 'fidelityMode' in schema['properties']['meta']['properties']
+    assert 'microDetails' in schema['properties']
+    assert 'microDetails' in schema['required']
+
+    assert ds_schema['title'] == 'Overdrive Design System Visual Specification'
+    assert 'microDetails' in ds_schema['properties']
+
+    assert example['meta']['fidelityMode'] == 'reference-exact'
+    assert len(example['microDetails']) >= 3
+
+
+def test_visual_fidelity_asks_user_but_auto_run_does_not():
+    ref = (ROOT / 'skills/plan/references/visual-reasoning.md').read_text().lower()
+    auto_run = (ROOT / 'skills/auto-run/SKILL.md').read_text().lower()
+    plan = (ROOT / 'skills/plan/SKILL.md').read_text().lower()
+
+    assert 'ask' in ref
+    assert 'auto-run' in ref
+    assert 'decision ledger' in ref
+    assert 'no additional user interaction' in auto_run
+    assert 'continue without asking' in plan
+
+
+def test_execute_and_verify_obey_visual_spec_json():
+    execute = (ROOT / 'skills/execute-plan/SKILL.md').read_text().lower()
+    verify = (ROOT / 'skills/verification-before-completion/SKILL.md').read_text().lower()
+    subagent = (ROOT / 'skills/subagent-driven-development/SKILL.md').read_text().lower()
+
+    assert 'visual-spec.json' in execute
+    assert 'microdetails' in execute
+    assert 'binding' in execute
+    assert 'microdetails' in verify
+    assert 'reference-exact' in verify
+    assert 'visual-spec.json' in subagent
+    assert 'microdetails' in subagent
 
 
 def test_auto_run_turns_questions_into_discovery():
@@ -93,6 +150,8 @@ def test_visual_spec_schema_is_json():
     assert schema['title'] == 'Overdrive Visual Specification'
     assert 'observed' in schema['properties']
     assert 'inferred' in schema['properties']
+    assert 'layout' in schema['required']
+    assert 'elements' in schema['required']
 
 
 def test_plugin_manifests_are_overdrive():
@@ -180,3 +239,57 @@ def test_auto_run_command_and_docs_describe_uninterrupted_autonomy():
     assert 'defer' in architecture
     assert 'no additional user interaction' in readme
     assert 'overdrive still stops when explicit consent' not in readme
+
+
+def test_micro_detail_taxonomy_and_extreme_schema_sections():
+    tax = (ROOT / 'skills/plan/references/micro-detail-taxonomy.md').read_text().lower()
+    ref = (ROOT / 'skills/plan/references/visual-reasoning.md').read_text().lower()
+    schema = json.loads((ROOT / 'skills/plan/references/visual-spec.schema.json').read_text())
+    ds_schema = json.loads((ROOT / 'skills/plan/references/design-system.visual-spec.schema.json').read_text())
+    example = json.loads((ROOT / 'skills/plan/references/visual-spec.example.json').read_text())
+
+    assert (ROOT / 'skills/plan/references/micro-detail-taxonomy.md').exists()
+    for term in ['motion', 'navigation', 'typography', 'css', 'image', 'icon']:
+        assert term in tax
+
+    assert 'step 3b' in ref
+    assert 'step 4a' in ref
+    assert 'micro-detail-taxonomy' in ref
+    assert 'customized' in ref
+
+    assert 'motion' in schema['properties']
+    assert 'navigation' in schema['properties']
+    assert 'css' in schema['properties']
+    md = schema['properties']['microDetails']['items']['properties']
+    assert 'category' in md
+    assert 'motion' in md['category']['enum']
+    assert 'icon' in md['category']['enum']
+    assets = schema['properties']['assets']['additionalProperties']['properties']
+    assert 'iconKind' in assets
+    assert 'acquisition' in assets
+    assert 'customized' in assets
+
+    assert 'icons' in ds_schema['properties']
+    assert 'navigation' in ds_schema['properties']
+
+    cats = {m['category'] for m in example['microDetails']}
+    assert 'motion' in cats and 'navigation' in cats and 'icon' in cats
+    assert example['assets']['icon-tab-custom']['customized'] is True
+    assert example['assets']['icon-chevron']['iconKind'] == 'library-component'
+    assert len(example['microDetails']) >= 15
+
+
+def test_no_em_dash_in_package_markdown():
+    em = '\u2014'
+    paths = []
+    for pattern in ['skills/**/*.md', 'docs/**/*.md', 'commands/**/*.md']:
+        paths.extend(ROOT.glob(pattern))
+    for name in ['README.md', 'CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md']:
+        p = ROOT / name
+        if p.exists():
+            paths.append(p)
+    offenders = []
+    for p in paths:
+        if em in p.read_text(encoding='utf-8'):
+            offenders.append(str(p.relative_to(ROOT)))
+    assert not offenders, f'em dash found in: {offenders}'

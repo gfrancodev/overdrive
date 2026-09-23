@@ -15,6 +15,9 @@ for p in ROOT.glob('skills/*/SKILL.md'):
         errors.append(f'description trigger: {p}')
 
 json.loads((ROOT / 'skills/plan/references/visual-spec.schema.json').read_text())
+json.loads((ROOT / 'skills/plan/references/design-system.visual-spec.schema.json').read_text())
+json.loads((ROOT / 'skills/plan/references/visual-spec.example.json').read_text())
+json.loads((ROOT / 'skills/plan/references/design-system.visual-spec.example.json').read_text())
 
 for legacy in ['skills/brainstorming', 'skills/writing-plans', 'skills/experience']:
     if (ROOT / legacy).exists():

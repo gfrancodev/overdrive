@@ -1,7 +1,7 @@
 package main
 
 const (
-	version       = "1.0.0"
+	version       = "1.1.0"
 	backendName   = "sqlite-fts5-turbovec-v1"
 	hashedDims    = 256
 	miniLMDims    = 384

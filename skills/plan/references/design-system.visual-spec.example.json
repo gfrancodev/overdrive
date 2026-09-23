@@ -1,0 +1,154 @@
+{
+  "meta": {
+    "name": "Example login surface tokens",
+    "origin": "reference",
+    "fidelityMode": "reference-exact"
+  },
+  "colors": {
+    "primary": {
+      "value": "#4F46E5",
+      "role": "brand",
+      "binding": true,
+      "source": "wget-css"
+    },
+    "text": {
+      "value": "#0F172A",
+      "role": "text",
+      "binding": true,
+      "source": "wget-css"
+    }
+  },
+  "typography": {
+    "fontFamilies": {
+      "sans": "Inter, system-ui, sans-serif"
+    },
+    "faces": [
+      {
+        "family": "Inter",
+        "localPath": ".overdrive/visual-sources/example-login/assets/inter.woff2",
+        "weights": [
+          "400",
+          "600",
+          "700"
+        ]
+      }
+    ],
+    "scale": [
+      {
+        "id": "heading-lg",
+        "fontSize": "28px",
+        "lineHeight": "36px",
+        "fontWeight": "700",
+        "binding": true
+      }
+    ],
+    "textStyles": {
+      "body": {
+        "fontSize": "15px",
+        "lineHeight": "22px"
+      }
+    }
+  },
+  "spacing": {
+    "4": {
+      "value": "16px",
+      "binding": true
+    },
+    "6": {
+      "value": "24px",
+      "binding": true
+    }
+  },
+  "radii": {
+    "card": {
+      "value": "16px",
+      "binding": true
+    },
+    "input": {
+      "value": "10px",
+      "binding": true
+    }
+  },
+  "shadows": {
+    "card": {
+      "value": "0 4px 24px rgba(15, 23, 42, 0.08)",
+      "binding": true
+    }
+  },
+  "motion": {
+    "durations": {
+      "fast": "150ms",
+      "normal": "200ms",
+      "slow": "300ms"
+    },
+    "easings": {
+      "standard": "cubic-bezier(0.4, 0, 0.2, 1)"
+    },
+    "transitions": [
+      {
+        "id": "nav-underline",
+        "property": "width",
+        "duration": "200ms",
+        "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "binding": true
+      }
+    ]
+  },
+  "navigation": {
+    "patterns": {
+      "tabs": {
+        "indicator": "underline-slide"
+      }
+    },
+    "animationTokens": {
+      "tabActive": "nav-underline"
+    }
+  },
+  "icons": {
+    "libraries": [
+      "lucide"
+    ],
+    "conventions": {
+      "defaultSize": "20px",
+      "defaultStrokeWidth": "1.5"
+    },
+    "customVsLibrary": {
+      "icon-tab-custom": {
+        "customized": true
+      },
+      "icon-chevron": {
+        "customized": false,
+        "library": "lucide",
+        "iconName": "chevron-right"
+      }
+    }
+  },
+  "components": {
+    "Button": {
+      "variants": {
+        "primary": {
+          "tokens": {
+            "background": "#4F46E5",
+            "color": "#FFFFFF"
+          }
+        }
+      },
+      "states": {
+        "default": {},
+        "hover": {
+          "transition": "background-color 150ms ease"
+        }
+      }
+    }
+  },
+  "microDetails": [
+    {
+      "id": "ds-md-001",
+      "tokenPath": "motion.durations.normal",
+      "value": "200ms",
+      "binding": true,
+      "source": "keyframes-css",
+      "evidence": "Nav tab underline slide"
+    }
+  ]
+}

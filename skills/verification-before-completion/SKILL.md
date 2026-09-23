@@ -9,6 +9,13 @@ Evidence before assertion.
 Before claiming success, run fresh commands that directly prove the claim: focused tests, full relevant suite,
 typecheck, lint, build, integration checks, or rendered visual comparisons as applicable.
 
+When a Visual Spec JSON is part of the work, render the UI at required viewports and verify **each**
+`microDetails` entry with `binding: true` by category (see `micro-detail-taxonomy.md`). Compare images and
+icons against reference (dimensions, color, stroke, position). Custom icons (`customized: true`) must match
+the reference asset exactly. For motion/navigation bindings, replay interactions and compare duration/easing
+within documented tolerance (e.g. ±16ms). In `reference-exact` mode, reject token rounding. In
+`project-design-system` mode, verify `reconciliation` mappings were applied.
+
 Report what was actually run and the result. Do not infer success from code inspection, a previous run, or a
 subagent's statement. If verification fails, continue debugging or report the remaining failure precisely.
 

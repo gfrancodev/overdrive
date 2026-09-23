@@ -1,0 +1,406 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://overdrive.dev/schemas/design-system.visual-spec.json",
+  "title": "Overdrive Design System Visual Specification",
+  "description": "Binding token and component anatomy contract for design-system-aware implementation.",
+  "type": "object",
+  "properties": {
+    "meta": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string",
+          "enum": [
+            "reference",
+            "project"
+          ],
+          "description": "Whether tokens were extracted from the visual reference or discovered in the repository."
+        },
+        "fidelityMode": {
+          "type": "string",
+          "enum": [
+            "reference-exact",
+            "project-design-system"
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "uri": {
+                "type": "string"
+              },
+              "localPath": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "origin",
+        "fidelityMode"
+      ]
+    },
+    "colors": {
+      "type": "object",
+      "description": "Color tokens keyed by role or semantic name.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "description": "Semantic role: primary, surface, text, border, accent, etc."
+          },
+          "binding": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+    },
+    "typography": {
+      "type": "object",
+      "properties": {
+        "fontFamilies": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "scale": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "fontSize": {
+                "type": "string"
+              },
+              "lineHeight": {
+                "type": "string"
+              },
+              "fontWeight": {
+                "type": "string"
+              },
+              "letterSpacing": {
+                "type": "string"
+              },
+              "binding": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "fontSize"
+            ]
+          }
+        },
+        "faces": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "family": {
+                "type": "string"
+              },
+              "localPath": {
+                "type": "string"
+              },
+              "weights": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "styles": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "textStyles": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "spacing": {
+      "type": "object",
+      "description": "Spacing scale keyed by token id.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "binding": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+    },
+    "radii": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "binding": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+    },
+    "shadows": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "binding": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+    },
+    "motion": {
+      "type": "object",
+      "properties": {
+        "durations": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "easings": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "keyframes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "offset": {
+                  "type": "string"
+                },
+                "properties": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "transitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "property": {
+                "type": "string"
+              },
+              "duration": {
+                "type": "string"
+              },
+              "easing": {
+                "type": "string"
+              },
+              "binding": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "stagger": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "spring": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "components": {
+      "type": "object",
+      "description": "Component anatomy with variants, sizes, and states.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "variants": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "tokens": {
+                  "type": "object"
+                },
+                "anatomy": {
+                  "type": "object",
+                  "description": "Sub-part styles: label, icon, container, etc."
+                }
+              }
+            }
+          },
+          "sizes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object"
+            }
+          },
+          "states": {
+            "type": "object",
+            "description": "default, hover, focus, active, disabled, loading, etc.",
+            "additionalProperties": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "microDetails": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tokenPath": {
+            "type": "string"
+          },
+          "value": {},
+          "binding": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tokenPath",
+          "value",
+          "source"
+        ]
+      }
+    },
+    "navigation": {
+      "type": "object",
+      "properties": {
+        "patterns": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object"
+          }
+        },
+        "animationTokens": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "icons": {
+      "type": "object",
+      "properties": {
+        "libraries": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "conventions": {
+          "type": "object",
+          "properties": {
+            "defaultSize": {
+              "type": "string"
+            },
+            "defaultStrokeWidth": {
+              "type": "string"
+            }
+          }
+        },
+        "customVsLibrary": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "customized": {
+                "type": "boolean"
+              },
+              "library": {
+                "type": "string"
+              },
+              "iconName": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "meta",
+    "colors",
+    "typography",
+    "spacing",
+    "components",
+    "microDetails"
+  ]
+}

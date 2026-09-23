@@ -1,64 +1,241 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://overdrive.dev/schemas/visual-spec.json",
   "title": "Overdrive Visual Specification",
+  "description": "Binding implementation contract for frontend surfaces reconstructed from visual references.",
   "type": "object",
   "properties": {
     "meta": {
       "type": "object",
       "properties": {
         "surface": {
-          "type": "string"
+          "type": "string",
+          "description": "Human-readable name of the surface (page, screen, component)."
         },
         "platform": {
-          "type": "string"
+          "type": "string",
+          "description": "Target platform: web, ios, android, desktop, cross-platform."
         },
         "formFactors": {
           "type": "array",
           "items": {
             "type": "string"
+          },
+          "description": "Viewport or device classes covered by this spec."
+        },
+        "classification": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "frontend-ui",
+                "design-system",
+                "marketing-page",
+                "not-frontend",
+                "uncertain"
+              ]
+            },
+            "signals": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Evidence used to classify the reference."
+            },
+            "confidence": {
+              "type": "string",
+              "enum": [
+                "high",
+                "medium",
+                "low"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "signals",
+            "confidence"
+          ]
+        },
+        "fidelityMode": {
+          "type": "string",
+          "enum": [
+            "reference-exact",
+            "project-design-system"
+          ],
+          "description": "Whether binding values come from the reference or are reconciled to the project design system."
+        },
+        "designSystemChoice": {
+          "type": "object",
+          "properties": {
+            "askedUser": {
+              "type": "boolean"
+            },
+            "method": {
+              "type": "string",
+              "enum": [
+                "user-answer",
+                "auto-run-ruling",
+                "explicit-user-requirement",
+                "no-project-design-system"
+              ]
+            },
+            "rationale": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "method"
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "screenshot",
+                  "video",
+                  "url",
+                  "html",
+                  "figma",
+                  "local-file",
+                  "wget-mirror"
+                ]
+              },
+              "uri": {
+                "type": "string"
+              },
+              "localPath": {
+                "type": "string",
+                "description": "Path under .overdrive/visual-sources/ when mirrored or saved."
+              },
+              "assetDir": {
+                "type": "string",
+                "description": "Directory containing downloaded images, fonts, CSS."
+              }
+            },
+            "required": [
+              "type"
+            ]
           }
+        },
+        "designSystemSpecPath": {
+          "type": "string",
+          "description": "Relative path to design-system.visual-spec.json when produced."
         }
-      }
+      },
+      "required": [
+        "classification",
+        "fidelityMode",
+        "designSystemChoice",
+        "sources"
+      ]
     },
     "observed": {
       "type": "object",
+      "description": "Facts directly visible or measured from the reference.",
       "additionalProperties": true
     },
     "inferred": {
       "type": "object",
+      "description": "Design decisions supported by evidence; must not masquerade as observed.",
       "additionalProperties": true
     },
     "unknown": {
       "type": "object",
+      "description": "Behavior or layout not shown in the reference (hover, mobile, empty states, etc.).",
       "additionalProperties": true
     },
-    "designSystem": {
+    "tokens": {
       "type": "object",
-      "properties": {
-        "detected": {
-          "type": "boolean"
-        },
-        "source": {
-          "type": "string"
-        },
-        "components": {
-          "type": "object"
-        },
-        "tokens": {
-          "type": "object"
+      "description": "Extracted or referenced token values keyed by token id.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "value": {},
+          "unit": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "binding": {
+            "type": "boolean",
+            "description": "When true, implementers must not round to project tokens in reference-exact mode."
+          }
         }
       }
     },
     "layout": {
       "type": "object",
+      "description": "Semantic layout tree: regions, display mode, grid/flex, spacing, alignment, children.",
+      "properties": {
+        "root": {
+          "$ref": "#/$defs/layoutNode"
+        }
+      },
       "additionalProperties": true
+    },
+    "elements": {
+      "type": "object",
+      "description": "Keyed element definitions with typography, color, borders, shadows, and neighbor relationships.",
+      "additionalProperties": {
+        "$ref": "#/$defs/element"
+      }
     },
     "typography": {
       "type": "object",
-      "additionalProperties": true
+      "properties": {
+        "faces": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "family": {
+                "type": "string"
+              },
+              "sources": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "localPath": {
+                "type": "string"
+              },
+              "weightRange": {
+                "type": "string"
+              },
+              "style": {
+                "type": "string"
+              },
+              "display": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "styles": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object"
+          }
+        },
+        "textStyles": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object"
+          }
+        }
+      }
     },
     "components": {
       "type": "object",
+      "description": "Component mapping and anatomy.",
       "additionalProperties": true
     },
     "states": {
@@ -79,7 +256,233 @@
     },
     "assets": {
       "type": "object",
-      "additionalProperties": true
+      "description": "Images, icons, fonts with local paths when downloaded.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "image",
+              "icon",
+              "font",
+              "video-frame",
+              "other"
+            ]
+          },
+          "uri": {
+            "type": "string"
+          },
+          "localPath": {
+            "type": "string"
+          },
+          "alt": {
+            "type": "string"
+          },
+          "acquisition": {
+            "type": "string",
+            "enum": [
+              "download",
+              "consult",
+              "generate",
+              "inline-copy"
+            ]
+          },
+          "iconKind": {
+            "type": "string",
+            "enum": [
+              "custom-svg",
+              "icon-font",
+              "library-component",
+              "sprite",
+              "raster",
+              "unknown"
+            ]
+          },
+          "customized": {
+            "type": "boolean"
+          },
+          "library": {
+            "type": "string"
+          },
+          "iconName": {
+            "type": "string"
+          },
+          "glyphName": {
+            "type": "string"
+          },
+          "symbolId": {
+            "type": "string"
+          },
+          "spriteUrl": {
+            "type": "string"
+          },
+          "inlineSvg": {
+            "type": "string"
+          },
+          "viewBox": {
+            "type": "string"
+          },
+          "strokeWidth": {
+            "type": "string"
+          },
+          "fill": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          },
+          "objectFit": {
+            "type": "string"
+          },
+          "objectPosition": {
+            "type": "string"
+          },
+          "generatedFrom": {
+            "type": "object"
+          },
+          "fidelityCheck": {
+            "type": "string"
+          },
+          "dimensions": {
+            "type": "object",
+            "properties": {
+              "width": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    },
+    "microDetails": {
+      "type": "array",
+      "description": "Flat checklist of binding micro-details for implementers and verification.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "JSON pointer or element id this detail applies to."
+          },
+          "property": {
+            "type": "string"
+          },
+          "value": {},
+          "binding": {
+            "type": "boolean",
+            "default": true
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "visual-reference",
+              "project-design-system",
+              "wget-css",
+              "wget-html",
+              "computed-style",
+              "user-requirement",
+              "inferred",
+              "video-frame",
+              "keyframes-css",
+              "transition-css",
+              "devtools-computed",
+              "interaction-recording",
+              "asset-download",
+              "asset-generated",
+              "icon-library",
+              "project-existing"
+            ]
+          },
+          "evidence": {
+            "type": "string",
+            "description": "Where the value was measured or observed."
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "layout",
+              "typography",
+              "color",
+              "border",
+              "shadow",
+              "spacing",
+              "css",
+              "motion",
+              "navigation",
+              "interaction",
+              "image",
+              "icon"
+            ]
+          },
+          "atTime": {
+            "type": "string"
+          },
+          "frameIndex": {
+            "type": "integer"
+          },
+          "trigger": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "property",
+          "value",
+          "source"
+        ]
+      }
+    },
+    "reconciliation": {
+      "type": "array",
+      "description": "Explicit mapping from reference values to project design system (project-design-system mode only).",
+      "items": {
+        "type": "object",
+        "properties": {
+          "referenceValue": {},
+          "projectToken": {
+            "type": "string"
+          },
+          "projectValue": {},
+          "path": {
+            "type": "string"
+          },
+          "rationale": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "referenceValue",
+          "projectToken",
+          "path"
+        ]
+      }
+    },
+    "designSystem": {
+      "type": "object",
+      "properties": {
+        "detected": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "string"
+        },
+        "specPath": {
+          "type": "string"
+        },
+        "components": {
+          "type": "object"
+        },
+        "tokens": {
+          "type": "object"
+        }
+      }
     },
     "decisions": {
       "type": "array",
@@ -102,6 +505,230 @@
           "source"
         ]
       }
+    },
+    "css": {
+      "type": "object",
+      "description": "Per-element computed and pseudo-state styles.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "computedStyles": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "pseudoStates": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object"
+            }
+          },
+          "mediaQueries": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "motion": {
+      "type": "object",
+      "properties": {
+        "transitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string"
+              },
+              "property": {
+                "type": "string"
+              },
+              "duration": {
+                "type": "string"
+              },
+              "delay": {
+                "type": "string"
+              },
+              "easing": {
+                "type": "string"
+              },
+              "binding": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "animations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "keyframes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "offset": {
+                      "type": "string"
+                    },
+                    "properties": {
+                      "type": "object"
+                    }
+                  }
+                }
+              },
+              "duration": {
+                "type": "string"
+              },
+              "delay": {
+                "type": "string"
+              },
+              "easing": {
+                "type": "string"
+              },
+              "iterationCount": {
+                "type": "string"
+              },
+              "direction": {
+                "type": "string"
+              },
+              "fillMode": {
+                "type": "string"
+              },
+              "binding": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "microInteractions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "trigger": {
+                "type": "string"
+              },
+              "fromState": {
+                "type": "object"
+              },
+              "toState": {
+                "type": "object"
+              },
+              "timelineRef": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "navigation": {
+      "type": "object",
+      "properties": {
+        "patterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "tabs",
+                  "sidebar",
+                  "mega-menu",
+                  "breadcrumb",
+                  "mobile-drawer",
+                  "stepper",
+                  "other"
+                ]
+              },
+              "id": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "iconAssetRef": {
+                "type": "string"
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "href": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "transitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "fade",
+                  "slide",
+                  "scale",
+                  "other"
+                ]
+              },
+              "enter": {
+                "type": "object"
+              },
+              "exit": {
+                "type": "object"
+              },
+              "duration": {
+                "type": "string"
+              },
+              "easing": {
+                "type": "string"
+              },
+              "stagger": {
+                "type": "string"
+              },
+              "motionRef": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "required": [
@@ -109,6 +736,201 @@
     "observed",
     "inferred",
     "unknown",
-    "designSystem"
-  ]
+    "layout",
+    "elements",
+    "microDetails"
+  ],
+  "$defs": {
+    "layoutNode": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string",
+          "description": "Semantic region: header, nav, main, sidebar, card, row, column, etc."
+        },
+        "display": {
+          "type": "string",
+          "enum": [
+            "block",
+            "flex",
+            "grid",
+            "inline",
+            "inline-flex",
+            "inline-grid",
+            "none"
+          ]
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "row",
+            "column",
+            "row-reverse",
+            "column-reverse"
+          ]
+        },
+        "gap": {
+          "type": "string"
+        },
+        "padding": {
+          "type": "string"
+        },
+        "margin": {
+          "type": "string"
+        },
+        "alignItems": {
+          "type": "string"
+        },
+        "justifyContent": {
+          "type": "string"
+        },
+        "gridTemplate": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        },
+        "maxWidth": {
+          "type": "string"
+        },
+        "minHeight": {
+          "type": "string"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/layoutNode"
+          }
+        },
+        "elementRef": {
+          "type": "string",
+          "description": "Key into elements object when this node wraps a leaf."
+        }
+      },
+      "required": [
+        "id",
+        "role"
+      ]
+    },
+    "element": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "fontFamily": {
+          "type": "string"
+        },
+        "fontSize": {
+          "type": "string"
+        },
+        "fontWeight": {
+          "type": "string"
+        },
+        "lineHeight": {
+          "type": "string"
+        },
+        "letterSpacing": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string"
+        },
+        "backgroundColor": {
+          "type": "string"
+        },
+        "border": {
+          "type": "string"
+        },
+        "borderRadius": {
+          "type": "string"
+        },
+        "boxShadow": {
+          "type": "string"
+        },
+        "opacity": {
+          "type": "number"
+        },
+        "assetRef": {
+          "type": "string"
+        },
+        "neighborRelation": {
+          "type": "string",
+          "description": "Spatial relationship to siblings or parent."
+        },
+        "textAlign": {
+          "type": "string"
+        },
+        "textTransform": {
+          "type": "string"
+        },
+        "textDecoration": {
+          "type": "string"
+        },
+        "fontStyle": {
+          "type": "string"
+        },
+        "fontStretch": {
+          "type": "string"
+        },
+        "wordSpacing": {
+          "type": "string"
+        },
+        "textShadow": {
+          "type": "string"
+        },
+        "background": {
+          "type": "string"
+        },
+        "borderWidth": {
+          "type": "string"
+        },
+        "borderColor": {
+          "type": "string"
+        },
+        "borderStyle": {
+          "type": "string"
+        },
+        "outline": {
+          "type": "string"
+        },
+        "filter": {
+          "type": "string"
+        },
+        "backdropFilter": {
+          "type": "string"
+        },
+        "transform": {
+          "type": "string"
+        },
+        "transition": {
+          "type": "string"
+        },
+        "animation": {
+          "type": "string"
+        },
+        "cursor": {
+          "type": "string"
+        },
+        "pointerEvents": {
+          "type": "string"
+        },
+        "userSelect": {
+          "type": "string"
+        },
+        "mixBlendMode": {
+          "type": "string"
+        },
+        "objectFit": {
+          "type": "string"
+        }
+      }
+    }
+  }
 }

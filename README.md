@@ -310,65 +310,61 @@ Frontend reasoning is not a separate workflow the user has to remember to invoke
 
 Typical triggers include:
 
-- screenshots;
-- Figma references;
+- screenshots, images, videos;
+- URLs and live sites ("make it look like this");
+- HTML files and Figma references;
 - UI reconstruction requests;
 - meaningful page or component redesigns;
 - responsive behavior;
 - explicit visual-fidelity requirements.
 
-For visual references, Overdrive converts the reference into structured information before implementation.
+Every visual input passes a **frontend classification gate** before planning continues. Non-UI references
+(logs, architecture diagrams, photos without UI chrome) do not produce a Visual Spec.
+
+For frontend-classified references, Overdrive converts the input into **binding JSON contracts** before implementation:
 
 ```text
-screenshot / Figma / reference
-           ↓
-      visual analysis
-           ↓
-   structured visual model
-           ↓
- observed / inferred / unknown
-           ↓
- design-system reconciliation
-           ↓
-        Visual Spec
+visual input
+     ↓
+frontend classification gate
+     ↓
+design-system discovery
+     ↓
+fidelity mode choice (reference-exact | project-design-system)
+     ↓
+reference acquisition (wget mirror, CSS parse, frames)
+     ↓
+visual-spec.json + design-system.visual-spec.json
+     ↓
+observed / inferred / unknown + microDetails checklist
+     ↓
+embedded in main Spec → execute-plan obeys JSON
 ```
 
-Observed facts are kept separate from inferred behavior and unknown information. This prevents assumptions from being treated as if they were visible in the reference.
+When a project design system exists, Overdrive asks once (normal mode) whether to reproduce reference
+micro-details exactly or adapt to project tokens. Auto-run resolves this autonomously via the Decision Ledger.
 
-Before inventing styles, Overdrive inspects the project's existing design system:
+Observed facts stay separate from inferred behavior and unknown information.
 
-```text
-existing components
-design tokens
-Tailwind theme
-CSS variables
-typography
-spacing
-radius
-elevation
-state patterns
-Storybook
-component libraries
-```
+The Visual Spec JSON describes with binding `microDetails`:
 
-Existing design-system decisions have priority over arbitrary pixel-level reproduction when both can preserve the intended visual result.
-
-If the project lacks sufficient visual direction, Overdrive may use external design guidance such as TypeUI as a conditional design-intelligence provider. External guidance supplements the project; it does not replace an established design system.
-
-The final Visual Spec can describe:
-
-- layout hierarchy;
-- containers and grids;
-- spacing and proportions;
-- typography;
-- component mapping;
-- responsive behavior;
-- interaction states;
+- layout hierarchy and semantic layout tree;
+- containers, grids, flex, spacing, and proportions;
+- typography, color, borders, radii, shadows;
+- component mapping and element anatomy;
+- responsive behavior and interaction states;
 - loading, empty, and error states;
 - accessibility requirements;
 - platform-specific behavior;
-- assets and content;
-- observed/inferred/unknown decisions.
+- assets with local paths when mirrored;
+- observed/inferred/unknown decisions;
+- reconciliation mappings when `project-design-system` mode is selected.
+- motion, navigation, css computed styles, and asset/icon acquisition (download, consult, generate);
+- icon classification: custom SVG vs library component with maximum fidelity.
+
+In `reference-exact` mode, binding values from the reference are not silently rounded to project tokens.
+External guidance (e.g. TypeUI) supplements the project when visual direction is insufficient; it does not
+override binding reference values.
 
 ## Execute Plan
 
@@ -633,9 +629,11 @@ A high-level skill should know which supporting capabilities it needs. Users sho
 
 When the answer is present in the repository, environment, documentation, or evidence, the agent should find it instead of asking the user.
 
-### Visual references are inputs, not specifications
+### Visual references are inputs; Visual Spec JSON is the contract
 
-Screenshots and Figma references should be converted into structured visual requirements and reconciled with the project's design system before implementation.
+Screenshots, URLs, videos, and Figma frames are inputs. Overdrive converts frontend-classified references into
+binding `visual-spec.json` and `design-system.visual-spec.json` artifacts with exhaustive `microDetails` before
+implementation. The JSON, not a prose summary, is what executors and verifiers must follow.
 
 ### Evidence over assumptions
 
@@ -709,7 +707,8 @@ It means resolving routine uncertainty through discovery, evidence, and recorded
 
 ### Visual work is specified before it is coded
 
-When frontend work depends on screenshots, Figma, or other visual references, Overdrive turns those inputs into structured visual requirements, reconciles them with the existing design system, and only then implements the UI.
+When frontend work depends on any visual input, Overdrive classifies it, chooses a fidelity mode, produces binding
+Visual Spec JSON with micro-detail checklists, and only then implements the UI against that contract.
 
 ### Experience compounds quietly
 
