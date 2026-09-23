@@ -1,13 +1,16 @@
 package main
 
 const (
-	version       = "1.1.0"
-	backendName   = "sqlite-fts5-turbovec-v1"
-	hashedDims    = 256
-	miniLMDims    = 384
-	vectorDims    = hashedDims
-	turboBitWidth = 4
-	schemaVersion = "2"
+	version            = "1.2.0"
+	backendName        = "sqlite-fts5-turbovec-v1"
+	hashedDims         = 256
+	miniLMDims         = 384
+	vectorDims         = hashedDims
+	turboBitWidth      = 4
+	schemaVersion      = "3"
+	miniLMScoreFloor   = 0.72
+	hashedScoreFloor   = 0.85
+	maxPeerRecallItems = 3
 
 	ortAPIVersion = 18
 

@@ -12,7 +12,7 @@ import (
 )
 
 func identifyProject(cwd string) (Project, error) {
-	abs, err := filepath.Abs(cwd)
+	abs, err := hookFilepathAbs(cwd)
 	if err != nil {
 		return Project{}, err
 	}
@@ -20,7 +20,7 @@ func identifyProject(cwd string) (Project, error) {
 	if root == "" {
 		root = abs
 	}
-	root, _ = filepath.Abs(root)
+	root, _ = hookFilepathAbs(root)
 
 	remote := strings.TrimSpace(runGit(root, "config", "--get", "remote.origin.url"))
 	repo, org := normalizeRemote(remote)
@@ -197,13 +197,15 @@ func tokenize(s string) []string {
 	return out
 }
 
+var stopwords = map[string]bool{
+	"the": true, "and": true, "for": true, "with": true, "from": true, "this": true, "that": true,
+	"use": true, "using": true, "uma": true, "um": true, "de": true, "do": true, "da": true,
+	"dos": true, "das": true, "e": true, "em": true, "para": true, "com": true, "por": true,
+	"no": true, "na": true,
+}
+
 func stopword(s string) bool {
-	switch s {
-	case "the", "and", "for", "with", "from", "this", "that", "use", "using", "uma", "um", "de", "do", "da", "dos", "das", "e", "em", "para", "com", "por", "no", "na":
-		return true
-	default:
-		return false
-	}
+	return stopwords[s]
 }
 
 func tokenCosine(a, b string) float64 {
@@ -235,6 +237,9 @@ func termFreq(tokens []string) map[string]float64 {
 }
 
 func hashedCosine(a, b string) float64 {
+	if hookHashedCosine != nil {
+		return hookHashedCosine(a, b)
+	}
 	av := hashedVector(a)
 	bv := hashedVector(b)
 	var dot, an, bn float64
@@ -321,19 +326,24 @@ func isCritical(m Memory) bool {
 	return false
 }
 
+var sourceTrustLevels = map[string]float64{
+	"user_feedback": 1.0, "project_instruction": 1.0, "adr": 1.0,
+	"verified_execution": 0.92, "verification": 0.92, "review": 0.92,
+	"repository_observation": 0.82, "tests": 0.82, "debugging": 0.82,
+	"agent_observation": 0.65,
+	"peer_share": 0.55,
+	"external": 0.45, "web": 0.45, "issue_description": 0.45,
+}
+
 func sourceTrust(source string) float64 {
-	switch source {
-	case "user_feedback", "project_instruction", "adr":
-		return 1.0
-	case "verified_execution", "verification", "review":
-		return 0.92
-	case "repository_observation", "tests", "debugging":
-		return 0.82
-	case "agent_observation":
-		return 0.65
-	case "external", "web", "issue_description":
-		return 0.45
-	default:
-		return 0.6
+	if trust, ok := sourceTrustLevels[source]; ok {
+		return trust
 	}
+	return 0.6
+}
+
+func peerRecallScore(m Memory, query string, vectorScore float64) float64 {
+	text := strings.Join([]string{m.PacketContent, m.Subject, m.Content}, " ")
+	lexical := tokenCosine(query, text)
+	return 0.10*lexical + 0.12*vectorScore + 0.08*m.EvidenceScore + 0.05*sourceTrust(m.Source)
 }

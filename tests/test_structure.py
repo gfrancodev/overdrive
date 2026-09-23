@@ -176,11 +176,98 @@ def test_installer_copies_all_skills(tmp_path):
     assert REQUIRED_SKILLS <= installed
 
 
+def test_installer_only_installs_current_platform_runtime(tmp_path):
+    import os
+    import platform
+    import subprocess
+
+    skills = tmp_path / 'skills'
+    bin_dir = tmp_path / 'bin'
+    lib_dir = tmp_path / 'lib'
+    home = tmp_path / 'home'
+    bin_dir.mkdir()
+    lib_dir.mkdir()
+    (bin_dir / 'overdrive-runtime-darwin-arm64').write_bytes(b'fake')
+    (bin_dir / 'overdrive-runtime-windows-amd64.exe').write_bytes(b'fake')
+    (lib_dir / 'overdrive_turbovec_ffi.dll').write_bytes(b'fake')
+
+    env = dict(os.environ)
+    env['OVERDRIVE_SKILLS_DIR'] = str(skills)
+    env['OVERDRIVE_BIN_DIR'] = str(bin_dir)
+    env['OVERDRIVE_LIB_DIR'] = str(lib_dir)
+    env['OVERDRIVE_HOME'] = str(home)
+    subprocess.run([str(ROOT / 'scripts/install.sh')], check=True, env=env, capture_output=True, text=True)
+
+    installed = bin_dir / ('overdrive-runtime.exe' if os.name == 'nt' else 'overdrive-runtime')
+    assert installed.exists()
+    assert not (bin_dir / 'overdrive-runtime-darwin-arm64').exists()
+    assert not (bin_dir / 'overdrive-runtime-windows-amd64.exe').exists()
+    assert not (lib_dir / 'overdrive_turbovec_ffi.dll').exists() or os.name == 'nt'
+
+    machine = platform.machine().lower()
+    if machine in ('x86_64', 'amd64'):
+        foreign = [p for p in bin_dir.glob('overdrive-runtime-*') if 'amd64' not in p.name]
+    else:
+        foreign = [p for p in bin_dir.glob('overdrive-runtime-*') if 'arm64' not in p.name]
+    assert foreign == []
+
+
+def test_installer_does_not_copy_go_source_or_examples(tmp_path):
+    import os
+    import subprocess
+
+    skills = tmp_path / 'skills'
+    env = dict(os.environ)
+    env['OVERDRIVE_SKILLS_DIR'] = str(skills)
+    subprocess.run([str(ROOT / 'scripts/install.sh')], check=True, env=env, capture_output=True, text=True)
+
+    assert list(skills.rglob('*.go')) == []
+    assert list(skills.rglob('go.mod')) == []
+    assert not (skills / 'examples').exists()
+    assert not (skills / 'runtime').exists()
+
+
+def test_package_platform_tree_is_slim(tmp_path):
+    import os
+    import platform
+    import subprocess
+
+    machine = platform.machine().lower()
+    target = 'linux-amd64' if machine in ('x86_64', 'amd64') else 'linux-arm64'
+    subprocess.run(
+        ['bash', str(ROOT / 'scripts/package-platform.sh'), target],
+        check=True,
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    out = ROOT / 'dist' / f'install-{target}'
+    assert out.exists()
+    assert (out / 'skills').exists()
+    assert list(out.rglob('*.go')) == []
+    assert not (out / 'runtime/experience').exists()
+    assert not (out / 'examples').exists()
+    bins = list((out / 'runtime/bin').glob('*'))
+    assert len(bins) == 1
+    assert bins[0].name == f'overdrive-runtime-{target}'
+
+
 def test_session_hook_routes_to_using_overdrive():
     import subprocess
     out = subprocess.run([str(ROOT / 'hooks/run-hook.sh'), 'session-start'], check=True, capture_output=True, text=True).stdout
     assert 'using-overdrive' in out
     assert 'plan' in out and 'execute-plan' in out
+
+
+def test_session_end_hook_is_defined():
+    data = json.loads((ROOT / 'hooks/hooks-cursor.json').read_text())
+    assert 'sessionEnd' in data['hooks']
+    assert any('session-end' in h.get('command', '') for h in data['hooks']['sessionEnd'])
+
+
+def test_session_end_hook_runs_quietly():
+    import subprocess
+    subprocess.run([str(ROOT / 'hooks/run-hook.sh'), 'session-end'], check=True, capture_output=True, text=True)
 
 
 def test_experience_engine_is_transversal_not_a_skill():

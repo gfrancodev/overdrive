@@ -55,7 +55,7 @@ def test_status_reports_sqlite_turbovec_backend(runtime_bin: Path, tmp_path: Pat
     home = tmp_path / "home"
     env = runtime_env(home)
     data = json.loads(run(str(runtime_bin), "status", env=env).stdout)
-    assert data["version"] == "1.1.0"
+    assert data["version"] == "1.2.0"
     assert data["backend"] == "sqlite-fts5-turbovec-v1"
     assert data["store"].endswith("experience-v2.db")
     assert data["embedder"] == "stub"
@@ -365,7 +365,7 @@ def test_installer_installs_matching_runtime_binary(runtime_bin: Path, tmp_path:
     assert installed.exists()
     assert os.access(installed, os.X_OK)
     result = json.loads(run(str(installed), "status", env=env).stdout)
-    assert result["version"] == "1.1.0"
+    assert result["version"] == "1.2.0"
     assert result["backend"] == "sqlite-fts5-turbovec-v1"
 
 

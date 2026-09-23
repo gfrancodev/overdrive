@@ -34,9 +34,13 @@ func (stubEmbedder) Embed(text string) []float32 {
 	return v
 }
 
+type modelRunner interface {
+	Run(inputIDs, attentionMask, tokenTypeIDs []int64) ([]float32, error)
+}
+
 type miniLMEmbedder struct {
 	tok *wordPieceTokenizer
-	ort *ortSession
+	ort modelRunner
 }
 
 func (miniLMEmbedder) Dim() int     { return miniLMDims }
@@ -84,21 +88,33 @@ func initEmbedder(home string) {
 }
 
 func tryMiniLM(home string) (*miniLMEmbedder, bool) {
-	if _, err := resolveORTLibPath(home); err != nil {
-		return nil, false
-	}
-	if err := ensureMiniLMPack(home); err != nil {
-		return nil, false
-	}
-	tok, err := loadWordPieceTokenizer(miniLMVocabPath(home))
+	emb, err := buildMiniLMEmbedder(home)
 	if err != nil {
 		return nil, false
+	}
+	return emb, true
+}
+
+func buildMiniLMEmbedder(home string) (*miniLMEmbedder, error) {
+	if _, err := resolveORTLibPath(home); err != nil {
+		return nil, err
+	}
+	if err := ensureMiniLMPack(home); err != nil {
+		return nil, err
+	}
+	tok, err := loadMiniLMTokenizer(home)
+	if err != nil {
+		return nil, err
 	}
 	sess, err := tryORTSession(home, miniLMModelPath(home))
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
-	return &miniLMEmbedder{tok: tok, ort: sess}, true
+	return &miniLMEmbedder{tok: tok, ort: sess}, nil
+}
+
+func loadMiniLMTokenizer(home string) (*wordPieceTokenizer, error) {
+	return loadWordPieceTokenizer(miniLMVocabPath(home))
 }
 
 func currentEmbedder() (Embedder, string) {

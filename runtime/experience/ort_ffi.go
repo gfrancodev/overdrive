@@ -1,76 +1,25 @@
+//go:build !overdrive_fake_ort
+
 package main
 
 import (
 	"fmt"
-	"path/filepath"
-	"sync"
 	"syscall"
 	"unsafe"
 
 	"github.com/ebitengine/purego"
 )
 
-// OrtApi v18 indices (onnxruntime 1.18.1).
-const (
-	ortIdxCreateEnv                      = 0
-	ortIdxCreateSession                  = 4
-	ortIdxRun                            = 6
-	ortIdxCreateSessionOptions           = 7
-	ortIdxCreateTensorWithDataAsOrtValue = 46
-	ortIdxGetTensorMutableData           = 48
-	ortIdxCreateCpuMemoryInfo            = 66
-	ortIdxReleaseStatus                  = 90
-	ortIdxReleaseEnv                     = 89
-	ortIdxReleaseSession                 = 92
-	ortIdxReleaseValue                   = 93
-	ortIdxReleaseSessionOptions          = 97
-)
-
-const (
-	onnxTensorElementDataTypeFloat = 1
-	onnxTensorElementDataTypeInt64 = 7
-	ortLoggingLevelWarning         = 3
-	ortDeviceAllocator             = 0
-	ortMemTypeDefault              = 0
-)
-
-type ortSession struct {
-	lib            uintptr
-	env            uintptr
-	session        uintptr
-	memInfo        uintptr
-	sessionOptions uintptr
-	inputNames     [3]*byte
-	outputName     *byte
-}
-
-var (
-	ortLibOnce sync.Once
-	ortLibPath string
-	ortLibErr  error
-)
-
-func newORTSession(libPath, modelPath string) (*ortSession, error) {
+func openORTSessionFFI(libPath, modelPath string) (modelRunner, error) {
 	lib, err := openDynamicLib(libPath)
 	if err != nil {
 		return nil, err
 	}
 	var getApiBase func() uintptr
 	purego.RegisterLibFunc(&getApiBase, lib, "OrtGetApiBase")
-	if getApiBase == nil {
-		return nil, fmt.Errorf("OrtGetApiBase missing")
-	}
-	base := getApiBase()
-	if base == 0 {
-		return nil, fmt.Errorf("OrtGetApiBase returned nil")
-	}
-	getApi := *(*uintptr)(unsafe.Pointer(base))
-	if getApi == 0 {
-		return nil, fmt.Errorf("GetApi missing")
-	}
-	api, _, _ := purego.SyscallN(getApi, uintptr(ortAPIVersion))
-	if api == 0 {
-		return nil, fmt.Errorf("unsupported ort api version %d", ortAPIVersion)
+	api, err := resolveORTAPI(getApiBase, ortAPIVersion)
+	if err != nil {
+		return nil, err
 	}
 
 	s := &ortSession{lib: lib}
@@ -107,19 +56,14 @@ func (s *ortSession) init(api uintptr, modelPath string) error {
 	if status := ortCall(createCpuMemoryInfo, ortDeviceAllocator, ortMemTypeDefault, uintptr(unsafe.Pointer(&s.memInfo))); status != 0 {
 		return ortStatusError(api, status)
 	}
-
-	s.inputNames[0], _ = syscall.BytePtrFromString("input_ids")
-	s.inputNames[1], _ = syscall.BytePtrFromString("attention_mask")
-	s.inputNames[2], _ = syscall.BytePtrFromString("token_type_ids")
-	s.outputName, _ = syscall.BytePtrFromString("last_hidden_state")
-	return nil
+	return bindORTSessionTensorNames(s)
 }
 
 func (s *ortSession) Run(inputIDs, attentionMask, tokenTypeIDs []int64) ([]float32, error) {
-	seqLen := len(inputIDs)
-	if seqLen == 0 || len(attentionMask) != seqLen || len(tokenTypeIDs) != seqLen {
-		return nil, fmt.Errorf("invalid token tensors")
+	if err := validateORTTokenTensors(inputIDs, attentionMask, tokenTypeIDs); err != nil {
+		return nil, err
 	}
+	seqLen := len(inputIDs)
 	api := s.ortAPI()
 	if api == 0 {
 		return nil, fmt.Errorf("ort api unavailable")
@@ -129,7 +73,7 @@ func (s *ortSession) Run(inputIDs, attentionMask, tokenTypeIDs []int64) ([]float
 	getMutable := apiFn(api, ortIdxGetTensorMutableData)
 	releaseValue := apiFn(api, ortIdxReleaseValue)
 
-	shape := []int64{1, int64(seqLen)}
+	shape := ortInt64TensorShape(seqLen)
 	var values [3]uintptr
 	tensors := make([]uintptr, 3)
 	data := [][]int64{inputIDs, attentionMask, tokenTypeIDs}
@@ -145,12 +89,12 @@ func (s *ortSession) Run(inputIDs, attentionMask, tokenTypeIDs []int64) ([]float
 			onnxTensorElementDataTypeInt64,
 			uintptr(unsafe.Pointer(&tensors[i])),
 		); status != 0 {
-			s.releaseValues(tensors[:i], releaseValue)
+			releaseORTValues(tensors[:i], releaseValue)
 			return nil, ortStatusError(api, status)
 		}
 		values[i] = tensors[i]
 	}
-	defer s.releaseValues(tensors[:], releaseValue)
+	defer releaseORTValues(tensors[:], releaseValue)
 
 	var outputTensor uintptr
 	in0 := s.inputNames[0]
@@ -176,12 +120,7 @@ func (s *ortSession) Run(inputIDs, attentionMask, tokenTypeIDs []int64) ([]float
 	if status := ortCall(getMutable, outputTensor, uintptr(unsafe.Pointer(&dataPtr))); status != 0 {
 		return nil, ortStatusError(api, status)
 	}
-	hiddenDim := miniLMDims
-	total := seqLen * hiddenDim
-	out := make([]float32, total)
-	src := unsafe.Slice((*float32)(unsafe.Pointer(dataPtr)), total)
-	copy(out, src)
-	return out, nil
+	return copyFloat32FromUnsafe(dataPtr, ortHiddenOutputFloatCount(seqLen)), nil
 }
 
 func (s *ortSession) Close() {
@@ -200,7 +139,6 @@ func (s *ortSession) Close() {
 		s.sessionOptions = 0
 	}
 	if s.memInfo != 0 {
-		// memory info released with env in minimal binding
 		s.memInfo = 0
 	}
 	if s.env != 0 {
@@ -216,58 +154,9 @@ func (s *ortSession) ortAPI() uintptr {
 	if getApiBase == nil {
 		return 0
 	}
-	base := getApiBase()
-	getApi := *(*uintptr)(unsafe.Pointer(base))
-	api, _, _ := purego.SyscallN(getApi, uintptr(ortAPIVersion))
-	return api
-}
-
-func (s *ortSession) releaseValues(vals []uintptr, releaseFn uintptr) {
-	for _, v := range vals {
-		if v != 0 {
-			ortCall(releaseFn, v)
-		}
-	}
-}
-
-func apiFn(api uintptr, idx int) uintptr {
-	return *(*uintptr)(unsafe.Pointer(api + uintptr(idx)*unsafe.Sizeof(uintptr(0))))
-}
-
-func ortCall(fn uintptr, args ...uintptr) uintptr {
-	all := append([]uintptr{fn}, args...)
-	ret, _, _ := purego.SyscallN(all[0], all[1:]...)
-	return ret
-}
-
-func ortStatusError(api, status uintptr) error {
-	if status == 0 {
-		return nil
-	}
-	releaseStatus := apiFn(api, ortIdxReleaseStatus)
-	ortCall(releaseStatus, status)
-	return fmt.Errorf("onnxruntime call failed")
-}
-
-func resolveORTLibPath(home string) (string, error) {
-	ortLibOnce.Do(func() {
-		ortLibPath, ortLibErr = ensureORTLib(home)
-	})
-	return ortLibPath, ortLibErr
-}
-
-func tryORTSession(home, modelPath string) (*ortSession, error) {
-	libPath, err := resolveORTLibPath(home)
+	api, err := resolveORTAPI(getApiBase, ortAPIVersion)
 	if err != nil {
-		return nil, err
+		return 0
 	}
-	return newORTSession(libPath, modelPath)
-}
-
-func miniLMModelPath(home string) string {
-	return filepath.Join(modelDir(home), "model.onnx")
-}
-
-func miniLMVocabPath(home string) string {
-	return filepath.Join(modelDir(home), "vocab.txt")
+	return api
 }

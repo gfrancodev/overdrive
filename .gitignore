@@ -10,3 +10,5 @@ runtime/turbovec-ffi/target/
 
 # Go build cache (if building outside scripts/)
 runtime/experience/*.exe
+runtime/experience/experience
+runtime/experience/experience.test

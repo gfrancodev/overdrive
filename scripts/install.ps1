@@ -24,7 +24,7 @@ $Target = switch ($Arch) {
 $Source = Join-Path $Root "runtime\bin\overdrive-runtime-windows-$Target.exe"
 $DestRuntime = Join-Path $BinDir "overdrive-runtime.exe"
 if (-not (Test-Path $Source)) {
-    throw "Compatible Overdrive runtime is missing: $Source"
+    throw "Compatible Overdrive runtime is missing: $Source. Install ships only the Windows-$Target prebuilt binary."
 }
 Copy-Item -Force $Source $DestRuntime
 
@@ -34,7 +34,29 @@ if (Test-Path $LibSource) {
     Copy-Item -Force $LibSource (Join-Path $BinDir "overdrive_turbovec_ffi.dll")
 }
 
+# Remove foreign runtime artifacts from prior installs.
+Get-ChildItem $BinDir -File -ErrorAction SilentlyContinue | ForEach-Object {
+    $name = $_.Name
+    if ($name -match '^overdrive-runtime-' -and $name -ne 'overdrive-runtime.exe') {
+        Remove-Item -Force $_.FullName
+    }
+    if ($name -match '^(liboverdrive_turbovec_ffi\.(so|dylib)|overdrive_turbovec_ffi\.dll)$' -and $name -ne 'overdrive_turbovec_ffi.dll') {
+        Remove-Item -Force $_.FullName
+    }
+}
+Get-ChildItem $LibDir -File -ErrorAction SilentlyContinue | ForEach-Object {
+    if ($_.Name -ne 'overdrive_turbovec_ffi.dll') {
+        Remove-Item -Force $_.FullName
+    }
+}
+
+$forbidden = Get-ChildItem $SkillsDir -Recurse -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Extension -in '.go' -or $_.Name -in 'go.mod','go.sum','Cargo.toml' }
+if ($forbidden) {
+    throw "Install destination contains forbidden dev payload"
+}
+
 try { & $DestRuntime session-start --cwd (Get-Location).Path --quiet | Out-Null } catch { }
 
 Write-Host "Installed Overdrive skills to $SkillsDir"
-Write-Host "Installed Overdrive runtime to $DestRuntime"
+Write-Host "Installed Overdrive runtime to $DestRuntime (windows-$Target only)"

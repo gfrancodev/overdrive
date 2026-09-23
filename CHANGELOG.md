@@ -1,6 +1,37 @@
 # Changelog
 
-## Unreleased
+## 1.2.0 - 2026-09-23
+
+### Shared memory (P2P)
+
+- Opt-in **circles** with Ed25519 device identity, expiring invites, signed member lists, and revocation.
+- **Allowed folders** per circle: sharing and peer recall only run inside explicitly authorized paths.
+- Session-start **delta sync** over TCP (encrypted batch, signed items) with optional `share listen` for LAN/VPN peers.
+- Separate TurboVec index (`experience-v2-peer.tvim`) and `peer_memories` bucket in recall.
+- Two-stage peer recall: vector floor when TurboVec is available, plus required concrete problem-signature overlap.
+- Second-brain distillation: layer-2 packets (`packet_content`, `problem_signature`), hot index, session consolidation.
+- Precise memory loop: narrow recall, packet-first peer content, validate feedback adjusts hot retention.
+
+### Hooks and session lifecycle
+
+- `sessionStart` hook syncs peer deltas and prints `share status` when a circle applies to the current folder.
+- New `sessionEnd` hook runs `session-end` consolidation for the closing session.
+- New `overdrive-runtime share status` (`--format text` for hooks) and `session-end` commands.
+
+### Install and packaging
+
+- `install.sh` / `install.ps1` now install only skills plus the prebuilt runtime and TurboVec library for the current OS/CPU.
+- Foreign platform binaries and stale TurboVec libraries are pruned from the destination on install.
+- Go/Rust source builds are opt-in via `OVERDRIVE_INSTALL_FROM_SOURCE=1` (contributor fallback only).
+- New `scripts/package-platform.sh` builds a slim per-platform install tree without Go source, examples, or foreign binaries.
+- Shared install helpers in `scripts/install-common.sh`.
+
+### Runtime quality
+
+- Experience runtime refactored into testable `*_logic.go` modules (recall, sync, GC, ORT helpers) with injectable test hooks.
+- Broad integration and coverage test suite; hybrid search benchmarked (~5 ms recall at 100 memories, TurboVec search ~40 µs at 1k vectors).
+- LAN P2P smoke script: `runtime/experience/scripts/p2p-lan-test.sh`.
+- ONNX Runtime session path split (`ort_ffi.go` / `ort_fake.go` build tags) for CI vs production.
 
 ## 1.1.0 - 2026-09-23
 

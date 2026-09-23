@@ -28,9 +28,11 @@ func writeJSON(v any) error {
 	return enc.Encode(v)
 }
 
+var exitProcess = os.Exit
+
 func fail(message string) {
 	fmt.Fprintln(os.Stderr, "overdrive-runtime:", message)
-	os.Exit(2)
+	exitProcess(2)
 }
 
 func clamp(v, min, max float64) float64 {
@@ -104,9 +106,9 @@ func redact(s string) string {
 
 func overdriveHome() (string, error) {
 	if v := strings.TrimSpace(os.Getenv("OVERDRIVE_HOME")); v != "" {
-		return filepath.Abs(v)
+		return hookFilepathAbs(v)
 	}
-	home, err := os.UserHomeDir()
+	home, err := hookUserHomeDir()
 	if err != nil {
 		return "", err
 	}
@@ -119,6 +121,14 @@ func dbPath(home string) string {
 
 func vectorIndexPath(home string) string {
 	return filepath.Join(home, "experience-v2.tvim")
+}
+
+func peerVectorIndexPath(home string) string {
+	return filepath.Join(home, "experience-v2-peer.tvim")
+}
+
+func sha256Sum(b []byte) [32]byte {
+	return sha256.Sum256(b)
 }
 
 func libDir(home string) string {
@@ -140,22 +150,22 @@ func ensureHome() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := os.MkdirAll(home, 0o700); err != nil {
+	if err := hookMkdirAll(home, 0o700); err != nil {
 		return "", err
 	}
-	if err := os.MkdirAll(libDir(home), 0o700); err != nil {
+	if err := hookMkdirAll(libDir(home), 0o700); err != nil {
 		return "", err
 	}
 	return home, nil
 }
 
+var validKinds = map[string]bool{
+	"fact": true, "rule": true, "decision": true, "preference": true,
+	"procedure": true, "lesson": true, "anti_pattern": true, "episode": true,
+}
+
 func validKind(k string) bool {
-	switch k {
-	case "fact", "rule", "decision", "preference", "procedure", "lesson", "anti_pattern", "episode":
-		return true
-	default:
-		return false
-	}
+	return validKinds[k]
 }
 
 func validScope(s string) bool {
@@ -177,24 +187,24 @@ func sourceRank(source string) int {
 	return int(sourceTrust(source) * 100)
 }
 
+var knowledgeKinds = map[string]bool{
+	"fact": true, "rule": true, "decision": true, "preference": true, "procedure": true,
+}
+
+var layerMatchers = map[string]func(string) bool{
+	"":       func(string) bool { return true },
+	"all":    func(string) bool { return true },
+	"knowledge": func(kind string) bool { return knowledgeKinds[kind] },
+	"lessons": func(kind string) bool { return kind == "lesson" || kind == "anti_pattern" },
+	"episodes": func(kind string) bool { return kind == "episode" },
+}
+
 func matchesLayer(kind, layer string) bool {
-	switch strings.ToLower(strings.TrimSpace(layer)) {
-	case "", "all":
-		return true
-	case "knowledge":
-		switch kind {
-		case "fact", "rule", "decision", "preference", "procedure":
-			return true
-		default:
-			return false
-		}
-	case "lessons":
-		return kind == "lesson" || kind == "anti_pattern"
-	case "episodes":
-		return kind == "episode"
-	default:
-		return true
+	key := strings.ToLower(strings.TrimSpace(layer))
+	if match, ok := layerMatchers[key]; ok {
+		return match(kind)
 	}
+	return true
 }
 
 func parseIntEnv(name string, fallback int) int {

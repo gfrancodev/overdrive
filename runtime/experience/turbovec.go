@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -29,15 +28,16 @@ var (
 	tvSync       func(uintptr) int32
 )
 
+var turbovecLibNames = map[string]string{
+	"darwin":  "liboverdrive_turbovec_ffi.dylib",
+	"windows": "overdrive_turbovec_ffi.dll",
+}
+
 func turbovecLibName() string {
-	switch runtime.GOOS {
-	case "darwin":
-		return "liboverdrive_turbovec_ffi.dylib"
-	case "windows":
-		return "overdrive_turbovec_ffi.dll"
-	default:
-		return "liboverdrive_turbovec_ffi.so"
+	if name, ok := turbovecLibNames[runtimePlatformOS()]; ok {
+		return name
 	}
+	return "liboverdrive_turbovec_ffi.so"
 }
 
 func resolveTurboVecLib(home string) string {
@@ -84,10 +84,13 @@ func loadTurboVecLib(home string) bool {
 }
 
 func openTurboVec(home string, dim int) *TurboVecIndex {
+	return openTurboVecAt(vectorIndexPath(home), home, dim)
+}
+
+func openTurboVecAt(path string, home string, dim int) *TurboVecIndex {
 	if !loadTurboVecLib(home) {
 		return &TurboVecIndex{available: false, dim: dim}
 	}
-	path := vectorIndexPath(home)
 	cPath, err := syscall.BytePtrFromString(path)
 	if err != nil {
 		return &TurboVecIndex{available: false, dim: dim}
@@ -105,7 +108,7 @@ func openTurboVec(home string, dim int) *TurboVecIndex {
 }
 
 func (tv *TurboVecIndex) Close() {
-	if tv == nil || !tv.available || tv.handle == 0 {
+	if tv == nil || !tv.available || tv.handle == 0 || tvClose == nil {
 		return
 	}
 	tvClose(tv.handle)
@@ -151,7 +154,7 @@ func (tv *TurboVecIndex) Search(query []float32, k int, allowlist []uint64) (ids
 }
 
 func (tv *TurboVecIndex) Sync() {
-	if !tv.Available() {
+	if !tv.Available() || tvSync == nil {
 		return
 	}
 	_ = tvSync(tv.handle)

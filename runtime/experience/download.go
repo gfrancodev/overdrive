@@ -23,28 +23,39 @@ func modelDir(home string) string {
 
 func atomicWriteFile(path string, r io.Reader, perm os.FileMode) error {
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	if err := hookMkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(dir, ".download-*")
+	tmp, err := hookCreateTemp(dir, ".download-*")
 	if err != nil {
 		return err
 	}
-	tmpPath := tmp.Name()
-	if _, err := io.Copy(tmp, r); err != nil {
+	tmpPath := ""
+	if f, ok := tmp.(*os.File); ok {
+		tmpPath = f.Name()
+	}
+	if _, err := hookIOCopy(tmp, r); err != nil {
 		_ = tmp.Close()
-		_ = os.Remove(tmpPath)
+		if tmpPath != "" {
+			_ = hookRemove(tmpPath)
+		}
 		return err
 	}
 	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpPath)
+		if tmpPath != "" {
+			_ = hookRemove(tmpPath)
+		}
 		return err
 	}
-	if err := os.Chmod(tmpPath, perm); err != nil {
-		_ = os.Remove(tmpPath)
+	if err := hookChmod(tmpPath, perm); err != nil {
+		_ = hookRemove(tmpPath)
 		return err
 	}
-	return os.Rename(tmpPath, path)
+	return hookRename(tmpPath, path)
+}
+
+var downloadHTTPGet = func(client *http.Client, url string) (*http.Response, error) {
+	return client.Get(url)
 }
 
 func downloadURL(url, dest string) error {
@@ -52,7 +63,7 @@ func downloadURL(url, dest string) error {
 		return fmt.Errorf("empty download url")
 	}
 	client := &http.Client{Timeout: 120 * time.Second}
-	resp, err := client.Get(url)
+	resp, err := downloadHTTPGet(client, url)
 	if err != nil {
 		return err
 	}
@@ -64,6 +75,10 @@ func downloadURL(url, dest string) error {
 }
 
 func ensureFile(url, dest string) error {
+	return hookEnsureFile(url, dest)
+}
+
+func ensureFileImpl(url, dest string) error {
 	if st, err := os.Stat(dest); err == nil && st.Size() > 0 {
 		return nil
 	}
@@ -88,34 +103,37 @@ func ensureMiniLMPack(home string) error {
 	return nil
 }
 
-func ortLibName() string {
-	switch runtime.GOOS {
-	case "darwin":
-		return "libonnxruntime.dylib"
-	case "windows":
-		return "onnxruntime.dll"
-	default:
-		return "libonnxruntime.so"
-	}
+var ortLibNames = map[string]string{
+	"darwin":  "libonnxruntime.dylib",
+	"windows": "onnxruntime.dll",
 }
 
-func defaultORTURL() string {
-	switch runtime.GOOS + "/" + runtime.GOARCH {
-	case "linux/amd64":
-		return ortLinuxAMD64URL
-	case "linux/arm64":
-		return ortLinuxARM64URL
-	case "darwin/amd64":
-		return ortDarwinAMD64URL
-	case "darwin/arm64":
-		return ortDarwinARM64URL
-	case "windows/amd64":
-		return ortWindowsAMD64URL
-	case "windows/arm64":
-		return ortWindowsARM64URL
-	default:
-		return ""
+func ortLibName() string {
+	if name, ok := ortLibNames[runtimePlatformOS()]; ok {
+		return name
 	}
+	return "libonnxruntime.so"
+}
+
+var runtimePlatformOS = func() string {
+	return runtime.GOOS
+}
+
+var ortReleaseURLs = map[string]string{
+	"linux/amd64":     ortLinuxAMD64URL,
+	"linux/arm64":     ortLinuxARM64URL,
+	"darwin/amd64":    ortDarwinAMD64URL,
+	"darwin/arm64":    ortDarwinARM64URL,
+	"windows/amd64":   ortWindowsAMD64URL,
+	"windows/arm64":   ortWindowsARM64URL,
+}
+
+var defaultORTURL = func() string {
+	return ortReleaseURLs[runtime.GOOS+"/"+runtime.GOARCH]
+}
+
+func defaultORTURLFor(platform string) string {
+	return ortReleaseURLs[platform]
 }
 
 func extractORTArchive(archivePath, libDir string) error {
@@ -165,8 +183,7 @@ func extractORTZip(path, libDir string) error {
 	}
 	defer r.Close()
 	for _, f := range r.File {
-		base := filepath.Base(f.Name)
-		if !strings.Contains(base, "onnxruntime") || !strings.HasSuffix(base, ".dll") {
+		if !matchesORTZipEntry(f.Name) {
 			continue
 		}
 		rc, err := f.Open()
@@ -182,37 +199,25 @@ func extractORTZip(path, libDir string) error {
 }
 
 func ensureORTLib(home string) (string, error) {
-	if v := strings.TrimSpace(os.Getenv("OVERDRIVE_ORT_LIB")); v != "" {
-		if st, err := os.Stat(v); err == nil && !st.IsDir() {
-			return v, nil
-		}
-		return "", fmt.Errorf("ort library missing: %s", v)
+	if path, err := resolveORTLibFromEnv(); err != nil {
+		return "", err
+	} else if path != "" {
+		return path, nil
 	}
-	dest := filepath.Join(libDir(home), ortLibName())
-	if st, err := os.Stat(dest); err == nil && st.Size() > 0 {
+	dest, ok := bundledORTLibPath(home)
+	if ok {
 		return dest, nil
 	}
-	if strings.TrimSpace(os.Getenv("OVERDRIVE_SKIP_EMBED_DOWNLOAD")) == "1" {
-		return "", fmt.Errorf("ort download disabled")
+	url, err := ortReleaseURL()
+	if err != nil {
+		return "", err
 	}
-	url := strings.TrimSpace(os.Getenv("OVERDRIVE_ORT_URL"))
-	if url == "" {
-		url = defaultORTURL()
-	}
-	if url == "" {
-		return "", fmt.Errorf("no ort release for %s/%s", runtime.GOOS, runtime.GOARCH)
-	}
-	tmpDir, err := os.MkdirTemp("", "overdrive-ort-*")
+	tmpDir, err := hookMkdirTemp("", "overdrive-ort-*")
 	if err != nil {
 		return "", err
 	}
 	defer os.RemoveAll(tmpDir)
-	archive := filepath.Join(tmpDir, "ort-archive")
-	if strings.HasSuffix(url, ".zip") {
-		archive += ".zip"
-	} else {
-		archive += ".tgz"
-	}
+	archive := filepath.Join(tmpDir, ortArchiveFilename(url))
 	if err := downloadURL(url, archive); err != nil {
 		return "", err
 	}

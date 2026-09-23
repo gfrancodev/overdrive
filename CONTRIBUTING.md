@@ -79,7 +79,9 @@ Guidelines:
 
 - Preserve the CLI contract documented in
   `skills/using-overdrive/references/experience-engine.md`.
-- Keep the user install path **zero-toolchain**: published plugins ship prebuilt
+- Keep the user install path **zero-toolchain**: `install.sh` copies skills and only the
+  current platform runtime/lib; never Go source, `examples/`, or foreign binaries.
+  Contributor source builds need `OVERDRIVE_INSTALL_FROM_SOURCE=1`.
   binaries and TurboVec libraries; only maintainers/CI run
   `scripts/build-runtime.sh`.
 - Fail open at runtime: missing embedder or TurboVec must not break normal
@@ -111,6 +113,24 @@ For runtime tests without downloading embedding models:
 
 ```bash
 OVERDRIVE_EMBEDDER=stub python -m pytest tests/test_experience_runtime.py -q
+```
+
+Go unit and integration tests live beside the runtime source. They exercise CLI
+dispatch, SQLite recall, P2P sync, downloads, and TurboVec when the FFI library
+is built:
+
+```bash
+cd runtime/experience
+go test -tags=overdrive_fake_ort -cover ./...
+```
+
+Use `-tags=overdrive_fake_ort` so tests swap the ONNX Runtime FFI for an
+in-process fake session. Coverage should stay above 90% on that path.
+
+Optional real ORT smoke test (downloads models and ORT when needed):
+
+```bash
+go test -tags=overdrive_ort_integration -run TestRealORTSessionWhenAvailable ./...
 ```
 
 ## Pull request checklist

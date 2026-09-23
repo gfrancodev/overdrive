@@ -7,38 +7,48 @@ import (
 	"strings"
 )
 
-func main() {
-	if len(os.Args) < 2 {
-		fail("usage: overdrive-runtime <status|project|session-start|record|recall|validate|ledger-add|ledger-list|version>")
-	}
+type commandFn func([]string) error
 
-	var err error
-	switch os.Args[1] {
-	case "status":
-		err = cmdStatus(os.Args[2:])
-	case "project":
-		err = cmdProject(os.Args[2:])
-	case "session-start":
-		err = cmdSessionStart(os.Args[2:])
-	case "record":
-		err = cmdRecord(os.Args[2:])
-	case "recall":
-		err = cmdRecall(os.Args[2:])
-	case "validate":
-		err = cmdValidate(os.Args[2:])
-	case "ledger-add":
-		err = cmdLedgerAdd(os.Args[2:])
-	case "ledger-list":
-		err = cmdLedgerList(os.Args[2:])
-	case "version", "--version", "-v":
-		fmt.Println(version)
-		return
-	default:
-		fail("unknown command: " + os.Args[1])
+var runtimeCommands = map[string]commandFn{
+	"status":        cmdStatus,
+	"project":       cmdProject,
+	"session-start": cmdSessionStart,
+	"session-end":   cmdSessionEnd,
+	"record":        cmdRecord,
+	"recall":        cmdRecall,
+	"validate":      cmdValidate,
+	"ledger-add":    cmdLedgerAdd,
+	"ledger-list":   cmdLedgerList,
+	"share":         cmdShare,
+	"version":       cmdVersion,
+	"--version":     cmdVersion,
+	"-v":            cmdVersion,
+}
+
+func cmdVersion([]string) error {
+	fmt.Println(version)
+	return nil
+}
+
+func runCLI(args []string) int {
+	if len(args) < 1 {
+		fail("usage: overdrive-runtime <status|project|session-start|session-end|record|recall|validate|ledger-add|ledger-list|share|version>")
+		return 2
 	}
-	if err != nil {
+	handler, ok := runtimeCommands[args[0]]
+	if !ok {
+		fail("unknown command: " + args[0])
+		return 2
+	}
+	if err := handler(args[1:]); err != nil {
 		fail(err.Error())
+		return 2
 	}
+	return 0
+}
+
+func main() {
+	exitProcess(runCLI(os.Args[1:]))
 }
 
 func cmdStatus(args []string) error {
@@ -94,10 +104,34 @@ func cmdSessionStart(args []string) error {
 		if err != nil {
 			return err
 		}
+		share, _ := e.shareStatus(project)
 		if *quiet {
 			return nil
 		}
-		return writeJSON(map[string]any{"version": version, "project": project, "session_id": sessionID})
+		return writeJSON(map[string]any{"version": version, "project": project, "session_id": sessionID, "share": share})
+	})
+}
+
+func cmdSessionEnd(args []string) error {
+	fs := flag.NewFlagSet("session-end", flag.ContinueOnError)
+	cwd := fs.String("cwd", ".", "working directory")
+	quiet := fs.Bool("quiet", false, "suppress output")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	project, err := identifyProject(*cwd)
+	if err != nil {
+		return err
+	}
+	return withEngine(func(e *Engine) error {
+		if err := e.endSession(project); err != nil {
+			return err
+		}
+		if *quiet {
+			return nil
+		}
+		share, _ := e.shareStatus(project)
+		return writeJSON(map[string]any{"version": version, "project": project, "share": share})
 	})
 }
 

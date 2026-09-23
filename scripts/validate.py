@@ -34,6 +34,8 @@ required = [
     'runtime/turbovec-ffi/Cargo.toml',
     'scripts/build-runtime.sh',
     'scripts/install.ps1',
+    'scripts/install-common.sh',
+    'scripts/package-platform.sh',
 ]
 for rel in required:
     if not (ROOT / rel).exists():

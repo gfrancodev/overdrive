@@ -3,6 +3,9 @@
   "hooks": {
     "sessionStart": [
       { "command": "./hooks/run-hook.sh session-start" }
+    ],
+    "sessionEnd": [
+      { "command": "./hooks/run-hook.sh session-end" }
     ]
   }
 }

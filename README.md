@@ -5,12 +5,24 @@
 <h1 align="center">Overdrive</h1>
 
 <p align="center">
-  <strong>Architecture-aware autonomous software engineering that learns from every execution.</strong>
+  <strong>Architecture-aware autonomous software engineering that learns from every execution, locally and optionally across your team.</strong>
 </p>
 
-**First public release (1.0.0).** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
+**Current release: 1.2.0.** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
 
-It combines architecture-aware discovery, a single authoritative spec, adaptive execution, autonomous decision-making, test-driven development, systematic debugging, isolated workspaces, code review, evidence-based verification, and a **local Experience Engine** (SQLite, FTS5, TurboVec, lazy MiniLM) that compounds operational knowledge across runs without a memory-management workflow.
+It combines architecture-aware discovery, a single authoritative spec, adaptive execution, autonomous decision-making, test-driven development, systematic debugging, isolated workspaces, code review, evidence-based verification, and a **local Experience Engine** (SQLite, FTS5, TurboVec, lazy MiniLM) that compounds operational knowledge across runs without a memory-management workflow. **1.2** adds opt-in **shared memory circles**: encrypted peer sync over LAN/VPN, folder-scoped recall, and session hooks that consolidate and pull deltas automatically.
+
+### Highlights (1.2)
+
+| Area | What you get |
+|------|----------------|
+| **Architecture-first** | Discover the repo before deciding; existing patterns beat agent preference. |
+| **One spec** | `plan` produces a single authoritative contract; execution adapts to real code. |
+| **Visual Spec** | Binding JSON with micro-details, fidelity modes, and design-system reconciliation (1.1+). |
+| **Local runtime** | Hybrid FTS5 + TurboVec recall; ~5 ms at 100 memories, lazy MiniLM, hashed fail-open. |
+| **Shared memory (opt-in)** | Ed25519 circles, allowed folders only, TCP sync, separate peer index and recall bucket. |
+| **Zero ops** | Prebuilt `overdrive-runtime` + TurboVec FFI; no daemon, no external DB, no API keys. |
+| **Cross-runtime** | Skills for Cursor, Claude Code, and Codex from one install. |
 
 > **Discover before deciding. Follow the architecture. Spec before execution. Verify before completion.**
 
@@ -140,7 +152,7 @@ cd overdrive
 ./scripts/install.sh
 ```
 
-That is the primary install path for all supported runtimes.
+That is the primary install path for all supported runtimes. The installer copies **only** the skills tree and the prebuilt runtime/TurboVec library for the **current OS and CPU**. It does not install Go or Rust source, `examples/`, tests, or binaries built for other platforms. Contributor source builds require `OVERDRIVE_INSTALL_FROM_SOURCE=1`.
 
 ### Cross-runtime skills
 
@@ -514,7 +526,7 @@ second approval workflow.
 
 ## Experience Engine
 
-Overdrive 1.0 ships a **Local Runtime** that compounds operational experience without a user-facing memory workflow. You still plan, execute, debug, review, and auto-run exactly as before. Recall and capture happen as a side effect of normal development.
+Overdrive ships a **Local Runtime** that compounds operational experience without a user-facing memory workflow. You still plan, execute, debug, review, and auto-run exactly as before. Recall and capture happen as a side effect of normal development. **1.2** optionally extends that memory to trusted peers in the same repository, never the whole machine, only folders you explicitly allow.
 
 ```text
 normal development
@@ -552,7 +564,29 @@ Prebuilt binaries and TurboVec libraries are installed automatically. You do not
 
 `status` reports `backend`, `embedder` (`stub` \| `hashed` \| `minilm`), `embedder_dim`, and `turbovec_available`. When the embedding dimension changes, the runtime rebuilds `.tvim` from active memories.
 
-Read [`docs/EXPERIENCE_ENGINE.md`](docs/EXPERIENCE_ENGINE.md) for the lifecycle, trust model, storage, environment variables, privacy rules, and internal protocol.
+### Shared memory circles (1.2, opt-in)
+
+Team knowledge stays **local-first**. Sharing is explicit, scoped, and off by default.
+
+```text
+create circle → invite peer → allow folder(s) → share listen (LAN/VPN)
+        ↓
+session-start: delta sync (encrypted, signed) + consolidate hot lessons
+        ↓
+recall: local memories + peer_memories (lower weight, signature overlap)
+```
+
+| Control | Behavior |
+|---------|----------|
+| **Allowed folders** | Only paths you add with `share circle folder-add` export or accept peer recall. |
+| **Identity** | Ed25519 device keys; signed member lists; expiring invites; revocation. |
+| **Transport** | TCP batches (`encryptBatch` + wire envelope); bind with `OVERDRIVE_SHARE_LISTEN=0.0.0.0:7741`. |
+| **Indexes** | Local `experience-v2.tvim` plus peer index `experience-v2-peer.tvim`. |
+| **Hooks** | `sessionStart` syncs peer deltas and prints `share status`; `sessionEnd` runs consolidation. |
+
+CLI entry points: `share identity`, `share circle …`, `share listen`, `share status`, `session-end`.
+
+Read [`docs/EXPERIENCE_ENGINE.md`](docs/EXPERIENCE_ENGINE.md) for the lifecycle, trust model, P2P protocol, storage, environment variables, privacy rules, and internal commands.
 
 ## What's Inside
 
@@ -565,8 +599,8 @@ Read [`docs/EXPERIENCE_ENGINE.md`](docs/EXPERIENCE_ENGINE.md) for the lifecycle,
 
 ### Runtime
 
-- **Experience Engine** - Local persistent operational learning with project-scoped retrieval, session Working Memory, and fail-open embeddings.
-- **overdrive-runtime** - Prebuilt Local Runtime (`CGO_ENABLED=0`): SQLite/FTS5, bundled TurboVec FFI, lazy MiniLM via ONNX Runtime sidecar, hashed fallback.
+- **Experience Engine** - Local persistent operational learning with project-scoped retrieval, session Working Memory, fail-open embeddings, and opt-in peer circles (1.2).
+- **overdrive-runtime** - Prebuilt Local Runtime (`CGO_ENABLED=0`): SQLite/FTS5, bundled TurboVec FFI, lazy MiniLM via ONNX Runtime sidecar, hashed fallback, P2P share/sync commands.
 
 ### Development
 
@@ -710,9 +744,9 @@ It means resolving routine uncertainty through discovery, evidence, and recorded
 When frontend work depends on any visual input, Overdrive classifies it, chooses a fidelity mode, produces binding
 Visual Spec JSON with micro-detail checklists, and only then implements the UI against that contract.
 
-### Experience compounds quietly
+### Experience compounds quietly, alone or in a circle
 
-Overdrive learns reusable project rules, lessons, anti-patterns, and confirmed debugging outcomes as a side effect of verified work. There is no `/remember` workflow and no memory dashboard required to get value from it.
+Overdrive learns reusable project rules, lessons, anti-patterns, and confirmed debugging outcomes as a side effect of verified work. There is no `/remember` workflow and no memory dashboard required to get value from it. Trusted teammates can share **hot, actionable lessons** for the same repository without exposing the rest of the filesystem.
 
 ### Rigor stays where it matters
 
