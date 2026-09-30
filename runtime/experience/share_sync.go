@@ -84,7 +84,15 @@ func (e *Engine) upsertPeerMemory(m Memory, vector []float32) error {
 	if m.EvidenceScore == 0 {
 		m.EvidenceScore = evidenceScore(m)
 	}
-	_, err := e.db.Exec(`INSERT INTO memories(
+	if e.db == nil {
+		return errGraphStoreUnavailable
+	}
+	tx, err := e.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`INSERT INTO memories(
 		id, vector_id, kind, scope, scope_id, subject, content, confidence, priority, status,
 		source, source_ref, evidence, success_count, failure_count, evidence_score,
 		created_at, updated_at, last_validated_at,
@@ -98,8 +106,13 @@ func (e *Engine) upsertPeerMemory(m Memory, vector []float32) error {
 		m.Source, m.SourceRef, m.Evidence, m.SuccessCount, m.FailureCount, m.EvidenceScore,
 		m.CreatedAt, m.UpdatedAt, m.LastValidatedAt,
 		m.Origin, m.PeerDeviceID, m.CircleID, m.Layer, m.PacketContent, m.ProblemSignature, m.SourceFolder, m.VectorSpace, boolToInt(m.HotIndex),
-	)
-	if err != nil {
+	); err != nil {
+		return err
+	}
+	if err := syncMemoryGraphOn(tx, m, nil); err != nil {
+		return err
+	}
+	if err := hookSQLCommit(tx); err != nil {
 		return err
 	}
 	if e.tvPeer != nil && e.tvPeer.Available() && m.Status == "active" && m.HotIndex {
@@ -125,23 +138,47 @@ func boolToInt(v bool) int {
 }
 
 func (e *Engine) markPeerRevoked(circleID, deviceID string) error {
-	_, err := e.db.Exec(`UPDATE memories SET status = 'deprecated', hot_index = 0 WHERE origin = 'peer' AND circle_id = ? AND peer_device_id = ?`,
-		circleID, deviceID)
+	if e.db == nil {
+		return errGraphStoreUnavailable
+	}
+	tx, err := e.db.Begin()
 	if err != nil {
 		return err
 	}
-	if e.tvPeer != nil && e.tvPeer.Available() {
-		rows, err := e.db.Query(`SELECT id FROM memories WHERE origin = 'peer' AND circle_id = ? AND peer_device_id = ?`, circleID, deviceID)
-		if err == nil {
-			defer rows.Close()
-			for rows.Next() {
-				var id string
-				if rows.Scan(&id) == nil {
-					e.tvPeer.Remove(id)
-				}
-			}
-			e.tvPeer.Sync()
+	defer tx.Rollback()
+	if _, err := tx.Exec(`UPDATE memories SET status = 'deprecated', hot_index = 0 WHERE origin = 'peer' AND circle_id = ? AND peer_device_id = ?`,
+		circleID, deviceID); err != nil {
+		return err
+	}
+	rows, err := tx.Query(`SELECT id FROM memories WHERE origin = 'peer' AND circle_id = ? AND peer_device_id = ?`, circleID, deviceID)
+	if err != nil {
+		return err
+	}
+	ids := []string{}
+	for rows.Next() {
+		var id string
+		if rows.Scan(&id) == nil && id != "" {
+			ids = append(ids, id)
 		}
+	}
+	scanErr := rows.Err()
+	rows.Close()
+	if scanErr != nil {
+		return scanErr
+	}
+	for _, id := range ids {
+		if err := removeMemoryGraphOn(tx, id); err != nil {
+			return err
+		}
+	}
+	if err := hookSQLCommit(tx); err != nil {
+		return err
+	}
+	if e.tvPeer != nil && e.tvPeer.Available() {
+		for _, id := range ids {
+			e.tvPeer.Remove(id)
+		}
+		e.tvPeer.Sync()
 	}
 	return nil
 }

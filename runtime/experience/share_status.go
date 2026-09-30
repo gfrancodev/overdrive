@@ -7,18 +7,31 @@ import (
 	"strings"
 )
 
+type SharePeer struct {
+	DeviceID   string   `json:"device_id"`
+	Name       string   `json:"name,omitempty"`
+	Endpoint   string   `json:"endpoint,omitempty"`
+	RemoteAddr string   `json:"remote_addr,omitempty"`
+	Hostname   string   `json:"hostname,omitempty"`
+	LastSeen   string   `json:"last_seen,omitempty"`
+	Revoked    bool     `json:"revoked"`
+	Self       bool     `json:"self"`
+	Folders    []string `json:"folders,omitempty"`
+}
+
 type ShareStatus struct {
-	Mode              string   `json:"mode"`
-	CircleID          string   `json:"circle_id,omitempty"`
-	CircleName        string   `json:"circle_name,omitempty"`
-	FolderAllowed     bool     `json:"folder_allowed"`
-	PeerEndpoints     []string `json:"peer_endpoints,omitempty"`
-	PeerMemoryCount   int      `json:"peer_memory_count"`
-	LastSyncCursor    string   `json:"last_sync_cursor,omitempty"`
-	LastImported      int      `json:"last_imported_packets"`
-	PeersContacted    int      `json:"last_peers_contacted"`
-	ListenerConfigured bool    `json:"listener_configured"`
-	DeviceID          string   `json:"device_id,omitempty"`
+	Mode               string      `json:"mode"`
+	CircleID           string      `json:"circle_id,omitempty"`
+	CircleName         string      `json:"circle_name,omitempty"`
+	FolderAllowed      bool        `json:"folder_allowed"`
+	PeerEndpoints      []string    `json:"peer_endpoints,omitempty"`
+	Peers              []SharePeer `json:"peers,omitempty"`
+	PeerMemoryCount    int         `json:"peer_memory_count"`
+	LastSyncCursor     string      `json:"last_sync_cursor,omitempty"`
+	LastImported       int         `json:"last_imported_packets"`
+	PeersContacted     int         `json:"last_peers_contacted"`
+	ListenerConfigured bool        `json:"listener_configured"`
+	DeviceID           string      `json:"device_id,omitempty"`
 }
 
 type shareSyncReport struct {
@@ -42,6 +55,7 @@ func (e *Engine) shareStatus(project Project) (ShareStatus, error) {
 	out.CircleID = circle.ID
 	out.CircleName = circle.Name
 	out.PeerEndpoints = circle.PeerEndpoints
+	out.Peers = sharePeersFromCircle(circle, id.DeviceID)
 	out.FolderAllowed = folderAllowed(circle, project.Root)
 	if !out.FolderAllowed {
 		out.Mode = "folder-blocked"
@@ -101,11 +115,37 @@ var shareStatusTextStrategies = map[string]func(ShareStatus) string{
 		return fmt.Sprintf("share: not-member (circle %s)", s.CircleName)
 	},
 	"synced": func(s ShareStatus) string {
-		return fmt.Sprintf("share: synced circle=%s imported=%d peer_memories=%d peers=%d", s.CircleName, s.LastImported, s.PeerMemoryCount, s.PeersContacted)
+		return fmt.Sprintf("share: synced circle=%s imported=%d peer_memories=%d peers=%d%s", s.CircleName, s.LastImported, s.PeerMemoryCount, s.PeersContacted, formatPeerEndpointSuffix(s))
 	},
 	"ready": func(s ShareStatus) string {
-		return fmt.Sprintf("share: ready circle=%s peer_memories=%d endpoints=%d", s.CircleName, s.PeerMemoryCount, len(s.PeerEndpoints))
+		return fmt.Sprintf("share: ready circle=%s peer_memories=%d endpoints=%d%s", s.CircleName, s.PeerMemoryCount, len(s.PeerEndpoints), formatPeerEndpointSuffix(s))
 	},
+}
+
+func sharePeersFromCircle(circle Circle, selfID string) []SharePeer {
+	out := make([]SharePeer, 0, len(circle.Members))
+	for _, member := range circle.Members {
+		name := peerDisplayName(member, selfID)
+		out = append(out, SharePeer{
+			DeviceID:   member.DeviceID,
+			Name:       name,
+			Endpoint:   member.Endpoint,
+			RemoteAddr: member.RemoteAddr,
+			Hostname:   name,
+			LastSeen:   member.LastSeen,
+			Revoked:    member.Revoked,
+			Self:       selfID != "" && member.DeviceID == selfID,
+			Folders:    append([]string{}, circle.AllowedFolders...),
+		})
+	}
+	return out
+}
+
+func formatPeerEndpointSuffix(s ShareStatus) string {
+	if len(s.PeerEndpoints) == 0 {
+		return ""
+	}
+	return " [" + strings.Join(s.PeerEndpoints, ", ") + "]"
 }
 
 func formatShareStatusText(s ShareStatus) string {

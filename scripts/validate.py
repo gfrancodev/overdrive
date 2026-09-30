@@ -14,9 +14,16 @@ for p in ROOT.glob('skills/*/SKILL.md'):
     elif not m.group(2).strip().startswith('Use when'):
         errors.append(f'description trigger: {p}')
 
-json.loads((ROOT / 'skills/plan/references/visual-spec.schema.json').read_text())
+vs_schema = json.loads((ROOT / 'skills/plan/references/visual-spec.schema.json').read_text())
+if vs_schema.get('$id') != 'https://visualspec.dev/schema/1.0/schema.json':
+    errors.append('visual-spec.schema.json must vend Visual Spec 1.0 root schema')
+json.loads((ROOT / 'skills/plan/references/visualspec-1.0.schema.bundle.json').read_text())
 json.loads((ROOT / 'skills/plan/references/design-system.visual-spec.schema.json').read_text())
-json.loads((ROOT / 'skills/plan/references/visual-spec.example.json').read_text())
+vs_example = json.loads((ROOT / 'skills/plan/references/visual-spec.example.json').read_text())
+if vs_example.get('$schema') != 'https://visualspec.dev/schema/1.0/schema.json':
+    errors.append('visual-spec.example.json must declare Visual Spec 1.0 $schema URL')
+if vs_example.get('visualSpec') != '1.0':
+    errors.append('visual-spec.example.json must set visualSpec to 1.0')
 json.loads((ROOT / 'skills/plan/references/design-system.visual-spec.example.json').read_text())
 
 for legacy in ['skills/brainstorming', 'skills/writing-plans', 'skills/experience']:

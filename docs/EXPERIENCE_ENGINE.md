@@ -176,9 +176,21 @@ There is no resident service. The binary starts on demand, performs a small oper
 - project identity is derived from Git/path metadata;
 - scope filtering removes irrelevant repositories before ranking;
 - FTS5 narrows candidates before TurboVec rerank;
+- one graph hop (path, symbol, error, or supersedes) expands neighbors the query text missed;
+- `recall` returns a PageIndex branch so the agent reads summaries instead of widening the store;
 - embeddings load lazily on first record/recall (stub/hashed in CI);
 - writes use SQLite WAL and a cross-platform directory lock;
 - TurboVec or embedder failure fails open to FTS5 + hashed vectors.
+
+Each `record` and peer import updates `graph_nodes` / `graph_edges` in the same SQLite file. TurboVec stays the official `IdMapIndex` reranker; it does not store the graph.
+
+## Shared circles and peer page
+
+When `OVERDRIVE_SHARE_LISTEN` is `0.0.0.0:7741` (or any wildcard bind), `share listen` also serves a local page on port `listen+1` (default `http://0.0.0.0:7742`). Override with `OVERDRIVE_SHARE_UI` (`off` disables it).
+
+The page and `GET /api/peers` list each circle member with device id, hostname, dial endpoint, the TCP address last seen, and last seen time. The group key is not included.
+
+Joining a circle sends this machine's listen address. The other side stores it and answers with its own roster, so both machines can dial each other after accept. If the advertised address is wildcard or loopback and the TCP peer is a LAN address, the stored endpoint uses that LAN IP plus the announced port. Later syncs refresh the same fields.
 
 ## Environment variables
 
@@ -192,6 +204,8 @@ There is no resident service. The binary starts on demand, performs a small oper
 | `OVERDRIVE_ORT_URL` | ORT 1.18.1 release for `GOOS/GOARCH` | Override ORT archive download |
 | `OVERDRIVE_SKIP_EMBED_DOWNLOAD` | unset | Set `1` to disable lazy downloads |
 | `OVERDRIVE_TURBOVEC_LIB` | bundled / `~/.overdrive/lib` | TurboVec FFI path |
+| `OVERDRIVE_SHARE_LISTEN` | unset | TCP bind for circle sync, for example `0.0.0.0:7741` |
+| `OVERDRIVE_SHARE_UI` | listen port + 1 on wildcard binds | Peer page bind, or `off` |
 
 `status` JSON includes `embedder` (`stub|hashed|minilm`) and `embedder_dim` (256 or 384). When embedding dimension changes, the runtime rebuilds `experience-v2.tvim` from active memories.
 

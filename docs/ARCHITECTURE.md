@@ -95,7 +95,7 @@ reference acquisition (wget mirror, frames, CSS parse)
   ↓
 visual-spec.json + design-system.visual-spec.json
   ↓
-observed / inferred / unknown + microDetails checklist
+provenance + validation.rules + extensions.overdrive checklist
   ↓
 reconciliation (project-design-system mode only)
   ↓
@@ -104,7 +104,7 @@ responsive + states + accessibility
 paths embedded in main Spec → execute-plan obeys JSON contract
 ```
 
-The Visual Spec JSON is the **binding implementation contract**. `microDetails` with `binding: true` must not be
+The Visual Spec JSON is the **binding implementation contract** (Visual Spec 1.0). `validation.rules` with `binding: true` must not be
 silently rounded to project tokens in `reference-exact` mode. Layout relationships, hierarchy, spacing,
 proportions, grids, and component semantics are the primary representation. Use `micro-detail-taxonomy.md` for exhaustive
 categories including motion, navigation, css, image, and icon. Assets may be downloaded, consulted from

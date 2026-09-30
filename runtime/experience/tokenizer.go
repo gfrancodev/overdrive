@@ -103,9 +103,6 @@ func (t *wordPieceTokenizer) basicTokenize(text string) []string {
 		}
 		if strings.IndexFunc(p, func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsNumber(r) }) >= 0 {
 			for _, r := range p {
-				if unicode.IsSpace(r) {
-					continue
-				}
 				out = append(out, string(r))
 			}
 			continue

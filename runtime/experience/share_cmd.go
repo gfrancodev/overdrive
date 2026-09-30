@@ -46,6 +46,7 @@ func cmdShareListen(args []string) error {
 	if err != nil {
 		return err
 	}
+	startShareDashboard(home)
 	_, _ = identifyProject(*cwd)
 	shareListenWait(sl)
 	return nil
@@ -56,7 +57,10 @@ var shareListenWait = func(sl *shareListener) {
 		hookShareListenWait(sl)
 		return
 	}
-	select {}
+	if sl == nil || sl.stop == nil {
+		return
+	}
+	<-sl.stop
 }
 
 func cmdShareStatus(args []string) error {

@@ -490,9 +490,21 @@ func TestSyncLogicHelpers(t *testing.T) {
 		t.Fatal("folder denied")
 	}
 
+	m.ID = "keep"
 	packets := buildSyncPackets([]Memory{m}, "", circle, project)
 	if len(packets) != 1 {
 		t.Fatalf("packets %d", len(packets))
+	}
+	denied := m
+	denied.ID = "other-folder"
+	denied.SourceFolder = "/secret/elsewhere"
+	denied.Subject = "secret lesson"
+	filtered := buildSyncPacketsForIDs([]Memory{m, denied}, "", []string{"keep", "other-folder"}, circle, project)
+	if len(filtered) != 1 {
+		t.Fatalf("id filter leaked %d packets", len(filtered))
+	}
+	if filtered[0].SourceFolder != "/tmp/repo" || filtered[0].Fingerprint != "keep" {
+		t.Fatalf("unexpected packet %+v", filtered[0])
 	}
 	if !peerPacketImportable(SharedPacket{HotIndex: true, VectorSpace: "stub"}, "stub") {
 		t.Fatal("importable")

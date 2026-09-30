@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#00B4FF">
+  <title>Overdrive · Circle</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@600;700&display=swap" rel="stylesheet">
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
+  </script>
+  <style>
+    :root {
+      --ink: #04070d;
+      --sea: #07131c;
+      --foam: #e8f6ff;
+      --cyan: #00b4ff;
+      --live: #5ee7ff;
+      --mute: #7a93a6;
+      --glass: rgba(6, 14, 22, 0.78);
+      --line: rgba(0, 180, 255, 0.22);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background:
+        radial-gradient(900px 560px at 50% 42%, rgba(0, 180, 255, 0.16) 0%, transparent 58%),
+        radial-gradient(700px 480px at 82% 88%, rgba(0, 80, 140, 0.28) 0%, transparent 52%),
+        var(--ink);
+      color: var(--foam);
+      font-family: "IBM Plex Sans", "IBM Plex Mono", ui-sans-serif, sans-serif;
+      overflow: hidden;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.14;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+    }
+    header {
+      position: absolute;
+      top: 24px;
+      left: 28px;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      pointer-events: none;
+    }
+    header .mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      box-shadow: 0 0 24px rgba(0, 180, 255, 0.28);
+    }
+    header h1 {
+      font-family: Syne, "IBM Plex Sans", sans-serif;
+      font-weight: 700;
+      font-size: 28px;
+      letter-spacing: 0.01em;
+      margin: 0;
+      line-height: 1;
+    }
+    header p {
+      margin: 5px 0 0;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--mute);
+    }
+    .panel {
+      position: absolute;
+      z-index: 4;
+      background: var(--glass);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      backdrop-filter: blur(16px) saturate(1.15);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+    }
+    .legend { right: 28px; top: 24px; width: 280px; }
+    .contexts { left: 28px; bottom: 52px; width: 372px; max-height: 50vh; display: flex; flex-direction: column; overflow: hidden; }
+    .contexts .panel-body { flex: 1 1 auto; min-height: 0; }
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px 10px;
+    }
+    .panel h2 {
+      font-family: Syne, "IBM Plex Sans", sans-serif;
+      font-size: 18px;
+      margin: 0;
+      font-weight: 600;
+    }
+    .panel button {
+      background: transparent;
+      color: var(--cyan);
+      border: 1px solid rgba(0, 180, 255, 0.35);
+      border-radius: 999px;
+      font: inherit;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    .panel button:hover { background: rgba(0, 180, 255, 0.1); }
+    .panel-body {
+      padding: 0 16px 16px;
+      overflow: auto;
+      overscroll-behavior: contain;
+    }
+    .panel.collapsed .panel-body { display: none; }
+    .meta { font-size: 11px; color: var(--mute); line-height: 1.6; font-family: "IBM Plex Mono", ui-monospace, monospace; }
+    .folder {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin-top: 10px;
+    }
+    .folder i {
+      width: 8px;
+      height: 8px;
+      margin-top: 5px;
+      border-radius: 2px;
+      border: 1px solid var(--cyan);
+      background: rgba(0, 180, 255, 0.28);
+      box-shadow: 0 0 8px rgba(0, 180, 255, 0.35);
+      flex: 0 0 8px;
+    }
+    .folder b { display: block; font-weight: 500; color: var(--foam); font-size: 12px; }
+    .folder span { display: block; color: var(--mute); font-size: 11px; overflow-wrap: anywhere; line-height: 1.45; }
+    .empty { color: var(--mute); font-size: 12px; margin: 8px 0 0; }
+    .chips {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 6px;
+      margin: 2px 0 12px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .chips button { flex: 0 0 auto; }
+    .chips button.active { background: rgba(0, 180, 255, 0.16); color: var(--foam); border-color: var(--cyan); }
+    .tree { font-size: 12px; }
+    .tree details { margin: 6px 0; }
+    .tree summary {
+      cursor: pointer;
+      color: var(--foam);
+      list-style: none;
+    }
+    .tree summary::-webkit-details-marker { display: none; }
+    .tree summary::before {
+      content: "";
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      margin-right: 8px;
+      border-right: 1.5px solid var(--cyan);
+      border-bottom: 1.5px solid var(--cyan);
+      transform: rotate(-45deg);
+      opacity: 0.75;
+      vertical-align: 2px;
+    }
+    .tree details[open] > summary::before { transform: rotate(45deg); }
+    .tree ul { margin: 4px 0 0 16px; padding: 0; list-style: none; }
+    .tree li { color: var(--mute); margin: 6px 0; }
+    .tree li div:first-child { color: var(--foam); }
+    .scroll-thin {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(0, 180, 255, 0.35) transparent;
+    }
+    .scroll-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+    .scroll-thin::-webkit-scrollbar-track { background: transparent; }
+    .scroll-thin::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, rgba(0, 180, 255, 0.5), rgba(0, 180, 255, 0.18));
+      border-radius: 99px;
+    }
+    .scroll-thin::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 180, 255, 0.55);
+    }
+    #stage { position: absolute; inset: 0; z-index: 1; }
+    #stage canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+    #stage canvas.dragging { cursor: grabbing; }
+    #labels { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+    .tag {
+      position: absolute;
+      transform: translate(42px, -8px);
+      white-space: nowrap;
+    }
+    .tag strong {
+      display: block;
+      font-family: Syne, "IBM Plex Sans", sans-serif;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--foam);
+      text-shadow: 0 2px 16px rgba(0, 0, 0, 0.75);
+    }
+    .tag em {
+      display: block;
+      margin-top: 2px;
+      font-style: normal;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      color: var(--mute);
+      text-shadow: 0 1px 8px rgba(0,0,0,0.8);
+    }
+    #popover {
+      position: absolute;
+      z-index: 5;
+      width: min(320px, calc(100vw - 32px));
+      max-height: min(52vh, 420px);
+      overflow: auto;
+      padding: 14px 16px 16px;
+      background: rgba(5, 12, 20, 0.94);
+      border: 1px solid rgba(0, 180, 255, 0.38);
+      border-radius: 16px;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45), 0 0 24px rgba(0, 180, 255, 0.12);
+    }
+    #popover[hidden] { display: none; }
+    #popover h3 {
+      font-family: Syne, "IBM Plex Sans", sans-serif;
+      font-size: 20px;
+      margin: 0 0 4px;
+    }
+    footer {
+      position: absolute;
+      right: 28px;
+      bottom: 22px;
+      z-index: 3;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--mute);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="labels"></div>
+  <header>
+    <img class="mark" src="/logo.png" width="44" height="44" alt="Overdrive">
+    <div>
+      <h1>Overdrive</h1>
+      <p id="kicker">circle atlas</p>
+    </div>
+  </header>
+  <aside class="panel legend" id="legend">
+    <div class="panel-head">
+      <h2 id="circleName">LAN</h2>
+      <button type="button" id="legendToggle">Hide</button>
+    </div>
+    <div class="panel-body scroll-thin" id="legendBody">
+      <div class="meta" id="meta">opening the map...</div>
+      <p class="empty">Click a station for its folders.</p>
+    </div>
+  </aside>
+  <aside class="panel contexts" id="contexts">
+    <div class="panel-head">
+      <h2>Contexts</h2>
+      <button type="button" id="ctxToggle">Hide</button>
+    </div>
+    <div class="panel-body scroll-thin" id="ctxBody">
+      <div class="chips scroll-thin" id="chips"></div>
+      <div class="tree" id="tree"></div>
+    </div>
+  </aside>
+  <div id="popover" class="scroll-thin" hidden>
+    <h3 id="popName"></h3>
+    <div class="meta" id="popMeta"></div>
+    <div id="popFolders"></div>
+  </div>
+  <footer id="foot"></footer>
+  <script type="module">
+    import * as THREE from "three";
+
+    const stage = document.getElementById("stage");
+    const labels = document.getElementById("labels");
+    const popover = document.getElementById("popover");
+    const RADIUS = 1.18;
+    let legendOpen = true;
+    let contextsOpen = true;
+    let selectedDevice = "";
+    let openStation = null;
+    let lastData = null;
+    let stations = [];
+    let dragging = false;
+    let moved = false;
+    let lastX = 0;
+    let lastY = 0;
+    let world = null;
+
+    document.getElementById("legendToggle").addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      legendOpen = !legendOpen;
+      document.getElementById("legend").classList.toggle("collapsed", !legendOpen);
+      ev.currentTarget.textContent = legendOpen ? "Hide" : "Show";
+    });
+    document.getElementById("ctxToggle").addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      contextsOpen = !contextsOpen;
+      document.getElementById("contexts").classList.toggle("collapsed", !contextsOpen);
+      ev.currentTarget.textContent = contextsOpen ? "Hide" : "Show";
+    });
+    document.addEventListener("click", () => hidePopover());
+
+    function computerLabel(peer, data) {
+      return peer.name || peer.hostname || (peer.self ? data.hostname : "") || "computer";
+    }
+    function folderName(path) {
+      const parts = (path || "").replace(/\\/g, "/").split("/").filter(Boolean);
+      return parts[parts.length - 1] || path;
+    }
+    function stationFolders(peer, circle) {
+      if (peer.folders && peer.folders.length) return peer.folders;
+      return (circle && circle.folders) || [];
+    }
+    function alive(peer) {
+      if (peer.revoked || !peer.endpoint) return false;
+      if (!peer.last_seen) return true;
+      const t = Date.parse(peer.last_seen);
+      return Number.isFinite(t) && (Date.now() - t) < 15 * 60 * 1000;
+    }
+    function hidePopover() {
+      openStation = null;
+      popover.hidden = true;
+    }
+    function latLon(lat, lon, radius) {
+      const phi = THREE.MathUtils.degToRad(90 - lat);
+      const theta = THREE.MathUtils.degToRad(lon);
+      return new THREE.Vector3(
+        radius * Math.sin(phi) * Math.sin(theta),
+        radius * Math.cos(phi),
+        radius * Math.sin(phi) * Math.cos(theta)
+      );
+    }
+    function placeMembers(members) {
+      const self = members.find((m) => m.self) || members[0];
+      const others = members.filter((m) => m !== self);
+      const out = [];
+      if (self) out.push({ peer: self, lat: -16, lon: 24 });
+      others.forEach((peer, i) => {
+        const count = others.length;
+        const lon = count === 1 ? -38 : -72 + (i * 108) / (count - 1);
+        const lat = 14 + (i % 3) * 16;
+        out.push({ peer, lat, lon });
+      });
+      return out;
+    }
+    function graticule() {
+      const group = new THREE.Group();
+      const mat = new THREE.LineBasicMaterial({ color: 0x7ec8e8, transparent: true, opacity: 0.18 });
+      for (let lat = -60; lat <= 60; lat += 20) {
+        const pts = [];
+        for (let lon = 0; lon <= 360; lon += 4) pts.push(latLon(lat, lon, RADIUS * 1.006));
+        group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
+      }
+      for (let lon = 0; lon < 360; lon += 20) {
+        const pts = [];
+        for (let lat = -80; lat <= 80; lat += 3) pts.push(latLon(lat, lon, RADIUS * 1.006));
+        group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
+      }
+      return group;
+    }
+    function arcBetween(a, b, live) {
+      const start = a.clone().normalize();
+      const end = b.clone().normalize();
+      const pts = [];
+      const steps = 56;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const v = new THREE.Vector3().copy(start).lerp(end, t).normalize();
+        pts.push(v.multiplyScalar(RADIUS * 1.03 + Math.sin(Math.PI * t) * 0.22));
+      }
+      const line = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(pts),
+        new THREE.LineDashedMaterial({
+          color: live ? 0x00b4ff : 0x4a6273,
+          dashSize: 0.045,
+          gapSize: 0.035,
+          transparent: true,
+          opacity: live ? 0.92 : 0.38
+        })
+      );
+      line.computeLineDistances();
+      return line;
+    }
+    function ensureWorld() {
+      if (world) return world;
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setClearColor(0x000000, 0);
+      stage.replaceChildren(renderer.domElement);
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 40);
+      camera.position.set(0.15, 0.22, 4.25);
+      scene.add(new THREE.AmbientLight(0x6ea8c4, 0.62));
+      const key = new THREE.DirectionalLight(0xe8f6ff, 1.35);
+      key.position.set(-2.4, 1.8, 3.4);
+      scene.add(key);
+      const rim = new THREE.DirectionalLight(0x00b4ff, 0.85);
+      rim.position.set(2.2, -0.6, -1.4);
+      scene.add(rim);
+      const starPositions = [];
+      for (let i = 0; i < 220; i++) {
+        const v = new THREE.Vector3().randomDirection().multiplyScalar(8 + Math.random() * 4);
+        starPositions.push(v.x, v.y, v.z);
+      }
+      const stars = new THREE.BufferGeometry();
+      stars.setAttribute("position", new THREE.Float32BufferAttribute(starPositions, 3));
+      scene.add(new THREE.Points(stars, new THREE.PointsMaterial({
+        color: 0xb8e7ff, size: 0.016, transparent: true, opacity: 0.42
+      })));
+      const globe = new THREE.Group();
+      globe.add(new THREE.Mesh(
+        new THREE.SphereGeometry(RADIUS, 72, 72),
+        new THREE.MeshStandardMaterial({
+          color: 0x071820,
+          roughness: 0.78,
+          metalness: 0.28,
+          emissive: 0x042033,
+          emissiveIntensity: 0.7
+        })
+      ));
+      globe.add(graticule());
+      const markers = new THREE.Group();
+      const arcs = new THREE.Group();
+      globe.add(markers);
+      globe.add(arcs);
+      scene.add(globe);
+      scene.add(new THREE.Mesh(
+        new THREE.SphereGeometry(RADIUS * 1.22, 48, 48),
+        new THREE.ShaderMaterial({
+          transparent: true,
+          depthWrite: false,
+          side: THREE.BackSide,
+          vertexShader: "varying vec3 vNormal; void main(){ vNormal = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+          fragmentShader: "varying vec3 vNormal; void main(){ float rim = pow(0.66 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.8); gl_FragColor = vec4(0.0, 0.71, 1.0, rim * 0.78); }"
+        })
+      ));
+      const raycaster = new THREE.Raycaster();
+      const pointer = new THREE.Vector2();
+      renderer.domElement.addEventListener("pointerdown", (ev) => {
+        dragging = true;
+        moved = false;
+        lastX = ev.clientX;
+        lastY = ev.clientY;
+        renderer.domElement.classList.add("dragging");
+      });
+      window.addEventListener("pointermove", (ev) => {
+        if (!dragging) {
+          aim(ev);
+          return;
+        }
+        const dx = ev.clientX - lastX;
+        const dy = ev.clientY - lastY;
+        if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+        globe.rotation.y += dx * 0.005;
+        globe.rotation.x = THREE.MathUtils.clamp(globe.rotation.x + dy * 0.0032, -0.55, 0.55);
+        lastX = ev.clientX;
+        lastY = ev.clientY;
+      });
+      window.addEventListener("pointerup", () => {
+        dragging = false;
+        renderer.domElement.classList.remove("dragging");
+      });
+      renderer.domElement.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        if (moved) {
+          moved = false;
+          return;
+        }
+        const hit = pick(ev);
+        if (!hit) {
+          hidePopover();
+          return;
+        }
+        const peer = hit.object.userData.peer;
+        if (openStation === peer.device_id) hidePopover();
+        else openFor(peer);
+      });
+      function aim(ev) {
+        const hit = pick(ev);
+        renderer.domElement.style.cursor = hit ? "pointer" : "grab";
+      }
+      function pick(ev) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(pointer, camera);
+        const hits = raycaster.intersectObjects(stations.map((s) => s.hit), false);
+        return hits[0] || null;
+      }
+      world = { renderer, scene, camera, globe, markers, arcs, raycaster };
+      resize();
+      requestAnimationFrame(tick);
+      return world;
+    }
+    function resize() {
+      if (!world) return;
+      const w = stage.clientWidth || window.innerWidth;
+      const h = stage.clientHeight || window.innerHeight;
+      world.camera.aspect = w / Math.max(h, 1);
+      world.camera.updateProjectionMatrix();
+      world.renderer.setSize(w, h, false);
+    }
+    function disposeGroup(group) {
+      while (group.children.length) {
+        const child = group.children[0];
+        group.remove(child);
+        child.traverse((obj) => {
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material) {
+            const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+            mats.forEach((mat) => mat.dispose());
+          }
+        });
+      }
+    }
+    function syncStations(data) {
+      const view = ensureWorld();
+      const circle = (data.circles || [])[0];
+      const members = (circle && circle.members) || [];
+      const placed = placeMembers(members);
+      disposeGroup(view.markers);
+      disposeGroup(view.arcs);
+      labels.replaceChildren();
+      stations = placed.map((pt) => {
+        const color = pt.peer.revoked ? 0x8a3b32 : (pt.peer.self ? 0x00b4ff : 0x5ee7ff);
+        const pos = latLon(pt.lat, pt.lon, RADIUS * 1.025);
+        const group = new THREE.Group();
+        group.position.copy(pos);
+        const outward = pos.clone().normalize();
+        const dot = new THREE.Mesh(
+          new THREE.SphereGeometry(pt.peer.self ? 0.034 : 0.028, 18, 18),
+          new THREE.MeshBasicMaterial({ color })
+        );
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(0.05, 0.058, 40),
+          new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.75, side: THREE.DoubleSide })
+        );
+        ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), outward);
+        const hit = new THREE.Mesh(
+          new THREE.SphereGeometry(0.11, 10, 10),
+          new THREE.MeshBasicMaterial({ visible: false })
+        );
+        hit.userData.peer = pt.peer;
+        group.add(dot, ring, hit);
+        view.markers.add(group);
+        const tag = document.createElement("div");
+        tag.className = "tag";
+        const strong = document.createElement("strong");
+        strong.textContent = computerLabel(pt.peer, data);
+        const em = document.createElement("em");
+        em.textContent = (pt.peer.endpoint || "no endpoint") + (pt.peer.remote_addr ? "  seen " + pt.peer.remote_addr : "");
+        tag.append(strong, em);
+        labels.appendChild(tag);
+        return { peer: pt.peer, group, ring, hit, tag };
+      });
+      const self = stations.find((s) => s.peer.self) || stations[0];
+      stations.forEach((s) => {
+        if (!self || s === self) return;
+        view.arcs.add(arcBetween(self.group.position, s.group.position, alive(s.peer)));
+      });
+      const links = stations.filter((s) => !s.peer.self && s.peer.endpoint).length;
+      const folders = (circle && circle.folders) || [];
+      document.getElementById("foot").textContent =
+        (members.length || 0) + " servers  ·  " + links + " connections  ·  " + folders.length + " folders";
+      if (openStation && !stations.some((s) => s.peer.device_id === openStation)) hidePopover();
+    }
+    function project(object) {
+      const v = object.getWorldPosition(new THREE.Vector3());
+      const normal = v.clone().normalize();
+      const toCam = world.camera.position.clone().sub(v).normalize();
+      const facing = normal.dot(toCam) > 0.08;
+      v.project(world.camera);
+      const rect = world.renderer.domElement.getBoundingClientRect();
+      return {
+        x: (v.x * 0.5 + 0.5) * rect.width + rect.left,
+        y: (-v.y * 0.5 + 0.5) * rect.height + rect.top,
+        facing
+      };
+    }
+    function placePopover(x, y) {
+      popover.hidden = false;
+      const width = popover.offsetWidth || 320;
+      const height = popover.offsetHeight || 180;
+      let left = x + 28;
+      let top = y - 24;
+      if (left + width > window.innerWidth - 16) left = x - width - 28;
+      if (top + height > window.innerHeight - 16) top = window.innerHeight - height - 16;
+      if (top < 16) top = 16;
+      if (left < 16) left = 16;
+      popover.style.left = left + "px";
+      popover.style.top = top + "px";
+    }
+    function fillPopover(peer) {
+      const circle = (lastData.circles || [])[0];
+      document.getElementById("popName").textContent = computerLabel(peer, lastData);
+      document.getElementById("popMeta").textContent = peer.endpoint || "no endpoint";
+      const box = document.getElementById("popFolders");
+      box.replaceChildren();
+      const list = stationFolders(peer, circle);
+      if (!list.length) {
+        const p = document.createElement("p");
+        p.className = "empty";
+        p.textContent = "No shared folders yet.";
+        box.appendChild(p);
+        return;
+      }
+      const title = document.createElement("p");
+      title.className = "empty";
+      title.textContent = "Open folders";
+      box.appendChild(title);
+      list.forEach((path) => {
+        const row = document.createElement("div");
+        row.className = "folder";
+        const mark = document.createElement("i");
+        const text = document.createElement("div");
+        const name = document.createElement("b");
+        name.textContent = folderName(path);
+        const full = document.createElement("span");
+        full.textContent = path;
+        text.append(name, full);
+        row.append(mark, text);
+        box.appendChild(row);
+      });
+    }
+    function openFor(peer) {
+      openStation = peer.device_id;
+      fillPopover(peer);
+      const station = stations.find((s) => s.peer.device_id === peer.device_id);
+      if (!station) return;
+      const p = project(station.group);
+      placePopover(p.x, p.y);
+    }
+    function tick(now) {
+      requestAnimationFrame(tick);
+      if (!world) return;
+      if (!dragging && !openStation) world.globe.rotation.y += 0.00115;
+      stations.forEach((s, i) => {
+        const pulse = 1 + Math.sin(now * 0.0022 + i) * 0.22;
+        s.ring.scale.set(pulse, pulse, pulse);
+        s.ring.material.opacity = 0.28 + (Math.sin(now * 0.0022 + i) + 1) * 0.22;
+        const p = project(s.group);
+        s.tag.style.left = p.x + "px";
+        s.tag.style.top = p.y + "px";
+        s.tag.style.transform = p.x > window.innerWidth * 0.62
+          ? "translate(calc(-100% - 42px), -8px)"
+          : "translate(42px, -8px)";
+        s.tag.style.visibility = p.facing ? "visible" : "hidden";
+        if (openStation === s.peer.device_id && !popover.hidden) placePopover(p.x, p.y);
+      });
+      world.renderer.render(world.scene, world.camera);
+    }
+    function renderChips(members) {
+      const chips = document.getElementById("chips");
+      chips.replaceChildren();
+      const all = document.createElement("button");
+      all.type = "button";
+      all.textContent = "All";
+      all.className = selectedDevice ? "" : "active";
+      all.addEventListener("click", (ev) => { ev.stopPropagation(); selectedDevice = ""; loadContexts(); });
+      chips.appendChild(all);
+      members.forEach((peer) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.textContent = computerLabel(peer, lastData || {});
+        chip.className = selectedDevice === peer.device_id ? "active" : "";
+        chip.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          selectedDevice = peer.device_id;
+          loadContexts();
+        });
+        chips.appendChild(chip);
+      });
+    }
+    function renderTree(network) {
+      const tree = document.getElementById("tree");
+      tree.replaceChildren();
+      const computers = network.computers || [];
+      if (!computers.length) {
+        const p = document.createElement("p");
+        p.className = "empty";
+        p.textContent = "No stored contexts on the network yet.";
+        tree.appendChild(p);
+        return;
+      }
+      computers.forEach((computer) => {
+        const root = document.createElement("details");
+        root.open = true;
+        const sum = document.createElement("summary");
+        sum.textContent = computer.name + (computer.self ? "  (this station)" : "");
+        root.appendChild(sum);
+        (computer.tree || []).forEach((folder) => {
+          const folderEl = document.createElement("details");
+          folderEl.open = true;
+          const fsum = document.createElement("summary");
+          fsum.textContent = folder.name || folder.path;
+          folderEl.appendChild(fsum);
+          const kinds = folder.kinds || [];
+          if (!kinds.length) {
+            const empty = document.createElement("p");
+            empty.className = "empty";
+            empty.textContent = "No packets in this folder.";
+            folderEl.appendChild(empty);
+          }
+          kinds.forEach((kind) => {
+            const k = document.createElement("div");
+            k.className = "empty";
+            k.textContent = kind.kind;
+            folderEl.appendChild(k);
+            const ul = document.createElement("ul");
+            (kind.items || []).forEach((item) => {
+              const li = document.createElement("li");
+              const title = document.createElement("div");
+              title.textContent = item.subject;
+              li.appendChild(title);
+              if (item.summary) {
+                const extra = document.createElement("div");
+                extra.className = "empty";
+                extra.textContent = item.summary;
+                li.appendChild(extra);
+              }
+              ul.appendChild(li);
+            });
+            folderEl.appendChild(ul);
+          });
+          root.appendChild(folderEl);
+        });
+        tree.appendChild(root);
+      });
+    }
+    async function loadContexts() {
+      const members = ((lastData && lastData.circles && lastData.circles[0]) || {}).members || [];
+      renderChips(members);
+      const query = selectedDevice ? ("?device=" + encodeURIComponent(selectedDevice)) : "";
+      const res = await fetch("/api/contexts" + query, { cache: "no-store" });
+      renderTree(await res.json());
+    }
+    function render(data) {
+      lastData = data;
+      const circle = (data.circles || [])[0];
+      document.getElementById("circleName").textContent = circle ? "LAN" : "Offline";
+      document.getElementById("kicker").textContent = data.hostname ? "station " + data.hostname : "circle atlas";
+      const metaParts = [];
+      if (circle && circle.name && circle.name !== "LAN") {
+        metaParts.push(circle.name);
+      }
+      metaParts.push(
+        data.hostname || "this station",
+        "listening " + (data.listen || "-"),
+        new Date().toLocaleTimeString()
+      );
+      document.getElementById("meta").textContent = metaParts.join(" · ");
+      syncStations(data);
+      if (openStation) {
+        const station = stations.find((s) => s.peer.device_id === openStation);
+        if (station) fillPopover(station.peer);
+      }
+    }
+    async function refresh() {
+      const res = await fetch("/api/peers", { cache: "no-store" });
+      render(await res.json());
+      await loadContexts();
+    }
+    popover.addEventListener("click", (ev) => ev.stopPropagation());
+    window.addEventListener("resize", resize);
+    refresh();
+    setInterval(refresh, 3000);
+  </script>
+</body>
+</html>

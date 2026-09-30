@@ -1,10 +1,12 @@
 # Micro-detail Taxonomy
 
 Mandatory checklist before closing any Visual Spec. Every applicable category must appear in the
-structured JSON (`elements`, `css`, `motion`, `navigation`, `assets`) **and** in `microDetails` with
+Visual Spec 1.0 sections (`scenes`, `components`, `motion`, `assets`, `validation`, `provenance`) **and** binding
+`validation.rules` with
 `binding: true` when the value is load-bearing.
 
-Read alongside `visual-spec.schema.json` and `visual-spec.example.json`.
+Read alongside `visual-spec.schema.json` (Visual Spec 1.0), `overdrive-visual-extensions.md`, and
+`visual-spec.example.json`.
 
 ## Categories
 

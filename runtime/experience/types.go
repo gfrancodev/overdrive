@@ -44,13 +44,32 @@ type JSONStore struct {
 	Memories []Memory `json:"memories"`
 }
 
+type PageIndexNode struct {
+	ID        string `json:"id"`
+	Kind      string `json:"kind"`
+	Title     string `json:"title"`
+	Summary   string `json:"summary,omitempty"`
+	ParentID  string `json:"parent_id,omitempty"`
+	MemoryID  string `json:"memory_id,omitempty"`
+	UpdatedAt string `json:"updated_at,omitempty"`
+}
+
+type GraphEdge struct {
+	Src  string `json:"src"`
+	Dst  string `json:"dst"`
+	Kind string `json:"kind"`
+}
+
 type RecallResponse struct {
-	Project       Project  `json:"project"`
-	Memories      []Memory `json:"memories"`
-	PeerMemories  []Memory `json:"peer_memories"`
-	CriticalRules []Memory `json:"critical_rules"`
-	WorkingMemory []Memory `json:"working_memory"`
-	Backend       string   `json:"backend"`
+	Project        Project         `json:"project"`
+	Memories       []Memory        `json:"memories"`
+	PeerMemories   []Memory        `json:"peer_memories"`
+	CriticalRules  []Memory        `json:"critical_rules"`
+	WorkingMemory  []Memory        `json:"working_memory"`
+	GraphNeighbors []Memory        `json:"graph_neighbors"`
+	PageIndex      []PageIndexNode `json:"page_index"`
+	GraphEdges     []GraphEdge     `json:"graph_edges"`
+	Backend        string          `json:"backend"`
 }
 
 type StatusResponse struct {
@@ -66,12 +85,12 @@ type StatusResponse struct {
 }
 
 type LedgerEntry struct {
-	ID             int64  `json:"id"`
-	RunID          string `json:"run_id"`
-	Decision       string `json:"decision"`
-	Evidence       string `json:"evidence,omitempty"`
-	Reason         string `json:"reason,omitempty"`
-	Risk           string `json:"risk,omitempty"`
-	Reversibility  string `json:"reversibility,omitempty"`
-	CreatedAt      string `json:"created_at"`
+	ID            int64  `json:"id"`
+	RunID         string `json:"run_id"`
+	Decision      string `json:"decision"`
+	Evidence      string `json:"evidence,omitempty"`
+	Reason        string `json:"reason,omitempty"`
+	Risk          string `json:"risk,omitempty"`
+	Reversibility string `json:"reversibility,omitempty"`
+	CreatedAt     string `json:"created_at"`
 }

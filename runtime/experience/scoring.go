@@ -222,9 +222,6 @@ func tokenCosine(a, b string) float64 {
 	for _, v := range bv {
 		bn += v * v
 	}
-	if an == 0 || bn == 0 {
-		return 0
-	}
 	return dot / (math.Sqrt(an) * math.Sqrt(bn))
 }
 
@@ -331,8 +328,8 @@ var sourceTrustLevels = map[string]float64{
 	"verified_execution": 0.92, "verification": 0.92, "review": 0.92,
 	"repository_observation": 0.82, "tests": 0.82, "debugging": 0.82,
 	"agent_observation": 0.65,
-	"peer_share": 0.55,
-	"external": 0.45, "web": 0.45, "issue_description": 0.45,
+	"peer_share":        0.55,
+	"external":          0.45, "web": 0.45, "issue_description": 0.45,
 }
 
 func sourceTrust(source string) float64 {

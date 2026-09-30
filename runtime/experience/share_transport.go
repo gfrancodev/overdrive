@@ -12,7 +12,13 @@ import (
 	"time"
 )
 
-const defaultSharePort = 7741
+const (
+	defaultSharePort    = 7741
+	peerSyncDialTimeout = 5 * time.Second
+	peerSyncDeadline    = 30 * time.Second
+	peerIDDialTimeout   = 400 * time.Millisecond
+	peerIDDeadline      = 800 * time.Millisecond
+)
 
 type shareListener struct {
 	ln   net.Listener
@@ -56,6 +62,7 @@ func ensureShareListener(home string) {
 			return
 		}
 		_, _ = startShareListener(home, id, priv)
+		startShareDashboard(home)
 	})
 }
 
@@ -95,13 +102,21 @@ func (sl *shareListener) handleConn(conn net.Conn, priv ed25519.PrivateKey) {
 	if err != nil {
 		return
 	}
-	if sl.tryHandleJoin(env, plain) {
+	if sl.applyJoin(conn, env, plain) {
+		return
+	}
+	if env.Kind == "catalog" {
+		sl.handleCatalog(conn, circle, priv, plain)
 		return
 	}
 	var req SyncRequest
 	if err := json.Unmarshal(plain, &req); err != nil {
 		return
 	}
+	circle = rememberSyncPeer(circle, req, conn.RemoteAddr())
+	circle = stampSelfMember(circle, sl.id.DeviceID, sl.selfEndpoint())
+	circle = refreshPeerEndpoints(circle, sl.id.DeviceID)
+	_ = persistJoinedCircle(sl.home, circle)
 	member, ok := circle.activeMember(req.DeviceID)
 	if !ok {
 		return
@@ -155,19 +170,30 @@ func fetchPeerSync(home string, endpoint string, circle Circle, id DeviceIdentit
 	if hookFetchPeerSync != nil {
 		return hookFetchPeerSync(home, endpoint, circle, id, priv, repository, since)
 	}
-	conn, err := hookNetDial("tcp", endpoint, 5*time.Second)
+	return doFetchPeerSyncTimed(home, endpoint, circle, id, priv, repository, since, nil, peerSyncDialTimeout, peerSyncDeadline)
+}
+
+func fetchPeerSyncIDs(home string, endpoint string, circle Circle, id DeviceIdentity, priv ed25519.PrivateKey, repository string, ids []string) (SyncResponse, error) {
+	return doFetchPeerSyncTimed(home, endpoint, circle, id, priv, repository, "", ids, peerIDDialTimeout, peerIDDeadline)
+}
+
+func doFetchPeerSyncTimed(home string, endpoint string, circle Circle, id DeviceIdentity, priv ed25519.PrivateKey, repository string, since string, ids []string, dialTimeout, deadline time.Duration) (SyncResponse, error) {
+	conn, err := hookNetDial("tcp", endpoint, dialTimeout)
 	if err != nil {
 		return SyncResponse{}, err
 	}
 	defer conn.Close()
-	_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
+	_ = conn.SetDeadline(time.Now().Add(deadline))
 
 	req := SyncRequest{
 		DeviceID:   id.DeviceID,
 		CircleID:   circle.ID,
 		Repository: repository,
 		Since:      since,
+		IDs:        ids,
 		Timestamp:  nowRFC3339(),
+		ListenAddr: advertisedListenAddr(),
+		Hostname:   localHostname(),
 	}
 	req, err = signSyncRequest(priv, req)
 	if err != nil {
@@ -209,6 +235,9 @@ func fetchPeerSync(home string, endpoint string, circle Circle, id DeviceIdentit
 	pub, err := decodePublicKey(member.PublicKey)
 	if err != nil || !verifySyncResponse(pub, resp) {
 		return SyncResponse{}, fmt.Errorf("invalid peer signature")
+	}
+	if len(resp.Members) > 0 {
+		_ = mergePeerRoster(home, circle.ID, resp.Members)
 	}
 	return resp, nil
 }

@@ -18,7 +18,7 @@ Each subagent gets only what it needs:
 - applicable auto-run rulings;
 - a small task-scoped Experience Engine slice when available;
 - when the task is frontend-related: paths to `visual-spec.json` and `design-system.visual-spec.json`, plus
-  the subset of binding `microDetails` for that task (not a prose summary).
+  the subset of binding `validation.rules` for that task (not a prose summary).
 
 The subagent inspects current code, follows established architecture, uses TDD for behavior changes, implements,
 verifies, and returns a concise change report. Do not transmit an enormous implementation recipe or the complete historical experience store.
@@ -28,7 +28,7 @@ verifies, and returns a concise change report. Do not transmit an enormous imple
 After each task, review for:
 1. spec compliance;
 2. architectural/design-system consistency;
-3. binding Visual Spec `microDetails` fidelity by category when applicable (motion, navigation, image, icon);
+3. binding Visual Spec 1.0 fidelity by category when applicable (motion, navigation, image, icon via `validation.rules`);
 4. code quality and tests.
 
 Fix findings before downstream tasks rely on the output. Use a fresh reviewer when practical. At the end, run a

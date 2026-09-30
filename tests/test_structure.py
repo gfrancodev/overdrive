@@ -76,24 +76,24 @@ def test_visual_spec_has_fidelity_classification_and_microdetails():
     assert 'reference-exact' in ref
     assert 'project-design-system' in ref
     assert 'wget' in ref
-    assert 'microdetails' in ref
+    assert 'visualspec.dev/schema/1.0/schema.json' in ref
     assert 'visual-spec.json' in ref
     assert 'design-system.visual-spec.json' in ref
 
     assert 'classification gate' in plan or 'frontend classification' in plan
     assert 'reference-exact' in plan
-    assert 'microdetails' in plan
+    assert 'validation.rules' in plan
 
-    assert 'classification' in schema['properties']['meta']['properties']
-    assert 'fidelityMode' in schema['properties']['meta']['properties']
-    assert 'microDetails' in schema['properties']
-    assert 'microDetails' in schema['required']
+    assert schema['$id'] == 'https://visualspec.dev/schema/1.0/schema.json'
+    assert 'visualSpec' in schema['required']
+    assert 'scenes' in schema['properties']
 
     assert ds_schema['title'] == 'Overdrive Design System Visual Specification'
     assert 'microDetails' in ds_schema['properties']
 
-    assert example['meta']['fidelityMode'] == 'reference-exact'
-    assert len(example['microDetails']) >= 3
+    assert example['$schema'] == 'https://visualspec.dev/schema/1.0/schema.json'
+    assert example['extensions']['overdrive.fidelity']['mode'] == 'reference-exact'
+    assert len(example['validation']['rules']) >= 2
 
 
 def test_visual_fidelity_asks_user_but_auto_run_does_not():
@@ -114,12 +114,12 @@ def test_execute_and_verify_obey_visual_spec_json():
     subagent = (ROOT / 'skills/subagent-driven-development/SKILL.md').read_text().lower()
 
     assert 'visual-spec.json' in execute
-    assert 'microdetails' in execute
+    assert 'validation.rules' in execute
     assert 'binding' in execute
-    assert 'microdetails' in verify
+    assert 'validation.rules' in verify
     assert 'reference-exact' in verify
     assert 'visual-spec.json' in subagent
-    assert 'microdetails' in subagent
+    assert 'validation.rules' in subagent
 
 
 def test_auto_run_turns_questions_into_discovery():
@@ -147,11 +147,12 @@ def test_commands_exist():
 def test_visual_spec_schema_is_json():
     path = ROOT / 'skills/plan/references/visual-spec.schema.json'
     schema = json.loads(path.read_text())
-    assert schema['title'] == 'Overdrive Visual Specification'
-    assert 'observed' in schema['properties']
-    assert 'inferred' in schema['properties']
-    assert 'layout' in schema['required']
-    assert 'elements' in schema['required']
+    assert schema['title'] == 'Visual Spec 1.0'
+    assert schema['properties']['$schema']['const'] == 'https://visualspec.dev/schema/1.0/schema.json'
+    assert 'metadata' in schema['required']
+    assert 'profiles' in schema['required']
+    bundle = json.loads((ROOT / 'skills/plan/references/visualspec-1.0.schema.bundle.json').read_text())
+    assert bundle['$id'] == 'https://visualspec.dev/schema/1.0/schema.bundle.json'
 
 
 def test_plugin_manifests_are_overdrive():
@@ -345,25 +346,19 @@ def test_micro_detail_taxonomy_and_extreme_schema_sections():
     assert 'customized' in ref
 
     assert 'motion' in schema['properties']
-    assert 'navigation' in schema['properties']
-    assert 'css' in schema['properties']
-    md = schema['properties']['microDetails']['items']['properties']
-    assert 'category' in md
-    assert 'motion' in md['category']['enum']
-    assert 'icon' in md['category']['enum']
-    assets = schema['properties']['assets']['additionalProperties']['properties']
-    assert 'iconKind' in assets
-    assert 'acquisition' in assets
-    assert 'customized' in assets
+    assert 'assets' in schema['properties']
+    assert 'validation' in schema['properties']
 
     assert 'icons' in ds_schema['properties']
     assert 'navigation' in ds_schema['properties']
 
-    cats = {m['category'] for m in example['microDetails']}
-    assert 'motion' in cats and 'navigation' in cats and 'icon' in cats
-    assert example['assets']['icon-tab-custom']['customized'] is True
-    assert example['assets']['icon-chevron']['iconKind'] == 'library-component'
-    assert len(example['microDetails']) >= 15
+    checklist = example['extensions']['overdrive.checklist']['microDetailCategories']
+    assert 'motion' in checklist and 'navigation' in checklist and 'icon' in checklist
+    icons = {a['id']: a for a in example['assets']}
+    assert icons['asset.icon-tab-custom']['extensions']['overdrive.icon']['customized'] is True
+    assert icons['asset.icon-chevron']['extensions']['overdrive.icon']['iconKind'] == 'library-component'
+    assert len(example['motion']) >= 1
+    assert len(checklist) >= 8
 
 
 def test_no_em_dash_in_package_markdown():

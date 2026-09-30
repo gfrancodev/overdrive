@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+## 1.3.0 - 2026-09-30
+
+### Second brain recall
+
+- `recall` still ranks with FTS5 and TurboVec, then adds one graph hop on a shared path, symbol, concrete error code, or `supersedes` link.
+- The same response includes `page_index`: a repository, folder, kind, and memory branch with a short index card and no lesson body.
+- Generic uppercase words such as `WAL`, `HTTP`, and `FTS` do not become error nodes. `SQLITE_BUSY`, `E500`, and `db.go` do.
+- A memory and its graph nodes commit in one transaction. Catalog import and backfill stay fail-open.
+- ID sync and catalog dials use a short timeout so a dead peer does not hold recall or the circle page.
+- `plan`, `execute-plan`, `auto-run`, `systematic-debugging`, and `AGENTS.md` tell the agent to read `page_index` and `graph_neighbors` before widening recall, and to treat `peer_memories` as colleague evidence. `share: off` and `folder-blocked` stay local-only.
+
+### Shared circle peers
+
+- Each member now stores dial endpoint, remote address, hostname, and last seen time.
+- Accepting an invite exchanges that roster so both machines learn a reachable address.
+- `share listen` on a wildcard bind serves a peer page (`OVERDRIVE_SHARE_UI`, default port listen+1) with `GET /api/peers` and `GET /api/contexts`.
+- The Contexts drawer projects the peer's PageIndex tree. Loose items appear only when that peer has not sent a tree yet.
+- The page uses the Overdrive mark, favicon, and brand color. The panel title is `LAN`.
+
+### Visual Spec 1.0
+
+- `visual-spec.json` now targets the canonical schema at `https://visualspec.dev/schema/1.0/schema.json`
+  (vendored in `skills/plan/references/visual-spec.schema.json` plus offline bundle).
+- Overdrive fidelity, classification, and taxonomy coverage use namespaced `extensions.overdrive.*` keys
+  (`overdrive-visual-extensions.md`).
+- Legacy Overdrive surface schema moved to `overdrive-surface-visual-spec.legacy.schema.json`.
+- Plan, execute, verification, and README docs updated for `validation.rules` and Visual Spec core sections.
+
 ## 1.2.0 - 2026-09-23
 
 ### Shared memory (P2P)

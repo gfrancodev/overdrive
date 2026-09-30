@@ -25,9 +25,9 @@ Include only when visual reasoning is activated (frontend classification gate pa
 - **Artifacts** (binding contracts, not prose substitutes):
   - `visual-spec.json` path
   - `design-system.visual-spec.json` path
-- **Binding microDetails count** and critical regions to verify
+- **Binding validation rule count** and critical regions to verify
 - **Reconciliation** summary when `project-design-system` mode
-- **Taxonomy coverage**: motion, navigation, image, icon categories in `microDetails`
+- **Taxonomy coverage**: motion, navigation, image, icon categories in Visual Spec sections + `extensions.overdrive.checklist`
 
 ## Security / Privacy
 Relevant controls only.

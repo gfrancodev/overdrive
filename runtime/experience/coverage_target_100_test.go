@@ -297,15 +297,7 @@ func TestShareCLIErrorBranches(t *testing.T) {
 	if err := cmdShareListen([]string{"--cwd", repo}); err != nil {
 		t.Fatal(err)
 	}
-
-	started := make(chan struct{})
-	go func() {
-		close(started)
-		hookShareListenWait = nil
-		shareListenWait(&shareListener{})
-	}()
-	<-started
-	time.Sleep(time.Millisecond)
+	hookShareListenWait = func(*shareListener) {}
 
 	id, priv, _ := loadOrCreateIdentity(home)
 	circle, _ := createCircle(home, "team", id, priv)
@@ -321,6 +313,25 @@ func TestShareCLIErrorBranches(t *testing.T) {
 	}
 	if err := cmdShareStatus([]string{"--cwd", repo, "--format", "text"}); err == nil {
 		t.Fatal("share status fail")
+	}
+}
+
+func TestShareListenWaitStops(t *testing.T) {
+	resetHooksForTest()
+	t.Cleanup(resetHooksForTest)
+	shareListenWait(nil)
+	shareListenWait(&shareListener{})
+	sl := &shareListener{stop: make(chan struct{})}
+	done := make(chan struct{})
+	go func() {
+		shareListenWait(sl)
+		close(done)
+	}()
+	close(sl.stop)
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("share listen wait did not return")
 	}
 }
 

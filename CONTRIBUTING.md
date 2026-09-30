@@ -125,7 +125,7 @@ go test -tags=overdrive_fake_ort -cover ./...
 ```
 
 Use `-tags=overdrive_fake_ort` so tests swap the ONNX Runtime FFI for an
-in-process fake session. Coverage should stay above 90% on that path.
+in-process fake session. Coverage of that path must stay at 100%.
 
 Optional real ORT smoke test (downloads models and ORT when needed):
 

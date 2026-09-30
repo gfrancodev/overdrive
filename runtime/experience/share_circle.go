@@ -14,10 +14,14 @@ import (
 )
 
 type CircleMember struct {
-	DeviceID  string `json:"device_id"`
-	PublicKey string `json:"public_key"`
-	AddedAt   string `json:"added_at"`
-	Revoked   bool   `json:"revoked"`
+	DeviceID   string `json:"device_id"`
+	PublicKey  string `json:"public_key"`
+	AddedAt    string `json:"added_at"`
+	Revoked    bool   `json:"revoked"`
+	Endpoint   string `json:"endpoint,omitempty"`
+	RemoteAddr string `json:"remote_addr,omitempty"`
+	Hostname   string `json:"hostname,omitempty"`
+	LastSeen   string `json:"last_seen,omitempty"`
 }
 
 type Circle struct {
@@ -122,6 +126,7 @@ func createCircle(home string, name string, id DeviceIdentity, priv ed25519.Priv
 			PublicKey: id.PublicKey,
 			AddedAt:   now,
 			Revoked:   false,
+			Hostname:  computerName(),
 		}},
 		AllowedFolders: []string{},
 		PeerEndpoints:  []string{},
@@ -222,10 +227,10 @@ func acceptInvite(home string, code string, fingerprint string, endpoint string,
 			Name:            invite.CircleName,
 			GroupKey:        invite.GroupKey,
 			CreatorDeviceID: invite.CreatorID,
-			Members:           []CircleMember{},
-			AllowedFolders:    []string{},
-			PeerEndpoints:     []string{},
-			CreatedAt:         nowRFC3339(),
+			Members:         []CircleMember{},
+			AllowedFolders:  []string{},
+			PeerEndpoints:   []string{},
+			CreatedAt:       nowRFC3339(),
 		}
 		// copy creator as member if new local circle file
 		c.Members = append(c.Members, CircleMember{
@@ -237,16 +242,29 @@ func acceptInvite(home string, code string, fingerprint string, endpoint string,
 			DeviceID: id.DeviceID, PublicKey: id.PublicKey, AddedAt: nowRFC3339(), Revoked: false,
 		})
 	}
-	if endpoint != "" && !containsString(c.PeerEndpoints, endpoint) {
-		c.PeerEndpoints = append(c.PeerEndpoints, endpoint)
+	host := computerName()
+	selfEndpoint := advertisedListenAddr()
+	if selfEndpoint == strings.TrimSpace(endpoint) {
+		selfEndpoint = ""
 	}
+	c = stampSelfMember(c, id.DeviceID, selfEndpoint)
+	if host != "" {
+		c = stampMemberHostname(c, id.DeviceID, host)
+	}
+	if endpoint != "" {
+		c = stampMemberEndpoint(c, invite.CreatorID, endpoint, "")
+	}
+	c = refreshPeerEndpoints(c, id.DeviceID)
 	if err := c.signMemberList(priv); err != nil {
 		return Circle{}, err
 	}
 	if err := saveCircle(home, c); err != nil {
 		return Circle{}, err
 	}
-	_ = notifyPeerJoin(invite, endpoint, id, priv)
+	_, _ = exchangeJoin(home, invite, endpoint, id, priv)
+	if updated, err := loadCircle(home, c.ID); err == nil {
+		c = updated
+	}
 	_ = os.Remove(path)
 	return c, nil
 }

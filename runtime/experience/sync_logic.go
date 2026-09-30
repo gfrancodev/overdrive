@@ -61,9 +61,38 @@ func memoryEligibleForSync(m Memory, since, projectRoot string, circle Circle) b
 }
 
 func buildSyncPackets(memories []Memory, since string, circle Circle, project Project) []SharedPacket {
+	return buildSyncPacketsForIDs(memories, since, nil, circle, project)
+}
+
+func requestedSyncIDSet(ids []string) map[string]bool {
+	if len(ids) == 0 {
+		return nil
+	}
+	out := map[string]bool{}
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			out[id] = true
+		}
+	}
+	return out
+}
+
+func buildSyncPacketsForIDs(memories []Memory, since string, ids []string, circle Circle, project Project) []SharedPacket {
+	want := requestedSyncIDSet(ids)
 	packets := []SharedPacket{}
 	for _, m := range memories {
-		if !memoryEligibleForSync(m, since, project.Root, circle) {
+		if want != nil {
+			if !want[m.ID] {
+				continue
+			}
+			if !m.HotIndex || m.Layer != 2 {
+				continue
+			}
+			if !folderAllowed(circle, memorySyncFolder(m, project.Root)) {
+				continue
+			}
+		} else if !memoryEligibleForSync(m, since, project.Root, circle) {
 			continue
 		}
 		folder := memorySyncFolder(m, project.Root)

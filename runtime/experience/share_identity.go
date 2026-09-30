@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/ed25519"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -22,6 +21,10 @@ type DeviceIdentity struct {
 func shareDir(home string) string {
 	return filepath.Join(home, "share")
 }
+
+type randHookReader struct{}
+
+func (randHookReader) Read(p []byte) (int, error) { return hookRandRead(p) }
 
 func identityPath(home string) string {
 	return filepath.Join(shareDir(home), "identity.json")
@@ -47,7 +50,7 @@ func loadOrCreateIdentity(home string) (DeviceIdentity, ed25519.PrivateKey, erro
 		priv := ed25519.PrivateKey(privBytes)
 		return id, priv, nil
 	}
-	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	pub, priv, err := ed25519.GenerateKey(randHookReader{})
 	if err != nil {
 		return DeviceIdentity{}, nil, err
 	}

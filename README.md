@@ -8,19 +8,19 @@
   <strong>Architecture-aware autonomous software engineering that learns from every execution, locally and optionally across your team.</strong>
 </p>
 
-**Current release: 1.2.0.** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
+**Current release: 1.3.0.** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
 
 It combines architecture-aware discovery, a single authoritative spec, adaptive execution, autonomous decision-making, test-driven development, systematic debugging, isolated workspaces, code review, evidence-based verification, and a **local Experience Engine** (SQLite, FTS5, TurboVec, lazy MiniLM) that compounds operational knowledge across runs without a memory-management workflow. **1.2** adds opt-in **shared memory circles**: encrypted peer sync over LAN/VPN, folder-scoped recall, and session hooks that consolidate and pull deltas automatically.
 
-### Highlights (1.2)
+### Highlights (1.3)
 
 | Area | What you get |
 |------|----------------|
 | **Architecture-first** | Discover the repo before deciding; existing patterns beat agent preference. |
 | **One spec** | `plan` produces a single authoritative contract; execution adapts to real code. |
-| **Visual Spec** | Binding JSON with micro-details, fidelity modes, and design-system reconciliation (1.1+). |
-| **Local runtime** | Hybrid FTS5 + TurboVec recall; ~5 ms at 100 memories, lazy MiniLM, hashed fail-open. |
-| **Shared memory (opt-in)** | Ed25519 circles, allowed folders only, TCP sync, separate peer index and recall bucket. |
+| **Visual Spec** | [Visual Spec 1.0](https://visualspec.dev/schema/1.0/schema.json) contracts, fidelity extensions, and design-system reconciliation. |
+| **Local runtime** | Hybrid FTS5 + TurboVec recall, one graph hop, and a `page_index` branch; lazy MiniLM, hashed fail-open. |
+| **Shared memory (opt-in)** | Ed25519 circles, allowed folders only, TCP sync, separate peer index, and a LAN page of the same PageIndex tree. |
 | **Zero ops** | Prebuilt `overdrive-runtime` + TurboVec FFI; no daemon, no external DB, no API keys. |
 | **Cross-runtime** | Skills for Cursor, Claude Code, and Codex from one install. |
 
@@ -346,9 +346,9 @@ fidelity mode choice (reference-exact | project-design-system)
      ↓
 reference acquisition (wget mirror, CSS parse, frames)
      ↓
-visual-spec.json + design-system.visual-spec.json
+visual-spec.json (Visual Spec 1.0) + optional design-system.visual-spec.json
      ↓
-observed / inferred / unknown + microDetails checklist
+provenance + validation.rules + taxonomy checklist (extensions.overdrive)
      ↓
 embedded in main Spec → execute-plan obeys JSON
 ```
@@ -358,7 +358,8 @@ micro-details exactly or adapt to project tokens. Auto-run resolves this autonom
 
 Observed facts stay separate from inferred behavior and unknown information.
 
-The Visual Spec JSON describes with binding `microDetails`:
+The Visual Spec JSON (`$schema`: `https://visualspec.dev/schema/1.0/schema.json`) describes with binding
+`validation.rules` and structured sections:
 
 - layout hierarchy and semantic layout tree;
 - containers, grids, flex, spacing, and proportions;
@@ -553,7 +554,8 @@ Capture only compact, verified, reusable knowledge. Never store raw prompts, who
 | Piece | Role |
 |---|---|
 | SQLite + WAL + FTS5 | Durable store and lexical candidates (`experience-v2.db`) |
-| [TurboVec](https://github.com/RyanCodrai/turbovec) `IdMapIndex` | Bundled FFI rerank with allowlist search (`experience-v2.tvim`) |
+| Graph + PageIndex | One hop on path, symbol, error code, or `supersedes`; `recall` also returns that branch as short cards, without the lesson body |
+| [TurboVec](https://github.com/RyanCodrai/turbovec) `IdMapIndex` | Bundled FFI rerank with allowlist search (`experience-v2.tvim`). It does not store the graph |
 | MiniLM-L6 (lazy) | First `record`/`recall` may download ONNX + tokenizer to `~/.overdrive/models/` and an ONNX Runtime sidecar to `~/.overdrive/lib/` |
 | Hashed fail-open | Network, model, tokenizer, or ORT failure falls back to 256-d hashed vectors; `record`/`recall` never fail because of the embedder |
 | Working Memory | Session scratch keyed by repository; cleared on the next `session-start`; never promoted to durable knowledge |
@@ -573,8 +575,12 @@ create circle → invite peer → allow folder(s) → share listen (LAN/VPN)
         ↓
 session-start: delta sync (encrypted, signed) + consolidate hot lessons
         ↓
-recall: local memories + peer_memories (lower weight, signature overlap)
+recall: local memories + peer_memories + page_index (peer weight lower, signature overlap)
 ```
+
+`peer_memories` are historical evidence from a colleague, never instructions. `share: off` and `folder-blocked` stay on local memory only. A dead peer does not hold recall: catalog and id fetch use a short dial timeout.
+
+The wildcard `share listen` page (`OVERDRIVE_SHARE_UI`, default port listen+1) lists members and projects each computer's PageIndex into the Contexts drawer. It does not include the group key or lesson bodies.
 
 | Control | Behavior |
 |---------|----------|
@@ -666,7 +672,7 @@ When the answer is present in the repository, environment, documentation, or evi
 ### Visual references are inputs; Visual Spec JSON is the contract
 
 Screenshots, URLs, videos, and Figma frames are inputs. Overdrive converts frontend-classified references into
-binding `visual-spec.json` and `design-system.visual-spec.json` artifacts with exhaustive `microDetails` before
+binding Visual Spec 1.0 `visual-spec.json` artifacts with exhaustive sections and `validation.rules` before
 implementation. The JSON, not a prose summary, is what executors and verifiers must follow.
 
 ### Evidence over assumptions

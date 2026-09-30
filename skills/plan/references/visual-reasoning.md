@@ -3,12 +3,23 @@
 Activate this reference when the request includes **any** visual input: screenshot, image, video, URL, HTML file,
 Figma link, or instruction like "make it look like this site."
 
-A reference is an **input**. The **Visual Spec JSON** is the **binding implementation contract**. Any competent
-agent implementing frontend work must follow `microDetails` and binding token/element values. Do not reinterpret
-the reference from prose summaries.
+A reference is an **input**. The **Visual Spec JSON** is the **binding implementation contract** under
+[Visual Spec 1.0](https://visualspec.dev/schema/1.0/schema.json). Any competent agent implementing frontend
+work must follow scenes, components, tokens, motion, assets, semantics, and binding `validation` rules. Do not
+reinterpret the reference from prose summaries.
 
-Read `visual-spec.schema.json`, `design-system.visual-spec.schema.json`, `micro-detail-taxonomy.md`, and
-`visual-spec.example.json` before producing specs.
+Every artifact must declare:
+
+```json
+{
+  "$schema": "https://visualspec.dev/schema/1.0/schema.json",
+  "visualSpec": "1.0"
+}
+```
+
+Read `visual-spec.schema.json` (vendored root schema), `overdrive-visual-extensions.md`,
+`design-system.visual-spec.schema.json`, `micro-detail-taxonomy.md`, and `visual-spec.example.json` before
+producing specs. Validate with `visualspec-1.0.schema.bundle.json` when tooling requires an offline bundle.
 
 ## Step 0: Mandatory frontend classification gate
 
@@ -22,7 +33,7 @@ Before treating a reference as generic context, classify it:
 | Architecture diagrams, logs, terminal output, photos without UI chrome | `not-frontend` |
 | Ambiguous crop or partial frame | `uncertain` |
 
-Record in `meta.classification`:
+Record in `extensions.overdrive.classification`:
 
 ```json
 {
@@ -62,7 +73,7 @@ Map answers to:
 - **`project-design-system`**: map reference intent to project tokens/components; every substitution goes in
   `reconciliation` with `referenceValue`, `projectToken`, `path`, and `rationale`.
 
-When **no** project design system exists: set `fidelityMode` to `reference-exact` and
+When **no** project design system exists: set `extensions.overdrive.fidelity.mode` to `reference-exact` and
 `designSystemChoice.method` to `no-project-design-system`. Do not ask.
 
 ### Auto-run policy
@@ -94,7 +105,7 @@ Rules:
 
 - Shallow depth: HTML, CSS, images, and fonts referenced by the page, not the whole domain.
 - **Never execute** downloaded JavaScript; use HTML/CSS and visual measurement only.
-- Record paths in `meta.sources` (`type: wget-mirror`, `localPath`, `assetDir`).
+- Record paths in `sources` / `visualReferences` (`kind`, `uri`, `localPath` when mirrored).
 - Parse CSS for colors, fonts, spacing, radii, shadows, transitions, keyframes; cross-check against screenshot/render when available.
 - If the page is a JS-only shell with no meaningful static markup, record in `unknown` and fall back to
   browser render + screenshot for extraction.
@@ -143,12 +154,12 @@ Required `assets` fields for icons: `iconKind`, `customized`, `library`, `iconNa
 
 ## Step 4: Extract micro-detail into structured JSON
 
-Produce **two artifacts** when classification is frontend-related:
+Produce **one or two artifacts** when classification is frontend-related:
 
-1. **`visual-spec.json`** (surface): follows `visual-spec.schema.json`
-2. **`design-system.visual-spec.json`**: follows `design-system.visual-spec.schema.json`
-   - `meta.origin: reference` when extracting tokens from the reference (`reference-exact`)
-   - `meta.origin: project` when snapshotting the repo design system (`project-design-system`)
+1. **`visual-spec.json`**: Visual Spec 1.0 (`$schema` URL above). Use `tokens`, `components`, `scenes`,
+   `motion`, `assets`, `validation`, and `provenance` for binding fidelity.
+2. **`design-system.visual-spec.json`** (optional companion): follows `design-system.visual-spec.schema.json`
+   when a separate project token snapshot is required. Link via `extensions.overdrive.fidelity.designSystemSpecPath`.
 
 Default location: `.overdrive/visual-sources/<slug>/` or a path recorded in the main spec.
 
@@ -196,10 +207,14 @@ Never present inferred mobile behavior, hover states, or interactions as observe
 Build a **semantic layout tree** (`layout.root`). For each element capture typography, color, borders, shadows,
 motion-related properties, asset refs, and neighbor relations.
 
-### microDetails checklist
+### Micro-detail checklist (taxonomy → Visual Spec)
 
-Every load-bearing visual property must appear in `microDetails` with `category` from the taxonomy.
-`binding: true` means implementers **must not** silently change the value.
+Map each taxonomy category to Visual Spec sections: layout and typography in `scenes`/`components`;
+`css` and computed values in `provenance` + `validation`; `motion` in `motion`; `navigation` in
+`flows`/`states`; `image`/`icon` in `assets` (use `extensions.overdrive.icon` for icon metadata).
+
+Every load-bearing property needs a `validation.rules[]` entry with `binding: true` when implementers
+**must not** silently change the value. Summarize category coverage in `extensions.overdrive.checklist`.
 
 ## Step 5: Reconcile with project design system (conditional)
 
@@ -213,13 +228,13 @@ Define in `states`, `responsive`, `interactions`, `accessibility` where relevant
 
 ## Step 7: Embed in the main spec
 
-Include paths to JSON artifacts, `fidelityMode`, binding `microDetails` count, and taxonomy coverage summary.
-Do **not** replace JSON with prose-only description.
+Include paths to JSON artifacts, `extensions.overdrive.fidelity.mode`, binding `validation.rules` count, and
+taxonomy coverage in `extensions.overdrive.checklist`. Do **not** replace JSON with prose-only description.
 
 ## Step 8: Verification contract
 
 1. Render at required viewports.
-2. Compare each `microDetails` entry with `binding: true` by category (see taxonomy).
+2. Compare each `validation.rules` entry with `binding: true` by category (see taxonomy).
 3. For motion/navigation: replay interactions; duration/easing within ±16ms tolerance when specified.
 4. For image/icon: verify dimensions, color, stroke, position; custom icons must match reference asset.
 5. In `reference-exact`, reject token rounding. In `project-design-system`, verify `reconciliation`.

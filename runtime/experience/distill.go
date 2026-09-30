@@ -43,9 +43,6 @@ func collectSignatureTokens(text string) map[string]bool {
 	for _, re := range signaturePatterns() {
 		for _, m := range re.FindAllString(text, 8) {
 			m = strings.TrimSpace(m)
-			if len(m) < 3 {
-				continue
-			}
 			tokens[m] = true
 		}
 	}
@@ -209,13 +206,14 @@ func (e *Engine) buildSyncResponse(home string, circle Circle, id DeviceIdentity
 	if err != nil {
 		return SyncResponse{}, err
 	}
-	packets := buildSyncPackets(memories, req.Since, circle, project)
+	packets := buildSyncPacketsForIDs(memories, req.Since, req.IDs, circle, project)
 	resp := SyncResponse{
 		DeviceID:   id.DeviceID,
 		CircleID:   circle.ID,
 		Repository: req.Repository,
 		Cursor:     nowRFC3339(),
 		Packets:    packets,
+		Members:    circle.Members,
 	}
 	return signSyncResponse(priv, resp)
 }

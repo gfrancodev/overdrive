@@ -158,6 +158,7 @@ func (e *Engine) initSchema() error {
 			started_at TEXT NOT NULL
 		)`,
 	}
+	stmts = append(stmts, graphSchemaStmts()...)
 	for _, s := range stmts {
 		if _, err := e.db.Exec(s); err != nil {
 			return err
@@ -194,6 +195,7 @@ func (e *Engine) migrateSchema() error {
 		}
 	}
 	_, _ = e.db.Exec(`UPDATE meta SET value = ? WHERE key = 'schema'`, schemaVersion)
+	e.backfillGraph()
 	return nil
 }
 
@@ -286,7 +288,11 @@ func (e *Engine) listActiveMemories() ([]Memory, error) {
 	return out, rows.Err()
 }
 
-func (e *Engine) upsertMemory(m Memory) error {
+func defaultSQLCommit(tx *sql.Tx) error { return tx.Commit() }
+
+var hookSQLCommit = defaultSQLCommit
+
+func (e *Engine) persistMemory(m Memory, extra []GraphEdge) error {
 	normalizeMemoryScope(&m)
 	if m.Origin == "" {
 		m.Origin = "local"
@@ -299,7 +305,15 @@ func (e *Engine) upsertMemory(m Memory) error {
 	if m.EvidenceScore == 0 {
 		m.EvidenceScore = evidenceScore(m)
 	}
-	_, err := e.db.Exec(`INSERT INTO memories(
+	if e.db == nil {
+		return errGraphStoreUnavailable
+	}
+	tx, err := e.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`INSERT INTO memories(
 		id, vector_id, kind, scope, scope_id, subject, content, confidence, priority, status,
 		source, source_ref, evidence, success_count, failure_count, evidence_score,
 		created_at, updated_at, last_validated_at,
@@ -317,8 +331,13 @@ func (e *Engine) upsertMemory(m Memory) error {
 		m.Source, m.SourceRef, m.Evidence, m.SuccessCount, m.FailureCount, m.EvidenceScore,
 		m.CreatedAt, m.UpdatedAt, m.LastValidatedAt,
 		m.Origin, m.PeerDeviceID, m.CircleID, m.Layer, m.PacketContent, m.ProblemSignature, m.SourceFolder, m.VectorSpace, boolToInt(m.HotIndex),
-	)
-	if err != nil {
+	); err != nil {
+		return err
+	}
+	if err := syncMemoryGraphOn(tx, m, extra); err != nil {
+		return err
+	}
+	if err := hookSQLCommit(tx); err != nil {
 		return err
 	}
 	indexText := m.PacketContent
@@ -340,30 +359,45 @@ func (e *Engine) upsertMemory(m Memory) error {
 	return nil
 }
 
+func (e *Engine) upsertMemory(m Memory) error {
+	return e.persistMemory(m, nil)
+}
+
 func (e *Engine) deleteMemory(id string) error {
 	if hookDeleteMemory != nil {
 		return hookDeleteMemory(e, id)
 	}
-	m, err := e.getMemory(id)
-	if err == nil {
+	if e == nil || e.db == nil {
+		return errGraphStoreUnavailable
+	}
+	m, getErr := e.getMemory(id)
+	tx, err := e.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM memories WHERE id = ?`, id); err != nil {
+		return err
+	}
+	if err := removeMemoryGraphOn(tx, id); err != nil {
+		return err
+	}
+	if err := hookSQLCommit(tx); err != nil {
+		return err
+	}
+	if getErr == nil {
 		if m.Origin == "peer" && e.tvPeer != nil && e.tvPeer.Available() {
 			e.tvPeer.Remove(id)
+			e.tvPeer.Sync()
 		} else if e.tv != nil && e.tv.Available() {
 			e.tv.Remove(id)
+			e.tv.Sync()
 		}
 	} else if e.tv != nil && e.tv.Available() {
 		e.tv.Remove(id)
+		e.tv.Sync()
 	}
-	_, err = e.db.Exec(`DELETE FROM memories WHERE id = ?`, id)
-	if err == nil {
-		if e.tv != nil && e.tv.Available() {
-			e.tv.Sync()
-		}
-		if e.tvPeer != nil && e.tvPeer.Available() {
-			e.tvPeer.Sync()
-		}
-	}
-	return err
+	return nil
 }
 
 func (e *Engine) ftsCandidates(query string, project Project, limit int) ([]string, map[string]float64, error) {
@@ -626,6 +660,7 @@ func (e *Engine) startSession(project Project) (string, error) {
 		_ = e.consolidateSession(project, circle)
 	}
 	_ = e.syncCirclePeers(project)
+	e.importPeerCatalogs(project)
 	e.sessionID = sessionID
 	return sessionID, nil
 }
@@ -662,7 +697,12 @@ func (e *Engine) listWorkingMemory(project Project) ([]Memory, error) {
 	out := []Memory{}
 	for rows.Next() {
 		var m Memory
-		if err := rows.Scan(&m.Kind, &m.Subject, &m.Content, &m.CreatedAt); err != nil {
+		if hookRowsScanErr != nil {
+			err = hookRowsScanErr
+		} else {
+			err = rows.Scan(&m.Kind, &m.Subject, &m.Content, &m.CreatedAt)
+		}
+		if err != nil {
 			return nil, err
 		}
 		m.Scope = "session"
@@ -782,13 +822,48 @@ func (e *Engine) recall(project Project, query string, limit int, layer string) 
 	if wm == nil {
 		wm = []Memory{}
 	}
+	hitIDs := []string{}
+	seenHits := map[string]bool{}
+	for _, m := range append(append([]Memory{}, regular...), critical...) {
+		hitIDs = append(hitIDs, m.ID)
+		seenHits[m.ID] = true
+	}
+	for _, m := range peerMemories {
+		hitIDs = append(hitIDs, m.ID)
+		seenHits[m.ID] = true
+	}
+	var graphNeighbors []Memory
+	var pageIndex []PageIndexNode
+	var graphEdges []GraphEdge
+	if q != "" && len(hitIDs) > 0 {
+		neighborIDs := e.graphNeighborIDs(hitIDs)
+		graphNeighbors = e.loadGraphNeighborMemories(neighborIDs, seenHits, project)
+		branchIDs := append(append([]string{}, hitIDs...), neighborIDs...)
+		pageIndex, graphEdges = e.pageIndexBranch(branchIDs)
+		missing := e.unresolvedPageIndexIDs(pageIndex, q)
+		e.fetchMissingPeerPackets(project, missing)
+		graphNeighbors = append(graphNeighbors, e.loadGraphNeighborMemories(missing, seenHits, project)...)
+		pageIndex, graphEdges = e.pageIndexBranch(append(branchIDs, missing...))
+	}
+	if graphNeighbors == nil {
+		graphNeighbors = []Memory{}
+	}
+	if pageIndex == nil {
+		pageIndex = []PageIndexNode{}
+	}
+	if graphEdges == nil {
+		graphEdges = []GraphEdge{}
+	}
 	return RecallResponse{
-		Project:       project,
-		Memories:      regular,
-		PeerMemories:  peerMemories,
-		CriticalRules: critical,
-		WorkingMemory: wm,
-		Backend:       backendName,
+		Project:        project,
+		Memories:       regular,
+		PeerMemories:   peerMemories,
+		CriticalRules:  critical,
+		WorkingMemory:  wm,
+		GraphNeighbors: graphNeighbors,
+		PageIndex:      pageIndex,
+		GraphEdges:     graphEdges,
+		Backend:        backendName,
 	}, nil
 }
 
@@ -901,7 +976,11 @@ func (e *Engine) validateMemory(id, result, winnerNote, replacesID string) (Memo
 	m.UpdatedAt = now
 	m.LastValidatedAt = now
 	m.EvidenceScore = evidenceScore(m)
-	if err := e.upsertMemory(m); err != nil {
+	var extra []GraphEdge
+	if result == "contradiction" && strings.TrimSpace(replacesID) != "" {
+		extra = []GraphEdge{{Src: graphMemoryNodeID(replacesID), Dst: graphMemoryNodeID(id), Kind: "supersedes"}}
+	}
+	if err := e.persistMemory(m, extra); err != nil {
 		return Memory{}, err
 	}
 	return m, nil
@@ -935,7 +1014,12 @@ func (e *Engine) ledgerList(project Project, runID string) ([]LedgerEntry, error
 	out := []LedgerEntry{}
 	for rows.Next() {
 		var e LedgerEntry
-		if err := rows.Scan(&e.ID, &e.RunID, &e.Decision, &e.Evidence, &e.Reason, &e.Risk, &e.Reversibility, &e.CreatedAt); err != nil {
+		if hookRowsScanErr != nil {
+			err = hookRowsScanErr
+		} else {
+			err = rows.Scan(&e.ID, &e.RunID, &e.Decision, &e.Evidence, &e.Reason, &e.Risk, &e.Reversibility, &e.CreatedAt)
+		}
+		if err != nil {
 			return nil, err
 		}
 		out = append(out, e)
