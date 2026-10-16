@@ -10,6 +10,7 @@ import sys
 import unicodedata
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "runtime/experience/dashboard/emojis.json"
@@ -26,7 +27,14 @@ def load_fully_qualified(source: str | None) -> dict:
     if source:
         text = Path(source).read_text(encoding="utf-8")
     else:
-        with urllib.request.urlopen(EMOJI_TEST_URL, timeout=30) as resp:
+        parsed = urlparse(EMOJI_TEST_URL)
+        if parsed.scheme != "https" or parsed.netloc != "unicode.org":
+            raise ValueError(f"refusing unexpected emoji test URL: {EMOJI_TEST_URL}")
+        req = urllib.request.Request(
+            EMOJI_TEST_URL,
+            headers={"User-Agent": "overdrive-generate-emojis-json/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
             text = resp.read().decode("utf-8")
     out = {}
     for line in text.splitlines():

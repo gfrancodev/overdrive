@@ -122,7 +122,8 @@ def test_call_events_and_terminal_session_api(share_ui):
     base, mesh_id, repo = share_ui
     status, events = http_json("GET", f"{base}/api/call/events?mesh_id={mesh_id}&since=0")
     assert status == 200
-    assert "events" in events and "seq" in events
+    assert "events" in events
+    assert "seq" in events
 
     status, created = http_json(
         "POST",

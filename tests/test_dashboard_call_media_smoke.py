@@ -63,8 +63,6 @@ def wait_peer_ready(base: str, timeout: float = 45.0) -> str:
 
 
 def wait_http(url: str, timeout: float = 15.0) -> None:
-    import urllib.request
-
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:

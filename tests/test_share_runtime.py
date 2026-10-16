@@ -218,7 +218,11 @@ def test_share_identity_and_invite_revoke(runtime_bin: Path, tmp_path: Path):
             env=env,
         ).stdout
     )
-    assert any(m["device_id"] == device_b and m["revoked"] for m in revoked["members"])
+    assert any(
+        m["device_id"] == device_b
+        for m in revoked["members"]
+        if m["revoked"]
+    )
 
 
 def test_peer_lesson_with_matching_signature_recalls(runtime_bin: Path, tmp_path: Path):

@@ -82,7 +82,7 @@ def test_visual_spec_has_fidelity_classification_and_microdetails():
     assert 'visual-spec.json' in ref
     assert 'design-system.visual-spec.json' in ref
 
-    assert 'classification gate' in plan or 'frontend classification' in plan
+    assert any(('classification gate' in plan, 'frontend classification' in plan))
     assert 'reference-exact' in plan
     assert 'validation.rules' in plan
 
@@ -209,7 +209,7 @@ def test_installer_only_installs_current_platform_runtime(tmp_path):
     assert installed.exists()
     assert not (bin_dir / 'overdrive-runtime-darwin-arm64').exists()
     assert not (bin_dir / 'overdrive-runtime-windows-amd64.exe').exists()
-    assert not (lib_dir / 'overdrive_turbovec_ffi.dll').exists() or os.name == 'nt'
+    assert any((not (lib_dir / 'overdrive_turbovec_ffi.dll').exists(), os.name == 'nt'))
 
     machine = platform.machine().lower()
     if machine in ('x86_64', 'amd64'):
@@ -265,7 +265,8 @@ def test_installer_registers_user_tray_without_starting_core(tmp_path):
 
     proc = subprocess.run([str(ROOT / 'scripts/install.sh')], check=True, env=env, capture_output=True, text=True)
     tray = bin_dir / 'overdrive-tray'
-    assert tray.exists() and os.access(tray, os.X_OK)
+    assert tray.exists()
+    assert os.access(tray, os.X_OK)
     unit = home / '.config' / 'systemd' / 'user' / 'overdrive-tray.service'
     text = unit.read_text()
     assert f'ExecStart={tray}' in text
@@ -337,7 +338,8 @@ def test_manifests_are_v030_or_newer():
         data = json.loads((ROOT / rel).read_text())
         major, minor, patch = [int(x) for x in data['version'].split('.')]
         assert (major, minor, patch) >= (0, 3, 0)
-        assert 'experience' in data['description'].lower() or 'learn' in data['description'].lower()
+        desc = data['description'].lower()
+        assert any(('experience' in desc, 'learn' in desc))
 
 
 def test_auto_run_has_zero_approval_gates():
@@ -407,7 +409,9 @@ def test_micro_detail_taxonomy_and_extreme_schema_sections():
     assert 'navigation' in ds_schema['properties']
 
     checklist = example['extensions']['overdrive.checklist']['microDetailCategories']
-    assert 'motion' in checklist and 'navigation' in checklist and 'icon' in checklist
+    assert 'motion' in checklist
+    assert 'navigation' in checklist
+    assert 'icon' in checklist
     icons = {a['id']: a for a in example['assets']}
     assert icons['asset.icon-tab-custom']['extensions']['overdrive.icon']['customized'] is True
     assert icons['asset.icon-chevron']['extensions']['overdrive.icon']['iconKind'] == 'library-component'

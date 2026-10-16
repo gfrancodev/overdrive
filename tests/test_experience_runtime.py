@@ -691,7 +691,8 @@ def test_terminal_dashboard_mounts_xterm_after_pane_attach():
     assert 'setOption("theme"' in js
     assert "--term-bg-opacity" in css
     assert "term-opacity-slider" in css
-    assert "term-inspector-group" in css and "SF Pro Text" in css
+    assert "term-inspector-group" in css
+    assert "SF Pro Text" in css
     assert "term-layout--inspector" in css
     assert 'id="termBgOpacity"' in shell
     assert "termBgOpacityValue" in shell
