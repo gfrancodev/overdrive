@@ -446,10 +446,6 @@ async function terminalCreateErrorDetail(res) {
   return detail;
 }
 
-async function runSequential(items, step) {
-  await items.reduce((chain, item) => chain.then(() => step(item)), Promise.resolve());
-}
-
 function createLiveSessions(deps) {
   const FRAME = {
     OUTPUT: 1,
