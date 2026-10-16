@@ -25,6 +25,14 @@ It combines architecture-aware discovery, a single authoritative spec, adaptive 
 | **Terminals** | Managed sessions, remote attach, context bundles, and shared workspace artifacts for harness handoff. |
 | **Production CI** | Node signaling contract tests, Playwright fake-media smoke, SonarCloud, and an 82% Go coverage gate (excl. PTY supervisor). |
 
+<p align="center">
+  <a href="#mesh-dashboard-in-action">
+    <img src="docs/demo/mesh-dashboard.gif" alt="Overdrive mesh dashboard: chat, live terminal, and voice call between two peers on a circle" width="720">
+  </a>
+</p>
+
+<p align="center"><em>Mesh dashboard with <code>share listen</code> (local demo). <a href="#mesh-dashboard-in-action">How to run it</a>.</em></p>
+
 ### Highlights (1.3)
 
 | Area | What you get |
@@ -45,6 +53,7 @@ Overdrive is not a replacement for other agent methodologies. [Superpowers](http
 
 - [How it works](#how-it-works)
 - [Why Overdrive](#why-overdrive)
+- [Mesh dashboard in action](#mesh-dashboard-in-action)
 - [Installation](#installation)
   - [Cross-runtime skills](#cross-runtime-skills)
   - [Claude Code](#claude-code)
@@ -223,6 +232,34 @@ Overdrive includes Cursor plugin metadata under:
 ```
 
 Clone the repo, run `./scripts/install.sh`, and install the plugin from the repository checkout in Cursor. The `.cursor-plugin/` manifest, skills, commands, and hooks ship with the repo.
+
+## Mesh dashboard in action
+
+With `share listen` running, Overdrive serves the **mesh dashboard** on `OVERDRIVE_SHARE_UI` (by default, the listen port plus one). Two peers on the same circle see encrypted chat, WebRTC voice calls, live terminals, and shared workspace context in the browser. No cloud relay is required on a LAN or VPN.
+
+<p align="center">
+  <img src="docs/demo/mesh-dashboard.gif" alt="Overdrive mesh dashboard: messages, terminal, and voice call between two peers" width="720">
+</p>
+
+Minimal loop on one machine (second peer can be another laptop on the same circle):
+
+```bash
+export OVERDRIVE_HOME=~/.overdrive          # or a temp dir for a dry run
+overdrive-runtime share circle create --name my-team
+overdrive-runtime share circle folder-add --circle <id> --folder /path/to/your/repo
+overdrive-runtime share listen --cwd /path/to/your/repo
+# open http://127.0.0.1:<listen-port+1>/ in the browser
+```
+
+Invite a second device with `share circle invite` / `share circle accept`, then use Messages, Terminal, and Call from the launcher. The GIF above was captured locally with Playwright (fake media, two `share listen` processes).
+
+Regenerate the demo asset:
+
+```bash
+./docs/demo/generate-mesh-ui-demo.sh   # needs Go, Playwright Chromium, ffmpeg
+```
+
+For **CLI-only** Experience Engine use (`record` / `recall` without the dashboard), see `docs/demo/isolated-usage.cast` and `./docs/demo/generate-isolated-demo.sh`.
 
 ## The Basic Workflow
 

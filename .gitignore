@@ -13,6 +13,9 @@ runtime/experience/*.exe
 runtime/bin/overdrive-tray*
 runtime/experience/experience
 runtime/experience/experience.test
+runtime/experience/.demo-overdrive-runtime
+docs/demo/.isolated-home/
+docs/demo/sample-repo/
 coverage.out
 runtime/experience/dashboard-js-coverage.lcov
 bin/

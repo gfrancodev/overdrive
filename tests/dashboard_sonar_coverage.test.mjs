@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const sharedMjs = join(root, "runtime/experience/dashboard/dashboard-shared.mjs");
 const appMjs = join(root, "runtime/experience/dashboard/app.mjs");
 const callMjs = join(root, "runtime/experience/dashboard/call.mjs");
 const terminalMjs = join(root, "runtime/experience/dashboard/terminal.mjs");
@@ -65,7 +66,7 @@ test("app invite helpers", async () => {
   const {
     setInviteCopyStatus,
     circleInviteErrorMessage,
-  } = await import(pathToFileURL(appMjs).href);
+  } = await import(pathToFileURL(sharedMjs).href);
 
   const status = { textContent: "" };
   setInviteCopyStatus(status, true, "soon");

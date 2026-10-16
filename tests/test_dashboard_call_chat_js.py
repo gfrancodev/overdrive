@@ -1370,13 +1370,16 @@ def test_machines_dedupe_and_forget_filters():
 
 
 def test_boot_reads_roster_and_alive_without_temporal_dead_zone():
+    shared = (ROOT / "runtime/experience/dashboard/dashboard-shared.mjs").read_text(encoding="utf-8")
     app = (ROOT / "runtime/experience/dashboard/app.mjs").read_text(encoding="utf-8")
-    wiring = app.index("const meshChat = createMeshChat")
-    assert wiring > 0
-    assert "const roster" not in app
-    assert "const alive" not in app
-    assert app.index("function roster(") != -1
-    assert app.index("function alive(") != -1
+    go = (ROOT / "runtime/experience/share_dashboard.go").read_text(encoding="utf-8")
+    assert "dashboardSharedJS" in go
+    assert app.index("const meshChat = createMeshChat") > 0
+    assert "function roster(" not in app
+    assert "function alive(" not in app
+    assert shared.index("function roster(") != -1
+    assert shared.index("function alive(") != -1
+    assert shared.index("function computerLabel(") != -1
 
 
 def test_chat_boot_survives_widget_restore_and_toast_closes_before_dock():

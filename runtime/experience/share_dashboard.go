@@ -27,6 +27,9 @@ var dashboardChatCSS []byte
 //go:embed dashboard/chat.html
 var dashboardChatHTML []byte
 
+//go:embed dashboard/dashboard-shared.mjs
+var dashboardSharedJS []byte
+
 //go:embed dashboard/chat.mjs
 var dashboardChatJS []byte
 
@@ -67,7 +70,9 @@ func assembleDashboardHTML() []byte {
 	page = bytes.Replace(page, []byte("/*{{chat.css}}*/"), dashboardChatCSS, 1)
 	page = bytes.Replace(page, []byte("<!--{{chat.html}}-->"), dashboardChatHTML, 1)
 	page = bytes.Replace(page, []byte("<!--{{emojis.json}}-->"), dashboardEmojisJSON, 1)
-	script := append(append([]byte{}, dashboardChatJS...), '\n')
+	script := append(append([]byte{}, dashboardSharedJS...), '\n')
+	script = append(script, dashboardChatJS...)
+	script = append(script, '\n')
 	script = append(script, dashboardCallJS...)
 	script = append(script, '\n')
 	script = append(script, dashboardTerminalJS...)
