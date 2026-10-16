@@ -146,7 +146,8 @@ def test_voice_waveform_peaks_and_time_format():
 
 def test_recorded_audio_uses_voice_player_not_native_controls():
     chat = CHAT_MJS.read_text(encoding="utf-8")
-    message = chat[chat.index("  function messageNode(msg) {"):chat.index("  const sameGroup = (a, b) => {")]
+    start = chat.index("  function fileMessageBubble(msg, payload) {")
+    message = chat[start:chat.index("  const sameGroup = (a, b) => {")]
     assert "voiceMessageNode(url, key)" in message
     assert "audio.controls = true" not in message
     css = (ROOT / "runtime/experience/dashboard/chat.css").read_text(encoding="utf-8")

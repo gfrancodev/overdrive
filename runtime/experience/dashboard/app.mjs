@@ -1,3 +1,27 @@
+function computerLabel(peer, data) {
+  return peer.name || peer.hostname || (peer.self ? data.hostname : "") || "computer";
+}
+function alive(peer) {
+  if (peer.revoked || !peer.endpoint) return false;
+  if (!peer.last_seen) return true;
+  const t = Date.parse(peer.last_seen);
+  return Number.isFinite(t) && (Date.now() - t) < 15 * 60 * 1000;
+}
+function roster(data) {
+  const circle = (data.circles || [])[0];
+  const members = (circle?.members.slice()) || [];
+  if (!members.some((peer) => peer.self)) {
+    members.unshift({
+      device_id: data.device_id || "self",
+      name: data.hostname || "this station",
+      hostname: data.hostname || "",
+      self: true,
+      endpoint: data.listen || ""
+    });
+  }
+  return members;
+}
+
     const uiConfig = globalThis.OVERDRIVE_UI || { preset: "orbit", title: "Overdrive", logo: "/logo.png" };
     applyShareTheme(uiConfig);
     if ((uiConfig.preset || "orbit") === "enterprise") {
@@ -9,13 +33,13 @@
         orbitThree = await import("three");
       } catch (err) {
         globalThis.console?.debug?.(err);
-        globalThis.__odBootError = String(err && err.stack || err);
+        globalThis.__odBootError = String(err?.stack || err);
       }
       try {
         await bootOrbit(orbitThree);
         globalThis.__odMessagesReady = true;
       } catch (err) {
-        globalThis.__odBootError = String(err && err.stack || err);
+        globalThis.__odBootError = String(err?.stack || err);
         globalThis.console?.debug?.(err);
       }
     }
@@ -268,9 +292,6 @@
     function clearNearbyHidden() {
       writeNearbyHidden(new Set());
       syncDiscoveredFromOutsideCircle();
-    }
-    function computerLabel(peer, data) {
-      return peer.name || peer.hostname || (peer.self ? data.hostname : "") || "computer";
     }
     const meshChat = createMeshChat({
       el,
@@ -1564,12 +1585,6 @@
       if (peer.folders?.length) return peer.folders;
       return (circle?.folders) || [];
     }
-    function alive(peer) {
-      if (peer.revoked || !peer.endpoint) return false;
-      if (!peer.last_seen) return true;
-      const t = Date.parse(peer.last_seen);
-      return Number.isFinite(t) && (Date.now() - t) < 15 * 60 * 1000;
-    }
     function hidePopover() {
       openStation = null;
       popover.hidden = true;
@@ -1923,20 +1938,6 @@
           }
         });
       }
-    }
-    function roster(data) {
-      const circle = (data.circles || [])[0];
-      const members = (circle?.members.slice()) || [];
-      if (!members.some((peer) => peer.self)) {
-        members.unshift({
-          device_id: data.device_id || "self",
-          name: data.hostname || "this station",
-          hostname: data.hostname || "",
-          self: true,
-          endpoint: data.listen || ""
-        });
-      }
-      return members;
     }
     function packetMesh(color) {
       return new THREE.Mesh(
@@ -2694,6 +2695,12 @@
       }
     }
 
+    function circleInviteErrorMessage(res, body) {
+      return body.error || (res.status === 403
+        ? "Open the dashboard on this computer (127.0.0.1) to create a connection."
+        : "Could not create a connection.");
+    }
+
     async function copyConnection() {
       const status = document.getElementById("joinStatus");
       if (status) status.textContent = "";
@@ -2702,10 +2709,7 @@
         const body = await readInviteResponse(res);
         const invite = body.invite;
         if (!res.ok || !invite || typeof invite !== "object") {
-          const message = body.error || (res.status === 403
-            ? "Open the dashboard on this computer (127.0.0.1) to create a connection."
-            : "Could not create a connection.");
-          if (status) status.textContent = message;
+          if (status) status.textContent = circleInviteErrorMessage(res, body);
           return;
         }
         const json = JSON.stringify(invite, null, 2);

@@ -111,7 +111,7 @@ func encryptBatch(groupKeyB64 string, plaintext []byte) (string, error) {
 	return base64.StdEncoding.EncodeToString(sealed), nil
 }
 
-func decryptBatch(groupKeyB64 string, ciphertextB64 string) ([]byte, error) {
+func decryptBatch(groupKeyB64, ciphertextB64 string) ([]byte, error) {
 	key, err := base64.StdEncoding.DecodeString(groupKeyB64)
 	if err != nil {
 		return nil, err

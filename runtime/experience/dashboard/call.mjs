@@ -50,10 +50,24 @@ function payloadObject(payload) {
 }
 
 async function runSequential(items, step) {
-  await items.reduce(
-    (chain, item) => chain.then(() => Promise.resolve(step(item)).catch(() => {})),
-    Promise.resolve()
-  );
+  for (const item of items) {
+    try {
+      await step(item);
+    } catch {
+      /* step failed */
+    }
+  }
+}
+
+function callMeshPeerIDs(groupPeerIDs, peerID) {
+  if (groupPeerIDs.length) return groupPeerIDs.slice();
+  return peerID ? [peerID] : [];
+}
+
+function phaseStickyNotice(phase, listenOnly, stickyNotice) {
+  if (listenOnly && phase !== "idle" && phase !== "setup") return LISTEN_ONLY_NOTICE;
+  if (phase === "setup") return "";
+  return stickyNotice;
 }
 
 function parseCallRoster(payload) {
@@ -160,6 +174,53 @@ function isMissingDevice(err) {
   return Boolean(err) && (err.name === "NotFoundError" || err.name === "OverconstrainedError");
 }
 
+function streamHasLiveAudio(stream) {
+  return stream.getAudioTracks().some((t) => t.readyState === "live");
+}
+
+async function probeCallMediaAccess(mediaDevices, audio, wantVideo) {
+  try {
+    const stream = await mediaDevices.getUserMedia({
+      audio,
+      video: wantVideo ? { facingMode: "user" } : false
+    });
+    stopStream(stream);
+    return false;
+  } catch (err) {
+    if (wantVideo && isMissingDevice(err)) {
+      try {
+        const stream = await mediaDevices.getUserMedia({ audio, video: false });
+        stopStream(stream);
+        return false;
+      } catch (error_) {
+        if (!isMissingDevice(error_)) throw error_;
+        return true;
+      }
+    }
+    if (!isMissingDevice(err)) throw err;
+    return true;
+  }
+}
+
+async function openCallUserMedia(mediaDevices, audio, video, wantVideo) {
+  try {
+    const stream = await mediaDevices.getUserMedia({ audio, video });
+    return { stream, listenOnly: !streamHasLiveAudio(stream) };
+  } catch (err) {
+    if (!isMissingDevice(err)) throw err;
+    if (!wantVideo) {
+      return { stream: emptyMediaStream(), listenOnly: true };
+    }
+    try {
+      const stream = await mediaDevices.getUserMedia({ audio, video: false });
+      return { stream, listenOnly: !streamHasLiveAudio(stream) };
+    } catch (error_) {
+      if (!isMissingDevice(error_)) throw error_;
+      return { stream: emptyMediaStream(), listenOnly: true };
+    }
+  }
+}
+
 function playMedia(el) {
   if (!el || typeof el.play !== "function") return;
   const pending = el.play();
@@ -219,7 +280,7 @@ const CALL_NAT_NOTE =
 
 function meshIceServers(cfg) {
   const fallback = [{ urls: "stun:stun.l.google.com:19302" }];
-  const list = Array.isArray(cfg?.iceServers) ? cfg.iceServers.filter((server) => server && server.urls) : [];
+  const list = Array.isArray(cfg?.iceServers) ? cfg.iceServers.filter((server) => server?.urls) : [];
   return list.length ? list : fallback;
 }
 
@@ -267,7 +328,6 @@ function createMeshCall(deps) {
   let localVideoOwned = false;
   let pendingModAction = "";
   let screenPipMode = "";
-  let activePipVideo = null;
   let pipDragBound = false;
 
   const panel = () => document.getElementById("callPanel");
@@ -327,7 +387,6 @@ function createMeshCall(deps) {
 
   async function exitScreenPip(_userInitiated) {
     screenPipMode = "";
-    activePipVideo = null;
     delete $("callStage")?.dataset?.screenPip;
     const float = $("callPipFloat");
     const pipVid = $("callPipVideo");
@@ -416,7 +475,6 @@ function createMeshCall(deps) {
       try {
         video.addEventListener("leavepictureinpicture", onLeaveNativePip, { once: true });
         await video.requestPictureInPicture();
-        activePipVideo = video;
         nativeOk = true;
       } catch (error_) {
         globalThis.console?.debug?.(error_);
@@ -515,10 +573,7 @@ function createMeshCall(deps) {
     if (camField) camField.hidden = phase !== "setup" || callMode !== "video";
     if (phase === "idle") stickyNotice = "";
     if (phase !== "error") {
-      const notice = listenOnly && phase !== "idle" && phase !== "setup"
-        ? LISTEN_ONLY_NOTICE
-        : (phase === "setup" ? "" : stickyNotice);
-      setError(notice);
+      setError(phaseStickyNotice(phase, listenOnly, stickyNotice));
     }
   }
 
@@ -866,33 +921,8 @@ function createMeshCall(deps) {
 
   async function probePermissions(wantVideo) {
     if (!mediaDevices?.getUserMedia) throw new Error("media unavailable");
-    const audio = audioConstraints("");
-    try {
-      const stream = await mediaDevices.getUserMedia({
-        audio,
-        video: wantVideo ? { facingMode: "user" } : false
-      });
-      stopStream(stream);
-      listenOnly = false;
-      return;
-    } catch (err) {
-      if (wantVideo && isMissingDevice(err)) {
-        try {
-          const stream = await mediaDevices.getUserMedia({ audio, video: false });
-          stopStream(stream);
-          listenOnly = false;
-          return;
-        } catch (err2) {
-          if (!isMissingDevice(err2)) throw err2;
-          listenOnly = true;
-          setError(LISTEN_ONLY_NOTICE);
-          return;
-        }
-      }
-      if (!isMissingDevice(err)) throw err;
-      listenOnly = true;
-      setError(LISTEN_ONLY_NOTICE);
-    }
+    listenOnly = await probeCallMediaAccess(mediaDevices, audioConstraints(""), wantVideo);
+    if (listenOnly) setError(LISTEN_ONLY_NOTICE);
   }
 
   async function loadDeviceLabels(wantVideo) {
@@ -933,27 +963,10 @@ function createMeshCall(deps) {
     if (!mediaDevices?.getUserMedia) throw new Error("media unavailable");
     const audio = listenOnly ? false : audioConstraints(micId);
     const video = wantVideo ? videoConstraints() : false;
-    try {
-      localStream = await mediaDevices.getUserMedia({ audio, video });
-      if (!localStream.getAudioTracks().some((t) => t.readyState === "live")) listenOnly = true;
-      else listenOnly = false;
-    } catch (err) {
-      if (!isMissingDevice(err)) throw err;
-      if (wantVideo) {
-        try {
-          localStream = await mediaDevices.getUserMedia({ audio, video: false });
-          listenOnly = !localStream.getAudioTracks().some((t) => t.readyState === "live");
-        } catch (err2) {
-          if (!isMissingDevice(err2)) throw err2;
-          localStream = emptyMediaStream();
-          listenOnly = true;
-        }
-      } else {
-        localStream = emptyMediaStream();
-        listenOnly = true;
-      }
-      if (listenOnly) setError(LISTEN_ONLY_NOTICE);
-    }
+    const opened = await openCallUserMedia(mediaDevices, audio, video, wantVideo);
+    localStream = opened.stream;
+    listenOnly = opened.listenOnly;
+    if (listenOnly) setError(LISTEN_ONLY_NOTICE);
     showLocalPreview(wantVideo && localStream.getVideoTracks().some((t) => t !== screenTrack && t.readyState === "live"));
   }
 
@@ -1192,7 +1205,7 @@ function createMeshCall(deps) {
   }
 
   async function connectAfterAccept() {
-    const peers = groupPeerIDs.length ? groupPeerIDs.slice() : (peerID ? [peerID] : []);
+    const peers = callMeshPeerIDs(groupPeerIDs, peerID);
     const mesh = peers.length > 1;
     await runSequential(peers, async (id) => {
       const queued = pendingRemoteOffers.get(id);
@@ -1341,7 +1354,7 @@ function createMeshCall(deps) {
   }
 
   async function broadcast(kind, payload) {
-    const targets = groupPeerIDs.length ? groupPeerIDs.slice() : (peerID ? [peerID] : []);
+    const targets = callMeshPeerIDs(groupPeerIDs, peerID);
     await Promise.all(targets.map(async (tid) => {
       try { await postSignal(kind, payload, tid); } catch { /* offline */ }
     }));
@@ -1521,8 +1534,6 @@ function createMeshCall(deps) {
         tile.className = "call-remote-tile call-remote-tile--screen";
         tile.dataset.peer = remotePeerID;
         tile.dataset.kind = "screen";
-        tile.setAttribute("data-peer", remotePeerID);
-        tile.setAttribute("data-kind", "screen");
         const video = document.createElement("video");
         video.playsInline = true;
         video.autoplay = true;

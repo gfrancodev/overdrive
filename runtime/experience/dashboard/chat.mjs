@@ -125,6 +125,49 @@ function openDirectConversationMeta(conv, selfID, circle, circleName, peerOnline
   return peerPresenceMeta(member, circleName, peerOnlineFn);
 }
 
+function trimUrlTrailingPunct(raw) {
+  let s = String(raw || "").trim();
+  while (s.length && "),.;".includes(s.at(-1))) s = s.slice(0, -1);
+  return s;
+}
+
+function nextInlineMarkupIndex(text) {
+  const markers = ["![", "[", "`", "**", "http://", "https://"];
+  let best = -1;
+  for (const marker of markers) {
+    const at = text.indexOf(marker);
+    if (at >= 0 && (best < 0 || at < best)) best = at;
+  }
+  return best;
+}
+
+function isMarkdownTableRow(line) {
+  const t = line.trim();
+  return t.length > 2 && t[0] === "|" && t.at(-1) === "|";
+}
+
+function isMarkdownTableSeparator(line) {
+  const t = line.trim();
+  if (!t) return false;
+  let i = t[0] === "|" ? 1 : 0;
+  while (i < t.length && (t[i] === " " || t[i] === ":" || t[i] === "-")) i += 1;
+  return i >= 3;
+}
+
+function parseMarkdownHeading(line) {
+  let level = 0;
+  while (level < line.length && level < 3 && line[level] === "#") level += 1;
+  if (level < 1 || line[level] !== " ") return null;
+  return { level, text: line.slice(level + 1) };
+}
+
+function splitMarkdownTableCells(line) {
+  let t = line.trim();
+  if (t.startsWith("|")) t = t.slice(1);
+  if (t.endsWith("|")) t = t.slice(0, -1);
+  return t.split("|");
+}
+
 function matchInlineAt(text, from) {
   const rest = text.slice(from);
   let m = /^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/.exec(rest);
@@ -153,7 +196,7 @@ function scanInlineText(text) {
       pos += hit.len;
       continue;
     }
-    const next = src.slice(pos).search(/!\[|\[|`|\*\*|https?:\/\//);
+    const next = nextInlineMarkupIndex(src.slice(pos));
     let end = next < 0 ? src.length : pos + next;
     if (end <= pos) end = pos + 1;
     parts.push({ kind: "text", len: end - pos, text: src.slice(pos, end) });
@@ -208,8 +251,41 @@ function vimeoEmbedSpec(id, watchUrl) {
   };
 }
 
+function parseYouTubeEmbedUrl(u, cleaned) {
+  const host = u.hostname.toLowerCase();
+  if (host === "youtu.be" || host === "www.youtu.be") {
+    const id = sanitizeYouTubeVideoId(u.pathname.slice(1).split("/")[0]);
+    return id ? youtubeEmbedSpec(id, cleaned) : null;
+  }
+  if (!host.endsWith("youtube.com")) return null;
+  let id = "";
+  if (u.pathname.startsWith("/watch")) {
+    id = sanitizeYouTubeVideoId(u.searchParams.get("v"));
+  } else if (u.pathname.startsWith("/embed/")) {
+    id = sanitizeYouTubeVideoId(u.pathname.slice(7).split("/")[0]);
+  } else if (u.pathname.startsWith("/shorts/")) {
+    id = sanitizeYouTubeVideoId(u.pathname.slice(8).split("/")[0]);
+  } else if (u.pathname.startsWith("/live/")) {
+    id = sanitizeYouTubeVideoId(u.pathname.slice(6).split("/")[0]);
+  }
+  return id ? youtubeEmbedSpec(id, cleaned) : null;
+}
+
+function parseVimeoEmbedUrl(u, cleaned) {
+  const host = u.hostname.toLowerCase();
+  if (host === "player.vimeo.com" && u.pathname.startsWith("/video/")) {
+    const id = sanitizeVimeoVideoId(u.pathname.slice(7).split("/")[0]);
+    return id ? vimeoEmbedSpec(id, cleaned) : null;
+  }
+  if (host !== "vimeo.com" && host !== "www.vimeo.com") return null;
+  const slash = u.pathname.indexOf("/", 1);
+  const digits = u.pathname.slice(1, slash > 0 ? slash : undefined);
+  const id = /^\d+$/.test(digits) ? sanitizeVimeoVideoId(digits) : "";
+  return id ? vimeoEmbedSpec(id, cleaned) : null;
+}
+
 function parseVideoEmbedUrl(raw) {
-  const cleaned = String(raw || "").trim().replace(/[),.;]+$/, "");
+  const cleaned = trimUrlTrailingPunct(raw);
   let u;
   try {
     u = new URL(cleaned);
@@ -219,35 +295,7 @@ function parseVideoEmbedUrl(raw) {
   if (u.protocol !== "http:" && u.protocol !== "https:") return null;
   const host = u.hostname.toLowerCase();
   if (!VIDEO_EMBED_ALLOWED_HOSTS.has(host)) return null;
-
-  if (host === "youtu.be" || host === "www.youtu.be") {
-    const id = sanitizeYouTubeVideoId(u.pathname.slice(1).split("/")[0]);
-    return id ? youtubeEmbedSpec(id, cleaned) : null;
-  }
-  if (host.endsWith("youtube.com")) {
-    let id = "";
-    if (u.pathname.startsWith("/watch")) {
-      id = sanitizeYouTubeVideoId(u.searchParams.get("v"));
-    } else if (u.pathname.startsWith("/embed/")) {
-      id = sanitizeYouTubeVideoId(u.pathname.slice(7).split("/")[0]);
-    } else if (u.pathname.startsWith("/shorts/")) {
-      id = sanitizeYouTubeVideoId(u.pathname.slice(8).split("/")[0]);
-    } else if (u.pathname.startsWith("/live/")) {
-      id = sanitizeYouTubeVideoId(u.pathname.slice(6).split("/")[0]);
-    }
-    return id ? youtubeEmbedSpec(id, cleaned) : null;
-  }
-
-  if (host === "player.vimeo.com" && u.pathname.startsWith("/video/")) {
-    const id = sanitizeVimeoVideoId(u.pathname.slice(7).split("/")[0]);
-    return id ? vimeoEmbedSpec(id, cleaned) : null;
-  }
-  if (host === "vimeo.com" || host === "www.vimeo.com") {
-    const m = /^\/(\d+)/.exec(u.pathname);
-    const id = m ? sanitizeVimeoVideoId(m[1]) : "";
-    return id ? vimeoEmbedSpec(id, cleaned) : null;
-  }
-  return null;
+  return parseYouTubeEmbedUrl(u, cleaned) || parseVimeoEmbedUrl(u, cleaned);
 }
 
 const MESH_CHAT_MIN_WIDTH = 280;
@@ -857,7 +905,8 @@ function createMeshChat(deps) {
     const project = String(payload.project || "").trim();
     const fromTitle = sessionTitleLabel(raw);
     const fromProject = sessionTitleLabel(project);
-    if (fromTitle && (!looksLikeSlug(fromTitle) || !fromProject || fromTitle.toLowerCase() !== fromProject.toLowerCase())) {
+    const projectLower = fromProject?.toLowerCase();
+    if (fromTitle && (!looksLikeSlug(fromTitle) || !fromProject || fromTitle.toLowerCase() !== projectLower)) {
       return fromTitle;
     }
     if (fromProject && !looksLikeSlug(fromProject)) return fromProject;
@@ -1327,7 +1376,7 @@ function createMeshChat(deps) {
     });
   }
   function mediaURLNode(url) {
-    const clean = url.replace(/[),.;]+$/, "");
+    const clean = trimUrlTrailingPunct(url);
     const path = clean.split("?")[0].toLowerCase();
     if (/\.(png|jpe?g|gif|webp|svg|avif)$/.test(path)) {
       return msgImageNode(clean, "", "Imagem");
@@ -1443,6 +1492,78 @@ function createMeshChat(deps) {
       expandLabel: "Ampliar código",
     });
   }
+  function appendMarkdownLines(frag, lines) {
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (!line.trim()) { i += 1; continue; }
+      if (isMarkdownTableRow(line) && i + 1 < lines.length && isMarkdownTableSeparator(lines[i + 1])) {
+        const table = document.createElement("table");
+        table.className = "msg-table";
+        const head = document.createElement("tr");
+        splitMarkdownTableCells(line).forEach((cell) => {
+          const th = document.createElement("th");
+          appendInlines(th, cell.trim());
+          head.appendChild(th);
+        });
+        table.appendChild(head);
+        i += 2;
+        while (i < lines.length && isMarkdownTableRow(lines[i])) {
+          const tr = document.createElement("tr");
+          splitMarkdownTableCells(lines[i]).forEach((cell) => {
+            const td = document.createElement("td");
+            appendInlines(td, cell.trim());
+            tr.appendChild(td);
+          });
+          table.appendChild(tr);
+          i += 1;
+        }
+        frag.appendChild(table);
+        continue;
+      }
+      const heading = parseMarkdownHeading(line);
+      if (heading) {
+        const h = document.createElement("h" + (heading.level + 2));
+        appendInlines(h, heading.text);
+        frag.appendChild(h);
+        i += 1;
+        continue;
+      }
+      if (/^>\s?/.test(line)) {
+        const quote = document.createElement("blockquote");
+        const buf = [];
+        while (i < lines.length && /^>\s?/.test(lines[i])) {
+          buf.push(lines[i].replace(/^>\s?/, ""));
+          i += 1;
+        }
+        appendInlines(quote, buf.join(" "));
+        frag.appendChild(quote);
+        continue;
+      }
+      if (/^[-*]\s+/.test(line) || /^\d+\.\s+/.test(line)) {
+        const ordered = /^\d+\.\s+/.test(line);
+        const list = document.createElement(ordered ? "ol" : "ul");
+        while (i < lines.length && (ordered ? /^\d+\.\s+/.test(lines[i]) : /^[-*]\s+/.test(lines[i]))) {
+          const li = document.createElement("li");
+          appendInlines(li, lines[i].replace(ordered ? /^\d+\.\s+/ : /^[-*]\s+/, ""));
+          list.appendChild(li);
+          i += 1;
+        }
+        frag.appendChild(list);
+        continue;
+      }
+      const buf = [line];
+      i += 1;
+      while (i < lines.length && lines[i].trim() && !/^(#{1,3}\s|>\s?|[-*]\s|\d+\.\s|\|)/.test(lines[i])) {
+        buf.push(lines[i]);
+        i += 1;
+      }
+      const p = document.createElement("p");
+      appendInlines(p, buf.join(" "));
+      frag.appendChild(p);
+    }
+  }
+
   function renderMarkdown(text) {
     const frag = document.createDocumentFragment();
     const parts = String(text || "").split(/```/);
@@ -1454,77 +1575,7 @@ function createMeshChat(deps) {
         frag.appendChild(codeBlock(lang, source));
         return;
       }
-      const lines = part.replace(/\s+$/, "").split("\n");
-      let i = 0;
-      while (i < lines.length) {
-        const line = lines[i];
-        if (!line.trim()) { i += 1; continue; }
-        if (/^\|.+\|$/.test(line.trim()) && i + 1 < lines.length && /^(?:\|)?\s*:?-{3,}/.test(lines[i + 1])) {
-          const table = document.createElement("table");
-          table.className = "msg-table";
-          const head = document.createElement("tr");
-          line.trim().replaceAll(/(?:^\||\|$)/g, "").split("|").forEach((cell) => {
-            const th = document.createElement("th");
-            appendInlines(th, cell.trim());
-            head.appendChild(th);
-          });
-          table.appendChild(head);
-          i += 2;
-          while (i < lines.length && /^\|.+\|$/.test(lines[i].trim())) {
-            const tr = document.createElement("tr");
-            lines[i].trim().replaceAll(/(?:^\||\|$)/g, "").split("|").forEach((cell) => {
-              const td = document.createElement("td");
-              appendInlines(td, cell.trim());
-              tr.appendChild(td);
-            });
-            table.appendChild(tr);
-            i += 1;
-          }
-          frag.appendChild(table);
-          continue;
-        }
-        const headingRe = /^(#{1,3})\s+(.*)$/;
-        const heading = headingRe.exec(line);
-        if (heading) {
-          const h = document.createElement("h" + (heading[1].length + 2));
-          appendInlines(h, heading[2]);
-          frag.appendChild(h);
-          i += 1;
-          continue;
-        }
-        if (/^>\s?/.test(line)) {
-          const quote = document.createElement("blockquote");
-          const buf = [];
-          while (i < lines.length && /^>\s?/.test(lines[i])) {
-            buf.push(lines[i].replace(/^>\s?/, ""));
-            i += 1;
-          }
-          appendInlines(quote, buf.join(" "));
-          frag.appendChild(quote);
-          continue;
-        }
-        if (/^[-*]\s+/.test(line) || /^\d+\.\s+/.test(line)) {
-          const ordered = /^\d+\.\s+/.test(line);
-          const list = document.createElement(ordered ? "ol" : "ul");
-          while (i < lines.length && (ordered ? /^\d+\.\s+/.test(lines[i]) : /^[-*]\s+/.test(lines[i]))) {
-            const li = document.createElement("li");
-            appendInlines(li, lines[i].replace(ordered ? /^\d+\.\s+/ : /^[-*]\s+/, ""));
-            list.appendChild(li);
-            i += 1;
-          }
-          frag.appendChild(list);
-          continue;
-        }
-        const buf = [line];
-        i += 1;
-        while (i < lines.length && lines[i].trim() && !/^(#{1,3}\s|>\s?|[-*]\s|\d+\.\s|\|)/.test(lines[i])) {
-          buf.push(lines[i]);
-          i += 1;
-        }
-        const p = document.createElement("p");
-        appendInlines(p, buf.join(" "));
-        frag.appendChild(p);
-      }
+      appendMarkdownLines(frag, part.replace(/\s+$/, "").split("\n"));
     });
     return frag;
   }
@@ -1657,6 +1708,40 @@ function createMeshChat(deps) {
       return el("article", "bubble", "This message could not be displayed.");
     }
   }
+  function fileMessageBubble(msg, payload) {
+    const node = el("article", "bubble");
+    const caption = String(payload.text || "").trim();
+    if (caption) node.appendChild(renderMarkdown(caption));
+    const name = String(payload.fileName || "file").trim();
+    const mime = String(payload.mimeType || "application/octet-stream").trim();
+    const data = String(payload.data || "").trim();
+    const kind = fileKind(name, mime);
+    const key = msg.messageId || "";
+    if (!data) {
+      node.appendChild(fileCard(name, mime, "", key));
+      return node;
+    }
+    const url = INLINE_MEDIA_KINDS.has(kind) ? inlineMediaURL(kind, name, mime, data, key) : "";
+    if (kind === "image") {
+      node.appendChild(msgImageNode(url, name, name));
+    } else if (kind === "audio") {
+      node.classList.add("bubble--voice");
+      node.appendChild(voiceMessageNode(url, key));
+    } else if (kind === "video") {
+      node.appendChild(msgVideoNode(url, name));
+    } else if (kind === "pdf") {
+      node.appendChild(msgPdfNode(url, name));
+    } else if (kind === "markdown") {
+      node.appendChild(renderMarkdown(new TextDecoder().decode(Uint8Array.from(atob(data), (c) => c.codePointAt(0)))));
+    } else if (kind === "code" || kind === "json") {
+      const source = new TextDecoder().decode(Uint8Array.from(atob(data), (c) => c.codePointAt(0)));
+      node.appendChild(codeBlock(name.split(".").pop(), source));
+    } else {
+      node.appendChild(fileCard(name, mime, data, key));
+    }
+    return node;
+  }
+
   function messageNode(msg) {
     const card = cardView(msg);
     if (card) {
@@ -1668,39 +1753,7 @@ function createMeshChat(deps) {
       return node;
     }
     const payload = msg.payload && typeof msg.payload === "object" ? msg.payload : {};
-    if ((msg.type || "") === "file") {
-      const node = el("article", "bubble");
-      const caption = String(payload.text || "").trim();
-      if (caption) node.appendChild(renderMarkdown(caption));
-      const name = String(payload.fileName || "file").trim();
-      const mime = String(payload.mimeType || "application/octet-stream").trim();
-      const data = String(payload.data || "").trim();
-      const kind = fileKind(name, mime);
-      const key = msg.messageId || "";
-      if (!data) {
-        node.appendChild(fileCard(name, mime, "", key));
-        return node;
-      }
-      const url = INLINE_MEDIA_KINDS.has(kind) ? inlineMediaURL(kind, name, mime, data, key) : "";
-      if (kind === "image") {
-        node.appendChild(msgImageNode(url, name, name));
-      } else if (kind === "audio") {
-        node.classList.add("bubble--voice");
-        node.appendChild(voiceMessageNode(url, key));
-      } else if (kind === "video") {
-        node.appendChild(msgVideoNode(url, name));
-      } else if (kind === "pdf") {
-        node.appendChild(msgPdfNode(url, name));
-      } else if (kind === "markdown") {
-        node.appendChild(renderMarkdown(new TextDecoder().decode(Uint8Array.from(atob(data), (c) => c.codePointAt(0)))));
-      } else if (kind === "code" || kind === "json") {
-        const source = new TextDecoder().decode(Uint8Array.from(atob(data), (c) => c.codePointAt(0)));
-        node.appendChild(codeBlock(name.split(".").pop(), source));
-      } else {
-        node.appendChild(fileCard(name, mime, data, key));
-      }
-      return node;
-    }
+    if ((msg.type || "") === "file") return fileMessageBubble(msg, payload);
     const node = el("article", "bubble");
     const text = String(payload.text || "");
     if (text.trim()) node.appendChild(renderMarkdown(text));
@@ -1842,24 +1895,26 @@ function createMeshChat(deps) {
     }
     return emojiCatalog;
   }
+  function emojiCatalogSearch(catalog, q) {
+    const hits = [];
+    const tabs = catalog.tabs || [];
+    for (const id of tabs) {
+      if (id === "recent") continue;
+      const rows = catalog.emojis[id] || [];
+      for (const row of rows) {
+        const glyph = row[0];
+        const tags = String(row[1] || "").toLowerCase();
+        if (glyph.includes(q) || tags.includes(q)) hits.push([glyph, row[1] || glyph]);
+      }
+    }
+    return hits;
+  }
+
   function emojiEntriesForTab(tabId, query) {
     const catalog = loadEmojiCatalog();
     if (!catalog?.emojis) return [];
     const q = String(query || "").trim().toLowerCase();
-    if (q) {
-      const hits = [];
-      const tabs = catalog.tabs || [];
-      for (const id of tabs) {
-        if (id === "recent") continue;
-        const rows = catalog.emojis[id] || [];
-        for (const row of rows) {
-          const glyph = row[0];
-          const tags = String(row[1] || "").toLowerCase();
-          if (glyph.includes(q) || tags.includes(q)) hits.push([glyph, row[1] || glyph]);
-        }
-      }
-      return hits;
-    }
+    if (q) return emojiCatalogSearch(catalog, q);
     if (tabId === "recent") {
       const known = new Map();
       for (const id of catalog.tabs || []) {
@@ -2343,29 +2398,33 @@ function createMeshChat(deps) {
       chatGroups = [];
     }
   }
+  function callTargetsFromConversation(conv) {
+    const members = conv.kind === "circle"
+      ? ((circle?.members) || []).filter((peer) => !peer.revoked).map((peer) => peer.device_id)
+      : conv.member_device_ids || [];
+    return {
+      conversationId: openConversation,
+      label: conversationTitle(conv),
+      targets: members.filter((id) => id && id !== selfID)
+    };
+  }
+
+  function callTargetsFromDirect(parts) {
+    const other = parts[1] === selfID ? parts[2] : parts[1];
+    const member = deps.roster(currentData()).find((item) => item.device_id === other);
+    return {
+      conversationId: openConversation,
+      label: member ? deps.computerLabel(member, currentData()) : "Direct",
+      targets: other ? [other] : []
+    };
+  }
+
   function callTargets() {
     if (openConversation && !drafting) {
       const conv = conversations.find((item) => item.conversation_id === openConversation);
-      if (conv && (conv.kind === "group" || conv.kind === "circle")) {
-        const members = conv.kind === "circle"
-          ? ((circle?.members) || []).filter((peer) => !peer.revoked).map((peer) => peer.device_id)
-          : conv.member_device_ids || [];
-        return {
-          conversationId: openConversation,
-          label: conversationTitle(conv),
-          targets: members.filter((id) => id && id !== selfID)
-        };
-      }
+      if (conv && (conv.kind === "group" || conv.kind === "circle")) return callTargetsFromConversation(conv);
       const parts = String(openConversation || "").split(":");
-      if (parts[0] === "direct" && parts.length >= 3) {
-        const other = parts[1] === selfID ? parts[2] : parts[1];
-        const member = deps.roster(currentData()).find((item) => item.device_id === other);
-        return {
-          conversationId: openConversation,
-          label: member ? deps.computerLabel(member, currentData()) : "Direct",
-          targets: other ? [other] : []
-        };
-      }
+      if (parts[0] === "direct" && parts.length >= 3) return callTargetsFromDirect(parts);
     }
     const peer = document.getElementById("messagePeer")?.value || "";
     const label = document.getElementById("messagePeerLabel")?.textContent || "";
@@ -2782,7 +2841,7 @@ function createMeshChat(deps) {
       if (joined) {
         splitDrag = true;
         const rect = live.getBoundingClientRect();
-        const focus = live.getAttribute("data-focus") || "chat";
+        const focus = live.dataset.focus || "chat";
         const paneW = meshSplitPaneWidth(focus, ev.clientX, rect.left, rect.width);
         if (focus === "stage") live.style.setProperty("--mesh-stage", paneW + "px");
         else live.style.setProperty("--mesh-chat", paneW + "px");

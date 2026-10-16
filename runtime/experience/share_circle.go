@@ -353,7 +353,7 @@ func folderAllowed(c Circle, projectRoot string) bool {
 	return false
 }
 
-func circleForProject(home string, projectRoot string) (Circle, bool) {
+func circleForProject(home, projectRoot string) (Circle, bool) {
 	circles, err := listCircles(home)
 	if err != nil {
 		return Circle{}, false

@@ -85,11 +85,11 @@ function resolveTerminalModuleCtor(mod, name) {
 const TERMINAL_ESC = String.fromCodePoint(0x1b);
 const TERMINAL_BEL = String.fromCodePoint(0x07);
 const TERMINAL_OSC_END = new RegExp(
-  TERMINAL_ESC + String.raw`]52;[^` + TERMINAL_BEL + TERMINAL_ESC + String.raw`]*$`,
+  TERMINAL_ESC + "]52;[^" + TERMINAL_BEL + TERMINAL_ESC + "]*$",
   "i",
 );
 const TERMINAL_OSC_STRIP = new RegExp(
-  TERMINAL_ESC + String.raw`]52;[^` + TERMINAL_BEL + TERMINAL_ESC + String.raw`]*(?:` + TERMINAL_BEL + "|" + TERMINAL_ESC + String.raw`\\)`,
+  TERMINAL_ESC + "]52;[^" + TERMINAL_BEL + TERMINAL_ESC + "]*(?:" + TERMINAL_BEL + "|" + TERMINAL_ESC + "\\\\)",
   "gi",
 );
 
@@ -785,7 +785,7 @@ function createLiveSessions(deps) {
     }
     canWrite() {
       if (this.replay || this.dead) return false;
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return false;
+      if (this.ws?.readyState !== WebSocket.OPEN) return false;
       if (!this.lease) return false;
       const self = selfDeviceId();
       const holder = this.lease.holder_device_id;
@@ -1940,6 +1940,13 @@ function createLiveSessions(deps) {
     return Array.from(byId.values());
   }
 
+  function endSidebarSession(ev, sess) {
+    ev.stopPropagation();
+    if (tabs.has(sess.id)) closeTab(sess.id);
+    const ending = tabs.has(sess.id) ? Promise.resolve() : purgeSession(sess.id);
+    ending.catch(() => {}).finally(() => { refreshSessionList().catch(() => {}); });
+  }
+
   async function refreshSessionList() {
     if (!sessionList) return [];
     let sessions = [];
@@ -1973,12 +1980,7 @@ function createLiveSessions(deps) {
       kill.type = "button";
       kill.title = "End session";
       kill.setAttribute("aria-label", "End session");
-      kill.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-        if (tabs.has(sess.id)) closeTab(sess.id);
-        const ending = tabs.has(sess.id) ? Promise.resolve() : purgeSession(sess.id);
-        ending.catch(() => {}).finally(() => { refreshSessionList().catch(() => {}); });
-      });
+      kill.addEventListener("click", (ev) => endSidebarSession(ev, sess));
       row.append(main, kill);
       sessionList.appendChild(row);
     });
@@ -2104,11 +2106,14 @@ function createLiveSessions(deps) {
     paintDockBadge();
   }
 
-  function openPanelWithSessions() {
+  async function openPanelWithSessions() {
     showPanel();
-    return refreshSessionList().then(() => {
-      if (tabs.size === 0) return ensureDefaultSession().catch(() => {});
-    }).catch(() => {});
+    try {
+      await refreshSessionList();
+      if (tabs.size === 0) await ensureDefaultSession();
+    } catch {
+      /* panel bootstrap failed */
+    }
   }
 
   function togglePanel() {
@@ -2193,11 +2198,15 @@ function createLiveSessions(deps) {
       const mine = (sessions || [])
         .filter((s) => sessionLive(s) && (!self || s.host_device_id === self))
         .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+      for (let i = 0; i < mine.length; i += 1) {
+        const sess = mine[i];
+        try {
+          await openSession(sess.id, sess.name, { focus: i === mine.length - 1 });
+        } catch {
+          /* skip broken session */
+        }
+      }
       if (mine.length) {
-        await mine.reduce(
-          (chain, sess, i) => chain.then(() => openSession(sess.id, sess.name, { focus: i === mine.length - 1 }).catch(() => {})),
-          Promise.resolve()
-        );
         await refreshSessionList();
         return;
       }

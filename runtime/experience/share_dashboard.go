@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytes"
-	_ "embed"
+	_ "embed" // registers //go:embed for dashboard static assets
 	"encoding/json"
 	"fmt"
 	"net"

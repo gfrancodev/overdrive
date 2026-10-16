@@ -290,7 +290,7 @@ func rejectRemoteCoreAdmin(w http.ResponseWriter, r *http.Request) bool {
 	}
 	switch r.Method {
 	case http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch:
-		if site := strings.TrimSpace(r.Header.Get("Sec-Fetch-Site")); site == "cross-site" {
+		if strings.TrimSpace(r.Header.Get("Sec-Fetch-Site")) == "cross-site" {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return true
 		}
