@@ -1,5 +1,5 @@
-    const uiConfig = globalThis.OVERDRIVE_UI || { preset: "orbit", title: "Overdrive", logo: "/logo.png" };
-    applyShareTheme(uiConfig);
+    const uiConfig = globalThis.OVERDRIVE_WHITELABEL || globalThis.OVERDRIVE_UI || { preset: "orbit", title: "Overdrive", logo: "/logo.png" };
+    applyShareTheme(uiConfig); // refresh after DOM ready (menubar title)
     if ((uiConfig.preset || "orbit") === "enterprise") {
       bootEnterprise();
       globalThis.__odMessagesReady = true;
@@ -18,24 +18,6 @@
         globalThis.__odBootError = String(err?.stack || err);
         globalThis.console?.debug?.(err);
       }
-    }
-
-    function applyShareTheme(ui) {
-      const preset = ui.preset === "enterprise" ? "enterprise" : "orbit";
-      document.documentElement.dataset.preset = preset;
-      const title = document.getElementById("barTitle");
-      if (title && ui.title) title.textContent = String(ui.title).slice(0, 40);
-      if (ui.logo) {
-        document.querySelectorAll(".menubar .mark, #circleApp .mark").forEach((logo) => logo.setAttribute("src", ui.logo));
-      }
-      const allowed = ["ink", "sea", "foam", "cyan", "live", "mute"];
-      const tokens = ui.tokens || {};
-      allowed.forEach((key) => {
-        const value = tokens[key];
-        if (typeof value === "string" && /^#[0-9a-fA-F]{3,8}$/.test(value)) {
-          document.documentElement.style.setProperty("--" + key, value);
-        }
-      });
     }
 
     function isValidIanaTimeZone(timeZone) {
@@ -1714,7 +1696,15 @@
       const i = row * 360 + col;
       return ((LAND_BITS[i >> 3] >> (i & 7)) & 1) === 1;
     }
+    function shareThemeVec3(cssVar, fallback) {
+      const rgb = parseShareHexRgb(getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim());
+      if (!rgb) return fallback;
+      return [rgb.r / 255, rgb.g / 255, rgb.b / 255];
+    }
     function dottedNetwork() {
+      const sea = shareThemeVec3("--sea", [0.07, 0.04, 0.12]);
+      const accent = shareThemeVec3("--cyan", [0.42, 0.16, 0.85]);
+      const live = shareThemeVec3("--live", [0.77, 0.71, 0.99]);
       const positions = [];
       const facets = [];
       const bands = 100;
@@ -1734,6 +1724,11 @@
       return new THREE.Points(geometry, new THREE.ShaderMaterial({
         transparent: true,
         depthWrite: false,
+        uniforms: {
+          uColorSea: { value: new THREE.Vector3(sea[0], sea[1], sea[2]) },
+          uColorLand: { value: new THREE.Vector3(accent[0], accent[1], accent[2]) },
+          uColorGlow: { value: new THREE.Vector3(live[0], live[1], live[2]) }
+        },
         vertexShader: [
           "attribute float land;",
           "varying float vFacing; varying float vLand;",
@@ -1747,6 +1742,7 @@
           "}"
         ].join("\n"),
         fragmentShader: [
+          "uniform vec3 uColorSea; uniform vec3 uColorLand; uniform vec3 uColorGlow;",
           "varying float vFacing; varying float vLand;",
           "void main() {",
           "  vec2 uv = gl_PointCoord - vec2(0.5);",
@@ -1756,7 +1752,7 @@
           "  float base = mix(0.03, 0.16, pow(vFacing, 1.4));",
           "  float bright = mix(0.14, 1.0, pow(vFacing, 1.1));",
           "  float alpha = glow * mix(base, bright, vLand);",
-          "  vec3 color = mix(vec3(0.18, 0.46, 0.9), vec3(0.42, 0.86, 1.0), vLand);",
+          "  vec3 color = mix(uColorSea, mix(uColorLand, uColorGlow, 0.55), vLand);",
           "  gl_FragColor = vec4(color, alpha);",
           "}"
         ].join("\n")
@@ -1775,12 +1771,15 @@
       return pts;
     }
     // Link colours match the legend: cyan solid = reached, red dashed = timed out, grey dashed = silent.
-    const LINK_STYLE = {
-      synced: { color: 0x5ee7ff, dashed: false, opacity: 0.78 },
-      online: { color: 0x5ee7ff, dashed: false, opacity: 0.42 },
-      unreachable: { color: 0xff6b5e, dashed: true, opacity: 0.7 },
-      offline: { color: 0x4a6273, dashed: true, opacity: 0.3 }
-    };
+    function orbitLinkStyle() {
+      const live = themeColorHex("--live", 0x5ee7ff);
+      return {
+        synced: { color: live, dashed: false, opacity: 0.78 },
+        online: { color: live, dashed: false, opacity: 0.42 },
+        unreachable: { color: 0xff6b5e, dashed: true, opacity: 0.7 },
+        offline: { color: 0x4a6273, dashed: true, opacity: 0.3 }
+      };
+    }
     const linkFor = (peer, data) => {
       return (data.links || []).find((link) => link.name === peer.device_id || (peer.endpoint && link.name === peer.endpoint)) || null;
     }
@@ -1818,11 +1817,14 @@
       const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 40);
       camera.position.set(0, 0.04, 6.35);
       camera.lookAt(0, -0.06, 0);
-      scene.add(new THREE.AmbientLight(0x6ea8c4, 0.62));
-      const key = new THREE.DirectionalLight(0xe8f6ff, 1.35);
+      const accentHex = themeColorHex("--cyan", 0x00b4ff);
+      const liveHex = themeColorHex("--live", 0x5ee7ff);
+      const foamHex = themeColorHex("--foam", 0xe8f6ff);
+      scene.add(new THREE.AmbientLight(accentHex, 0.42));
+      const key = new THREE.DirectionalLight(foamHex, 1.35);
       key.position.set(-2.4, 1.8, 3.4);
       scene.add(key);
-      const rim = new THREE.DirectionalLight(0x00b4ff, 0.85);
+      const rim = new THREE.DirectionalLight(accentHex, 0.85);
       rim.position.set(2.2, -0.6, -1.4);
       scene.add(rim);
       const globe = new THREE.Group();
@@ -1941,7 +1943,7 @@
       if (state !== "synced" && state !== "online") return [];
       const link = linkFor(peer, data);
       const packets = [{
-        kind: "sync", color: 0x9af0ff, phase: index * 0.17, speed: 0.00012,
+        kind: "sync", color: themeColorHex("--live", 0xc4b5fd), phase: index * 0.17, speed: 0.00012,
         text: link?.packets ? "Sync · " + plural(link.packets, "packet") : "Sync"
       }];
       const decision = (data.decisions || [])[0];
@@ -1977,7 +1979,8 @@
     // A small open laptop drawn as a holographic outline: base, key rows, lid and a glowing screen.
     function deviceMesh(color, self) {
       const group = new THREE.Group();
-      const base = outlined(new THREE.BoxGeometry(0.12, 0.007, 0.074), 0x0f2540, color);
+      const edge = themeColorHex("--sea", 0x09070f);
+      const base = outlined(new THREE.BoxGeometry(0.12, 0.007, 0.074), edge, color);
       base.position.y = 0.0035;
       const keys = [];
       for (let row = 0; row < 3; row++) {
@@ -1990,7 +1993,7 @@
       const lid = new THREE.Group();
       lid.position.set(0, 0.007, -0.036);
       lid.rotation.x = -0.3;
-      const back = outlined(new THREE.BoxGeometry(0.12, 0.082, 0.005), 0x0f2540, color);
+      const back = outlined(new THREE.BoxGeometry(0.12, 0.082, 0.005), edge, color);
       back.position.y = 0.041;
       const screen = new THREE.Mesh(
         new THREE.PlaneGeometry(0.106, 0.068),
@@ -2027,12 +2030,14 @@
       disposeGroup(view.markers);
       disposeGroup(view.arcs);
       labels.replaceChildren();
+      const accentHex = themeColorHex("--cyan", 0x00b4ff);
+      const liveHex = themeColorHex("--live", 0x5ee7ff);
       stations = placed.map((pt) => {
-        let color = 0x5ee7ff;
+        let color = liveHex;
         if (pt.peer.revoked) {
           color = 0x8a3b32;
         } else if (pt.peer.self) {
-          color = 0x00b4ff;
+          color = accentHex;
         } else if (!alive(pt.peer)) {
           color = 0x4a6273;
         }
@@ -2084,7 +2089,7 @@
         if (!self) return;
         const state = linkState(s.peer, data);
         if (state === "revoked") return;
-        const arc = arcBetween(self.group.position, s.group.position, LINK_STYLE[state]);
+        const arc = arcBetween(self.group.position, s.group.position, orbitLinkStyle()[state]);
         view.arcs.add(arc.line);
         linkPackets(s.peer, data, state, index).forEach((spec) => addPacket(view, s, arc, spec));
       });

@@ -6,8 +6,11 @@ import (
 	"encoding/binary"
 	"image"
 	"image/color"
+	_ "image/gif"
+	_ "image/jpeg"
 	"image/png"
 	"math"
+	"os"
 	"sync"
 )
 
@@ -53,6 +56,37 @@ func encodePNG(img image.Image) []byte {
 	var buf bytes.Buffer
 	_ = png.Encode(&buf, img)
 	return buf.Bytes()
+}
+
+// FromPath decodes an image file and returns 32×32 PNG and ICO bytes for the tray.
+func FromPath(path string) (png []byte, ico []byte, err error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	img, _, err := image.Decode(bytes.NewReader(raw))
+	if err != nil {
+		return nil, nil, err
+	}
+	nrgba := resize32(img)
+	return encodePNG(nrgba), encodeICO(nrgba), nil
+}
+
+func resize32(src image.Image) *image.NRGBA {
+	bounds := src.Bounds()
+	w, h := bounds.Dx(), bounds.Dy()
+	if w <= 0 || h <= 0 {
+		return mark()
+	}
+	dst := image.NewNRGBA(image.Rect(0, 0, 32, 32))
+	for y := 0; y < 32; y++ {
+		for x := 0; x < 32; x++ {
+			sx := bounds.Min.X + x*w/32
+			sy := bounds.Min.Y + y*h/32
+			dst.Set(x, y, src.At(sx, sy))
+		}
+	}
+	return dst
 }
 
 func encodeICO(img *image.NRGBA) []byte {

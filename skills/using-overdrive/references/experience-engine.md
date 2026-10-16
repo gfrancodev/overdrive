@@ -219,6 +219,7 @@ Keep the experience slice small enough that live code and the current spec remai
 ~/.overdrive/experience-v2-peer.tvim    # TurboVec peer index
 ~/.overdrive/share/identity.json          # Ed25519 device identity
 ~/.overdrive/share/circles/*.json       # trusted circles and allowed folders
+~/.overdrive/share/whitelabel.json      # optional mesh dashboard branding (Overdrive defaults if missing)
 ```
 
 Legacy `experience-v1.json` migrates automatically on first open. Backend: `sqlite-fts5-turbovec-v1`.
@@ -236,6 +237,8 @@ overdrive-runtime share circle folder-add --circle <circle-id> --folder /abs/pat
 overdrive-runtime share circle revoke --circle <circle-id> --device <device-id>
 OVERDRIVE_SHARE_LISTEN=127.0.0.1:7741 overdrive-runtime share listen --cwd "$PWD"
 ```
+
+Mesh dashboard **whitelabel** (2.0.1+): optional `$OVERDRIVE_HOME/share/whitelabel.json` for title, icons, and color tokens. Without it, the UI stays the stock Overdrive theme. See `docs/EXPERIENCE_ENGINE.md` and `docs/share-whitelabel.example.json`.
 
 Rules:
 

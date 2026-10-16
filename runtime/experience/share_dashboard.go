@@ -188,16 +188,6 @@ func peerDashboardSnapshot(home string) peerDashboard {
 	return out
 }
 
-func serveDashboardLogo(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, methodNotAllowedMsg, http.StatusMethodNotAllowed)
-		return
-	}
-	w.Header().Set(headerContentType, "image/png")
-	w.Header().Set(headerCacheControl, "public, max-age=86400")
-	_, _ = w.Write(dashboardLogo)
-}
-
 func serveDashboardPeers(home string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -287,9 +277,20 @@ func serveDashboardIndex(home string) http.HandlerFunc {
 
 func shareDashboardHandler(home string) http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/logo.png", serveDashboardLogo)
-	mux.HandleFunc("/favicon.ico", serveDashboardLogo)
-	mux.HandleFunc("/apple-touch-icon.png", serveDashboardLogo)
+	mux.HandleFunc("/assets/", serveShareAssets(home))
+	mux.HandleFunc("/logo.png", serveDashboardBrandImage(home, func(c shareUIConfig) string { return c.Logo }))
+	mux.HandleFunc("/favicon.ico", serveDashboardBrandImage(home, func(c shareUIConfig) string {
+		if c.Favicon != "" {
+			return c.Favicon
+		}
+		return c.Logo
+	}))
+	mux.HandleFunc("/apple-touch-icon.png", serveDashboardBrandImage(home, func(c shareUIConfig) string {
+		if c.AppleTouchIcon != "" {
+			return c.AppleTouchIcon
+		}
+		return c.Logo
+	}))
 	mux.HandleFunc("/api/peers", serveDashboardPeers(home))
 	mux.HandleFunc("/api/contexts", serveDashboardContexts(home))
 	registerCoreLifecycleRoutes(mux, home)
@@ -305,6 +306,7 @@ var shareDashboardOnce sync.Once
 
 func startShareDashboard(home string) {
 	shareDashboardOnce.Do(func() {
+		warmShareWhitelabelAssets(home)
 		addr, ok := shareUIAddr()
 		if !ok {
 			return

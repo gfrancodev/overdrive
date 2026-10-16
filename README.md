@@ -12,26 +12,18 @@
   <strong>Architecture-aware autonomous software engineering that learns from every execution, locally and optionally across your team.</strong>
 </p>
 
-**Current release: 2.0.0.** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
+**Current release: 2.0.1.** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
 
-It combines architecture-aware discovery, a single authoritative spec, adaptive execution, autonomous decision-making, test-driven development, systematic debugging, isolated workspaces, code review, evidence-based verification, and a **local Experience Engine** (SQLite, FTS5, TurboVec, lazy MiniLM) that compounds operational knowledge across runs without a memory-management workflow. **1.2** adds opt-in **shared memory circles**; **2.0** adds the **share mesh dashboard** (encrypted chat, WebRTC calls, live terminals) on top of the same circle keys and allowed folders.
+It combines architecture-aware discovery, a single authoritative spec, adaptive execution, autonomous decision-making, test-driven development, systematic debugging, isolated workspaces, code review, evidence-based verification, and a **local Experience Engine** (SQLite, FTS5, TurboVec, lazy MiniLM) that compounds operational knowledge across runs without a memory-management workflow. **1.2** adds opt-in **shared memory circles**; **2.0** adds the encrypted mesh dashboard on the same circle keys and allowed folders ([demo](#mesh-dashboard-in-action)).
 
 ### Highlights (2.0)
 
 | Area | What you get |
 |------|----------------|
-| **Mesh dashboard** | Chat, voice/video calls, terminal sharing, and peer machines on `OVERDRIVE_SHARE_UI` while `share listen` runs. |
+| **Mesh dashboard** | Chat, voice/video, terminals, and peers on `OVERDRIVE_SHARE_UI` while `share listen` runs; optional [whitelabel](docs/EXPERIENCE_ENGINE.md#mesh-dashboard-whitelabel) via `share/whitelabel.json` (stock Overdrive UI when absent). |
 | **WebRTC calls** | Mesh signaling, STUN by default, optional TURN (`OVERDRIVE_TURN_*`), screen share with Picture-in-Picture where supported. |
 | **Terminals** | Managed sessions, remote attach, context bundles, and shared workspace artifacts for harness handoff. |
 | **Production CI** | Node signaling contract tests, Playwright fake-media smoke, SonarCloud, and an 82% Go coverage gate (excl. PTY supervisor). |
-
-<p align="center">
-  <a href="#mesh-dashboard-in-action">
-    <img src="docs/demo/mesh-dashboard.gif" alt="Overdrive mesh dashboard: chat, live terminal, and voice call between two peers on a circle" width="720">
-  </a>
-</p>
-
-<p align="center"><em>Mesh dashboard with <code>share listen</code> (local demo). <a href="#mesh-dashboard-in-action">How to run it</a>.</em></p>
 
 ### Highlights (1.3)
 
@@ -47,7 +39,7 @@ It combines architecture-aware discovery, a single authoritative spec, adaptive 
 
 > **Discover before deciding. Follow the architecture. Spec before execution. Verify before completion.**
 
-Overdrive is not a replacement for other agent methodologies. [Superpowers](https://github.com/obra/superpowers) is an excellent, full-featured framework. Use it freely if it fits your workflow. Overdrive is **one maintainer's take**: the same family of ideas (skills, TDD, systematic debugging, worktrees, verification), reorganized for **day-to-day work on established codebases** where existing architecture, module boundaries, and project skills should win over agent preference.
+Overdrive is one workflow among many for coding agents; see [Acknowledgements](#acknowledgements) for how it relates to [Superpowers](https://github.com/obra/superpowers) and brownfield-first emphasis.
 
 ## Table of Contents
 
@@ -630,7 +622,7 @@ recall: local memories + peer_memories + page_index (peer weight lower, signatur
 
 `peer_memories` are historical evidence from a colleague, never instructions. `share: off` and `folder-blocked` stay on local memory only. A dead peer does not hold recall: catalog and id fetch use a short dial timeout.
 
-The wildcard `share listen` page (`OVERDRIVE_SHARE_UI`, default port listen+1) lists members and projects each computer's PageIndex into the Contexts drawer. It does not include the group key or lesson bodies.
+The mesh dashboard (`OVERDRIVE_SHARE_UI`, default listen port + 1) is the browser UI for circles; the Contexts drawer projects each peer's PageIndex without group keys or lesson bodies. Setup: [Mesh dashboard in action](#mesh-dashboard-in-action).
 
 | Control | Behavior |
 |---------|----------|
@@ -846,11 +838,22 @@ bash -n scripts/*.sh
 ### Releases
 
 GitHub Actions runs on every push to `main` and on pull requests (`.github/workflows/ci.yml`).
-Tagging a version (for example `v2.0.0`, or any `v*` tag on `main`) triggers `.github/workflows/release.yml`, which rebuilds
-all six runtime binaries and TurboVec libraries and attaches one zip per OS/arch pair to
-[GitHub Releases](https://github.com/gfrancodev/overdrive/releases).
-The repo also keeps prebuilt artifacts under `runtime/` for zero-toolchain installs; see
-[CONTRIBUTING.md](CONTRIBUTING.md#releases) for the maintainer checklist.
+Tagging `v*` on `main` triggers `.github/workflows/release.yml`, which rebuilds all six runtime binaries and TurboVec libraries and attaches one zip per OS/arch pair to [GitHub Releases](https://github.com/gfrancodev/overdrive/releases).
+The repo also keeps prebuilt artifacts under `runtime/` for zero-toolchain installs; see [CONTRIBUTING.md](CONTRIBUTING.md#releases).
+
+Full notes live in [CHANGELOG.md](CHANGELOG.md). Shipped tags:
+
+| Version | Date | What shipped |
+|---------|------|----------------|
+| [2.0.1](https://github.com/gfrancodev/overdrive/releases/tag/v2.0.1) | 2026-10-16 | Optional mesh whitelabel (`share/whitelabel.json`), remote brand assets, tray icon from `logo`/`favicon`. |
+| [2.0.0](https://github.com/gfrancodev/overdrive/releases/tag/v2.0.0) | 2026-10-16 | Share mesh dashboard: encrypted chat, WebRTC calls, live terminals, tray, MCP, CI coverage gate. Includes the 1.4.0 continuity work (no separate tag). |
+| 1.4.0 | 2026-10-11 | Local continuity (handoffs, standing decisions, harness adapters) and SonarCloud Go coverage. Recorded in the changelog; shipped with 2.0.0. |
+| [1.3.0](https://github.com/gfrancodev/overdrive/releases/tag/v1.3.0) | 2026-09-30 | PageIndex recall, circle peer roster and LAN page, Visual Spec 1.0. |
+| [1.2.0](https://github.com/gfrancodev/overdrive/releases/tag/v1.2.0) | 2026-09-23 | Opt-in shared memory circles (Ed25519, allowed folders, TCP sync) and slim installers. |
+| [1.1.0](https://github.com/gfrancodev/overdrive/releases/tag/v1.1.0) | 2026-09-23 | Visual Spec fidelity modes, micro-detail taxonomy, and design-system contracts. |
+| [1.0.0](https://github.com/gfrancodev/overdrive/releases/tag/v1.0.0) | 2026-09-12 | First public release: skills, Local Runtime, and cross-runtime plugins. |
+
+Development builds before 1.0.0 (0.3.0 SQLite/TurboVec, 0.2.x auto-run and Experience Engine, 0.1.0 initial methodology) are recorded under [1.0.0 in the changelog](CHANGELOG.md#100---2026-09-12). They were not published as separate GitHub releases.
 
 The project is expected to evolve toward a dedicated behavioral eval harness that measures Overdrive against controlled baselines and alternative agent workflows using identical fixtures, models, tasks, and repeated runs.
 

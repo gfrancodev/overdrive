@@ -1,6 +1,11 @@
 __pycache__/
 .pytest_cache/
 .overdrive/
+# Mesh dashboard whitelabel: live config stays in $OVERDRIVE_HOME/share/ only (never commit).
+**/share/whitelabel.json
+**/share/ui.json
+**/share/whitelabel-remote-cache.json
+**/share/ui-remote-cache.json
 .worktrees/
 dist/
 *.zip

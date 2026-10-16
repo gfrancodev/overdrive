@@ -971,13 +971,13 @@
 .composer-pill .composer-send {
   margin-right: 2px;
   color: #fff;
-  background: #0066cc;
+  background: var(--accent);
 }
 .composer-pill .composer-send:hover {
-  background: rgba(10, 132, 255, 1);
+  background: var(--accent);
 }
 .composer-send {
-  color: rgba(120, 200, 255, 0.95);
+  color: var(--live);
 }
 .composer-send[hidden],
 .composer-mic[hidden] { display: none; }
@@ -1105,8 +1105,8 @@
 }
 .emoji-search::placeholder { color: #ffffff; }
 .emoji-search:focus {
-  border-color: rgba(10, 132, 255, 0.55);
-  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.18);
+  border-color: var(--accent-ring);
+  box-shadow: 0 0 0 3px var(--accent-glow-18);
 }
 .emoji-grid-wrap {
   flex: 1 1 auto;
@@ -1201,7 +1201,7 @@
 .msg-voice-play svg path { transform: translateX(0.5px); }
 .msg-voice-play:hover { background: #fff; }
 .msg-voice-play:active { transform: scale(0.92); }
-.msg-voice-play:focus-visible { outline: 2px solid #0a84ff; outline-offset: 2px; }
+.msg-voice-play:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .msg-voice-wave {
   flex: 1 1 auto;
   display: flex;
@@ -1212,7 +1212,7 @@
   cursor: pointer;
   outline: none;
 }
-.msg-voice-wave:focus-visible { border-radius: 6px; box-shadow: 0 0 0 2px #0a84ff; }
+.msg-voice-wave:focus-visible { border-radius: 6px; box-shadow: 0 0 0 2px var(--accent); }
 .msg-voice-bar {
   flex: 1 1 0;
   min-width: 2px;
@@ -1252,9 +1252,9 @@
   font-weight: 500;
   color: #ffffff;
   text-decoration: none;
-  background: #0066cc;
+  background: var(--accent);
 }
-.bubble .msg-file:hover { background: rgba(10, 132, 255, 0.2); }
+.bubble .msg-file:hover { background: var(--accent-soft); }
 .bubble .msg-image,
 .bubble .msg-video,
 .bubble .msg-pdf {
@@ -1354,7 +1354,7 @@
   display: inline-block;
   margin-top: 4px;
   font-size: 11px;
-  color: #0a84ff;
+  color: var(--accent);
   text-decoration: none;
 }
 .bubble .msg-video-embed__watch:hover { text-decoration: underline; }
@@ -1466,7 +1466,7 @@
 .bubble h3, .bubble h4, .bubble h5 { margin: 6px 0 2px; font-size: 13px; }
 .hljs-keyword, .hljs-selector-tag, .hljs-built_in { color: #ffffff; }
 .hljs-string, .hljs-attr { color: #ffffff; }
-.hljs-number, .hljs-literal { color: #64d2ff; }
+.hljs-number, .hljs-literal { color: var(--live); }
 .hljs-comment { color: #ffffff; }
 .hljs-title, .hljs-function, .hljs-section { color: #7ee081; }
 .peer-pick-trigger {
@@ -1478,11 +1478,11 @@
   border: 0;
   border-radius: 8px;
   background-color: transparent;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%230a84ff' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%23c4b5fd' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 4px center;
   background-size: 12px 12px;
-  color: #0a84ff;
+  color: var(--accent);
   font: inherit;
   font-size: 13px;
   font-weight: 500;
@@ -1532,7 +1532,7 @@
 .peer-pick-menu li:hover { background: rgba(255, 255, 255, 0.06); }
 .peer-pick-menu li[aria-selected="true"] {
   color: #ffffff;
-  background: #0066cc;
+  background: var(--accent);
 }
 .peer-pick-menu li:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.8);
@@ -1724,14 +1724,14 @@ body.chat-media-modal-open { overflow: hidden; }
   padding: 5px 10px;
   border: 0;
   border-radius: 8px;
-  background: #0066cc;
+  background: var(--accent);
   color: #ffffff;
   font: inherit;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
 }
-.chat-media-modal__copy:hover { background: rgba(10, 132, 255, 0.32); }
+.chat-media-modal__copy:hover { background: var(--accent-mid); }
 .chat-media-modal__copy:focus { outline: none; }
 .chat-media-modal__copy:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.8);
@@ -1818,7 +1818,7 @@ body.chat-media-modal-open { overflow: hidden; }
 }
 
 .call-panel {
-  --call-accent: #64d2ff;
+  --call-accent: var(--live);
   --call-danger: #ff5f57;
   --call-ok: #30d158;
   position: fixed;
@@ -2405,7 +2405,7 @@ body.mesh-split-dragging * {
   background: rgba(255, 255, 255, 0.08);
 }
 .call-device-select__panel .call-device-select__option[aria-current="true"] {
-  background: #0066cc;
+  background: var(--accent);
   color: #fff;
 }
 .call-field select:hover,
@@ -2416,14 +2416,14 @@ body.mesh-split-dragging * {
 .call-field select:focus,
 .call-device-select__trigger:focus {
   outline: none;
-  border-color: rgba(10, 132, 255, 0.55);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 3px rgba(10, 132, 255, 0.22);
+  border-color: var(--accent-ring);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 3px var(--focus-shadow);
 }
 .call-field select:focus-visible,
 .call-device-select__trigger:focus-visible {
   outline: none;
-  border-color: rgba(10, 132, 255, 0.55);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 3px rgba(10, 132, 255, 0.22);
+  border-color: var(--accent-ring);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 3px var(--focus-shadow);
 }
 .call-setup-go, .call-mod-actions button, .call-host-actions button {
   height: 36px;
@@ -2436,10 +2436,10 @@ body.mesh-split-dragging * {
   cursor: pointer;
 }
 .call-setup-go, #callModConfirm {
-  background: #0a84ff;
+  background: var(--accent);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset;
 }
-.call-setup-go:hover, #callModConfirm:hover { background: #409cff; }
+.call-setup-go:hover, #callModConfirm:hover { background: var(--live); }
 .call-mod-banner {
   display: flex;
   flex-direction: column;
@@ -2574,6 +2574,6 @@ body.mesh-split-dragging * {
 .mesh-live.call-joined[data-focus="stage"] .call-stage[data-screen-mode] .call-local-screen {
   max-height: none;
 }
-#callPip[aria-pressed="true"] svg { background: #0066cc; color: #fff; }
-#callFocus[aria-pressed="true"] svg { background: #0066cc; color: #fff; }
+#callPip[aria-pressed="true"] svg { background: var(--accent); color: #fff; }
+#callFocus[aria-pressed="true"] svg { background: var(--accent); color: #fff; }
 .tabular { font-variant-numeric: tabular-nums; }

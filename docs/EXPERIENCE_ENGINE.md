@@ -190,6 +190,12 @@ When `OVERDRIVE_SHARE_LISTEN` is `0.0.0.0:7741` (or any wildcard bind), `share l
 
 The page and `GET /api/peers` list each circle member with device id, hostname, dial endpoint, the TCP address last seen, and last seen time. The group key is not included.
 
+### Mesh dashboard whitelabel
+
+Without configuration, the mesh dashboard uses the built-in **Overdrive** look (title, logo, and cyan theme). To brand the UI, add `$OVERDRIVE_HOME/share/whitelabel.json` (see `docs/share-whitelabel.example.json`). Optional fields: `preset` (`orbit` or `enterprise`), `title`, `logo`, `favicon`, `appleTouchIcon`, `themeColor`, and `tokens` (`ink`, `sea`, `foam`, `cyan`, `live`, `mute`).
+
+`logo`, `favicon`, and `appleTouchIcon` may be `/logo.png`, `/assets/...` under `share/assets/`, or `https://` URLs. Remote images are downloaded once at `share listen` startup into `share/assets/` and served locally (`docs/share-whitelabel-remote.example.json`). Legacy `share/ui.json` is still read if `whitelabel.json` is missing. Do not commit live `whitelabel.json` into application repositories; ship only the `.example.json` templates. The system tray (`overdrive-tray`) uses the same `logo` (or `favicon` fallback) for its status icon.
+
 Joining a circle sends this machine's listen address. The other side stores it and answers with its own roster, so both machines can dial each other after accept. If the advertised address is wildcard or loopback and the TCP peer is a LAN address, the stored endpoint uses that LAN IP plus the announced port. Later syncs refresh the same fields.
 
 ## Environment variables
@@ -209,6 +215,15 @@ Joining a circle sends this machine's listen address. The other side stores it a
 | `OVERDRIVE_TURN_URLS` | unset | Comma-separated TURN/TURNS URLs. Without them, mesh calls use STUN only and fail across NAT |
 | `OVERDRIVE_TURN_USERNAME` | unset | TURN username when `OVERDRIVE_TURN_URLS` is set |
 | `OVERDRIVE_TURN_CREDENTIAL` | unset | TURN credential |
+
+### Share data files (under `$OVERDRIVE_HOME/share/`)
+
+| File | Purpose |
+|---|---|
+| `whitelabel.json` | Optional mesh dashboard branding (title, icons, colors). Absent file ⇒ Overdrive default UI. |
+| `whitelabel-remote-cache.json` | Maps downloaded HTTPS brand URLs to cached files in `assets/`. |
+| `assets/*` | Local brand images and whitelabel downloads served at `/assets/…`. |
+| `ui.json` | Legacy alias for `whitelabel.json` (still supported). |
 
 Mesh calls stay peer-to-peer. The dashboard states that STUN-only mode does not cross NAT, and that screen mini-player Picture-in-Picture is Chrome/Edge; Safari and Firefox fall back to the draggable overlay. CI runs a Node signaling contract test, a Playwright smoke with fake microphone/camera between two `share listen` instances, and enforces Go statement coverage of at least 82% on the runtime package excluding `terminal_host.go` (PTY supervisor).
 

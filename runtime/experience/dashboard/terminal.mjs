@@ -471,30 +471,36 @@ function createLiveSessions(deps) {
   };
   const TERM_BG = "#1c1c1e";
   const TERM_FG = "#f2f2f7";
-  const XTERM_THEME = {
-    background: TERM_BG,
-    foreground: TERM_FG,
-    cursor: TERM_FG,
-    cursorAccent: TERM_BG,
-    selectionBackground: "rgba(10, 132, 255, 0.38)",
-    selectionForeground: "#ffffff",
-    black: "#1c1c1e",
-    red: "#ff453a",
-    green: "#32d74b",
-    yellow: "#ffd60a",
-    blue: "#0a84ff",
-    magenta: "#bf5af2",
-    cyan: "#64d2ff",
-    white: "#e5e5ea",
-    brightBlack: "#636366",
-    brightRed: "#ff6961",
-    brightGreen: "#30d158",
-    brightYellow: "#ffd426",
-    brightBlue: "#409cff",
-    brightMagenta: "#da8fff",
-    brightCyan: "#70d7ff",
-    brightWhite: "#ffffff"
-  };
+  function xtermThemeBase() {
+    const accent = shareCssColor("--accent", shareCssColor("--cyan", "#00b4ff"));
+    const live = shareCssColor("--live", "#5ee7ff");
+    const mid = shareCssColor("--accent-mid", "rgba(109, 40, 217, 0.38)");
+    return {
+      background: TERM_BG,
+      foreground: TERM_FG,
+      cursor: TERM_FG,
+      cursorAccent: TERM_BG,
+      selectionBackground: mid,
+      selectionForeground: "#ffffff",
+      black: "#1c1c1e",
+      red: "#ff453a",
+      green: "#32d74b",
+      yellow: "#ffd60a",
+      blue: accent,
+      magenta: "#bf5af2",
+      cyan: live,
+      white: "#e5e5ea",
+      brightBlack: "#636366",
+      brightRed: "#ff6961",
+      brightGreen: "#30d158",
+      brightYellow: "#ffd426",
+      brightBlue: live,
+      brightMagenta: "#da8fff",
+      brightCyan: live,
+      brightWhite: "#ffffff"
+    };
+  }
+  const XTERM_THEME = xtermThemeBase();
 
   function terminalCtor() {
     return resolveTerminalModuleCtor(globalThis.Terminal, "Terminal");

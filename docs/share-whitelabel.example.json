@@ -1,0 +1,14 @@
+{
+  "preset": "orbit",
+  "title": "Overdrive",
+  "logo": "/logo.png",
+  "themeColor": "#00b4ff",
+  "tokens": {
+    "ink": "#04070d",
+    "sea": "#07131c",
+    "foam": "#e8f6ff",
+    "cyan": "#00b4ff",
+    "live": "#5ee7ff",
+    "mute": "#7a93a6"
+  }
+}

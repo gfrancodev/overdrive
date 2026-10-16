@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 2.0.1 - 2026-10-16
+
+### Share mesh dashboard
+
+- **Whitelabel (optional):** `$OVERDRIVE_HOME/share/whitelabel.json` overrides title, icons, `themeColor`, and color tokens (`ink`, `sea`, `foam`, `cyan`, `live`, `mute`). With no file, the dashboard keeps the built-in **Overdrive** look. Legacy `share/ui.json` is still read when `whitelabel.json` is absent.
+- **Brand assets:** `logo`, `favicon`, and `appleTouchIcon` accept `/logo.png`, `share/assets/*`, or `https://` URLs. Remote images download once at `share listen` startup and are served from `/assets/…` (cache map in `share/whitelabel-remote-cache.json`).
+- **Tray icon:** `overdrive-tray` uses the whitelabel `logo` (or `favicon`) when set; otherwise the built-in mark.
+- **Theming:** Token-driven accents apply across the orbit view, dock, chat/call chrome, and xterm palette; examples in `docs/share-whitelabel.example.json` and `docs/share-whitelabel-remote.example.json`.
+
+### Fixes
+
+- Mesh dashboard boot: shared helpers (`dashboard-shared.mjs`) avoid a `computerLabel` temporal-dead-zone when the ESM bundle loads.
+- Custom icons served from `share/assets/`; embedded logo remains the default fallback.
+
 ## 2.0.0 - 2026-10-16
 
 ### Share mesh dashboard

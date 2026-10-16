@@ -1,0 +1,16 @@
+{
+  "preset": "orbit",
+  "title": "Your product name",
+  "logo": "https://example.com/assets/icon-32.png",
+  "favicon": "https://example.com/assets/icon-32.png",
+  "appleTouchIcon": "https://example.com/assets/apple-touch-icon.png",
+  "themeColor": "#6d28d9",
+  "tokens": {
+    "ink": "#07060c",
+    "sea": "#09070f",
+    "foam": "#f4f0fa",
+    "cyan": "#6d28d9",
+    "live": "#c4b5fd",
+    "mute": "#9b8ab0"
+  }
+}

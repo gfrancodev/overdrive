@@ -7,6 +7,30 @@ import (
 	"testing"
 )
 
+func TestShareWhitelabelDefaultsWithoutFile(t *testing.T) {
+	home := t.TempDir()
+	cfg := loadShareUI(home)
+	def := defaultShareWhitelabelConfig()
+	if cfg.Title != def.Title || cfg.Logo != def.Logo || cfg.Tokens["cyan"] != def.Tokens["cyan"] {
+		t.Fatalf("defaults %+v", cfg)
+	}
+}
+
+func TestShareWhitelabelLegacyUIJSON(t *testing.T) {
+	home := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(home, "share"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	raw := []byte(`{"title":"Legacy","tokens":{"cyan":"#112233"}}`)
+	if err := os.WriteFile(filepath.Join(home, "share", shareWhitelabelLegacyFile), raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := loadShareUI(home)
+	if cfg.Title != "Legacy" || cfg.Tokens["cyan"] != "#112233" {
+		t.Fatalf("legacy %+v", cfg)
+	}
+}
+
 func TestShareUILoopbackAndTheme(t *testing.T) {
 	t.Setenv("OVERDRIVE_SHARE_UI", "")
 	t.Setenv("OVERDRIVE_SHARE_LISTEN", "127.0.0.1:7741")
@@ -20,7 +44,7 @@ func TestShareUILoopbackAndTheme(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw := []byte(`{"preset":"enterprise","title":"Ops <circle>","logo":"https://evil.example/x","tokens":{"cyan":"#00b4ff","ink":"red"}}`)
-	if err := os.WriteFile(filepath.Join(home, "share", "ui.json"), raw, 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(home, "share", shareWhitelabelFile), raw, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	cfg := loadShareUI(home)
@@ -33,6 +57,9 @@ func TestShareUILoopbackAndTheme(t *testing.T) {
 	page := string(dashboardHTMLWithUI(home))
 	if !strings.Contains(page, `"preset":"enterprise"`) || !strings.Contains(page, "entRows") {
 		t.Fatal("enterprise page")
+	}
+	if !strings.Contains(page, "OVERDRIVE_WHITELABEL=") || !strings.Contains(page, "share-ui-theme") || !strings.Contains(page, "--cyan:#00b4ff") {
+		t.Fatalf("theme block: %s", page[:min(800, len(page))])
 	}
 }
 
