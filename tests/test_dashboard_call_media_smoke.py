@@ -163,6 +163,20 @@ def dual_dashboard(runtime_bin: Path, tmp_path: Path):
         proc_b.wait(timeout=5)
 
 
+def open_messages(page) -> None:
+    """Click the messages launcher until the widget is shown (script may bind late)."""
+    page.wait_for_selector("#msgApp", state="visible", timeout=20_000)
+    deadline = time.time() + 20
+    while time.time() < deadline:
+        page.click("#msgApp")
+        try:
+            page.wait_for_selector("#messages:not([hidden])", timeout=800)
+            return
+        except Exception:
+            time.sleep(0.2)
+    pytest.fail("messages panel did not open")
+
+
 def test_voice_call_connects_with_fake_media(dual_dashboard, playwright):
     base_a, base_b = dual_dashboard
     browser = playwright.chromium.launch(
@@ -172,8 +186,8 @@ def test_voice_call_connects_with_fake_media(dual_dashboard, playwright):
             "--autoplay-policy=no-user-gesture-required",
         ]
     )
-    ctx_a = browser.new_context()
-    ctx_b = browser.new_context()
+    ctx_a = browser.new_context(viewport={"width": 1440, "height": 900})
+    ctx_b = browser.new_context(viewport={"width": 1440, "height": 900})
     page_a = ctx_a.new_page()
     page_b = ctx_b.new_page()
     try:
@@ -182,10 +196,10 @@ def test_voice_call_connects_with_fake_media(dual_dashboard, playwright):
         page_a.wait_for_function("() => document.getElementById('callPanel')", timeout=20_000)
         page_b.wait_for_function("() => document.getElementById('callPanel')", timeout=20_000)
 
-        page_a.click("#msgApp", timeout=10_000)
-        page_a.click("#msgNew", timeout=10_000)
+        open_messages(page_a)
+        page_a.locator("#msgNew").click(force=True, timeout=10_000)
         page_a.locator("#composeContacts button.compose-contact").first.click(timeout=45_000)
-        page_a.click("#msgCall", timeout=10_000)
+        page_a.locator("#msgCall").click(force=True, timeout=10_000)
         page_b.locator("#callAccept").wait_for(state="visible", timeout=20_000)
         page_b.click("#callAccept", timeout=10_000)
 
