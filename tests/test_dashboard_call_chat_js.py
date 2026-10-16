@@ -78,7 +78,8 @@ def test_video_embed_markup_in_message_renderer():
     assert "parseVideoEmbedUrl(clean)" in block
     assert "msgVideoEmbedNode" in block
     assert "youtube-nocookie.com/embed/" in chat
-    assert "spec.embedUrl" in chat and "msg-video-embed__iframe" in chat
+    assert "spec.embedUrl" in chat
+    assert "msg-video-embed__iframe" in chat
     link = chat[chat.index("function appendInlineToken(parent, match)"):chat.index("function appendInlines(parent, text)")]
     assert "parseVideoEmbedUrl(match.href)" in link
     assert ".msg-video-embed__play" in css
@@ -134,9 +135,12 @@ def test_voice_waveform_peaks_and_time_format():
     )
     data = json.loads(out)
     assert len(data["peaks"]) == 4
-    assert data["peaks"][2] == 1 and data["peaks"][3] == 1
-    assert data["peaks"][0] < 0.25 and data["peaks"][0] >= 0.12
-    assert all(p == 0.12 for p in data["silent"]) and len(data["silent"]) == 5
+    assert data["peaks"][2] == 1
+    assert data["peaks"][3] == 1
+    assert data["peaks"][0] < 0.25
+    assert data["peaks"][0] >= 0.12
+    assert all(p == 0.12 for p in data["silent"])
+    assert len(data["silent"]) == 5
     assert data["times"] == ["0:00", "0:07", "1:05", "0:00", "0:00"]
 
 
@@ -146,7 +150,8 @@ def test_recorded_audio_uses_voice_player_not_native_controls():
     assert "voiceMessageNode(url, key)" in message
     assert "audio.controls = true" not in message
     css = (ROOT / "runtime/experience/dashboard/chat.css").read_text(encoding="utf-8")
-    assert ".msg-voice-play" in css and ".msg-voice-bar.played" in css
+    assert ".msg-voice-play" in css
+    assert ".msg-voice-bar.played" in css
 
 
 def test_parse_invite_payload_modes():
@@ -177,7 +182,7 @@ def test_composer_terminal_share_copy():
     assert "composer-term-label" not in html
     assert "Share terminal" in app
     assert "Use Send to chat to share this terminal live" in chat
-    assert "Share terminal" in chat or "overdriveShareLiveTerminal" in chat
+    assert any(("Share terminal" in chat, "overdriveShareLiveTerminal" in chat))
     assert 'id="termShareChatBar"' in shell
     assert "Send the live terminal to this chat" in shell
     assert "conversation_id" in term
@@ -1167,7 +1172,8 @@ def test_recording_composer_matches_voice_player_style():
     html = (ROOT / "runtime/experience/dashboard/chat.html").read_text(encoding="utf-8")
     js = CHAT_MJS.read_text(encoding="utf-8")
     css = (ROOT / "runtime/experience/dashboard/chat.css").read_text(encoding="utf-8")
-    assert 'id="composerRec"' in html and 'id="composerRecTime"' in html
+    assert 'id="composerRec"' in html
+    assert 'id="composerRecTime"' in html
     assert "getByteFrequencyData" not in js
     assert "getByteTimeDomainData" in js
     assert "rgba(255, 107, 107" not in js

@@ -154,14 +154,21 @@ func assertPeerDashboardBody(t *testing.T, home, groupKey string) {
 	}
 }
 
-func assertDashboardShell(t *testing.T, home string) {
+func fetchEmbeddedDashboardHTML(t *testing.T, home string) string {
 	t.Helper()
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	shareDashboardHandler(home).ServeHTTP(rr, req)
-	html := rr.Body.String()
-	if rr.Code != http.StatusOK || !strings.Contains(html, "Overdrive") || !strings.Contains(html, "/logo.png") {
-		t.Fatalf("html: %d %s", rr.Code, html)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("html status: %d", rr.Code)
+	}
+	return rr.Body.String()
+}
+
+func assertDashboardShellLayout(t *testing.T, html string) {
+	t.Helper()
+	if !strings.Contains(html, "Overdrive") || !strings.Contains(html, "/logo.png") {
+		t.Fatalf("html shell: %s", html)
 	}
 	if !strings.Contains(html, `aria-label="Close"`) || !strings.Contains(html, "Contexts") || !strings.Contains(html, "popover") || !strings.Contains(html, "three@0.170.0") {
 		t.Fatalf("html chrome: %s", html)
@@ -193,6 +200,10 @@ func assertDashboardShell(t *testing.T, home string) {
 	if !strings.Contains(html, `id="stage"`) || !strings.Contains(html, `id="drawer"`) || !strings.Contains(html, `id="find"`) {
 		t.Fatalf("globe shell missing: %s", html)
 	}
+}
+
+func assertDashboardMeshChrome(t *testing.T, html string) {
+	t.Helper()
 	for _, id := range []string{
 		`id="msgApp"`,
 		`id="msgCount"`,
@@ -240,6 +251,10 @@ func assertDashboardShell(t *testing.T, home string) {
 	if !strings.Contains(html, "globalThis.overdriveShowLiveTerminal = showLiveTerminal") {
 		t.Fatal("composer terminal button hook missing from embedded dashboard")
 	}
+}
+
+func assertDashboardAPIRoutes(t *testing.T, html string) {
+	t.Helper()
 	for _, route := range []string{
 		"/api/chat/conversations?mesh_id=",
 		"/api/chat/messages",
@@ -271,8 +286,12 @@ func assertDashboardShell(t *testing.T, home string) {
 			t.Fatalf("device connection chrome missing %s", id)
 		}
 	}
-	rr = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/logo.png", nil)
+}
+
+func assertDashboardStaticAssets(t *testing.T, home string) {
+	t.Helper()
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/logo.png", nil)
 	shareDashboardHandler(home).ServeHTTP(rr, req)
 	if rr.Code != http.StatusOK || !strings.HasPrefix(rr.Header().Get(headerContentType), "image/") || rr.Body.Len() < 100 {
 		t.Fatalf("logo: %d %s %d", rr.Code, rr.Header().Get(headerContentType), rr.Body.Len())
@@ -283,6 +302,15 @@ func assertDashboardShell(t *testing.T, home string) {
 	if rr.Code != http.StatusOK || rr.Body.Len() < 100 {
 		t.Fatalf("favicon: %d %d", rr.Code, rr.Body.Len())
 	}
+}
+
+func assertDashboardShell(t *testing.T, home string) {
+	t.Helper()
+	html := fetchEmbeddedDashboardHTML(t, home)
+	assertDashboardShellLayout(t, html)
+	assertDashboardMeshChrome(t, html)
+	assertDashboardAPIRoutes(t, html)
+	assertDashboardStaticAssets(t, home)
 }
 
 func TestContextTreeFiltersByDevice(t *testing.T) {
