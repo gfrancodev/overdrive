@@ -21,7 +21,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: "1.22"
+          go-version: "1.27.2"
           cache-dependency-path: runtime/experience/go.sum
 
       - name: Install test dependencies
@@ -69,7 +69,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: "1.22"
+          go-version: "1.27.2"
           cache-dependency-path: runtime/experience/go.sum
 
       - name: Detect security file changes
@@ -106,7 +106,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: "1.22"
+          go-version: "1.27.2"
           cache-dependency-path: runtime/experience/go.sum
 
       - name: Install test dependencies

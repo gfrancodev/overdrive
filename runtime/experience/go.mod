@@ -1,6 +1,6 @@
 module github.com/gfrancodev/overdrive/runtime/experience
 
-go 1.23.0
+go 1.27.2
 
 require (
 	github.com/ebitengine/purego v0.8.2

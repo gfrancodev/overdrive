@@ -1,6 +1,6 @@
 module github.com/gfrancodev/overdrive/runtime/tray
 
-go 1.22
+go 1.27.2
 
 require (
 	fyne.io/systray v1.11.0
