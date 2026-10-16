@@ -2187,6 +2187,17 @@ function createLiveSessions(deps) {
   syncLayoutClasses();
   bindWindowChrome();
 
+  async function openDefaultSessionsInOrder(list, index = 0) {
+    if (index >= list.length) return;
+    const sess = list[index];
+    try {
+      await openSession(sess.id, sess.name, { focus: index === list.length - 1 });
+    } catch {
+      /* skip broken session */
+    }
+    await openDefaultSessionsInOrder(list, index + 1);
+  }
+
   async function ensureDefaultSession() {
     if (creatingDefault || tabs.size > 0) return;
     creatingDefault = true;
@@ -2199,11 +2210,7 @@ function createLiveSessions(deps) {
         .filter((s) => sessionLive(s) && (!self || s.host_device_id === self))
         .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
       if (mine.length) {
-        let chain = Promise.resolve();
-        mine.forEach((sess, i) => {
-          chain = chain.then(() => openSession(sess.id, sess.name, { focus: i === mine.length - 1 }).catch(() => {}));
-        });
-        await chain;
+        await openDefaultSessionsInOrder(mine);
         await refreshSessionList();
         return;
       }

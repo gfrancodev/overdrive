@@ -49,12 +49,14 @@ function payloadObject(payload) {
   return payload;
 }
 
-async function runSequential(items, step) {
-  let chain = Promise.resolve();
-  for (const item of items) {
-    chain = chain.then(() => Promise.resolve(step(item)).catch(() => {}));
+async function runSequential(items, step, index = 0) {
+  if (index >= items.length) return;
+  try {
+    await step(items[index]);
+  } catch {
+    /* step failed */
   }
-  await chain;
+  await runSequential(items, step, index + 1);
 }
 
 function callMeshPeerIDs(groupPeerIDs, peerID) {

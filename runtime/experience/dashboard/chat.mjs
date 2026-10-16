@@ -1612,11 +1612,11 @@ function createMeshChat(deps) {
       if (index % 2 === 1) {
         const nl = part.indexOf("\n");
         const lang = nl === -1 ? part.trim() : part.slice(0, nl).trim();
-        const source = nl === -1 ? "" : part.slice(nl + 1).replace(/\n$/, "");
+        const source = nl === -1 ? "" : part.slice(nl + 1).trimEnd();
         frag.appendChild(codeBlock(lang, source));
         return;
       }
-      appendMarkdownLines(frag, part.replace(/\s+$/, "").split("\n"));
+      appendMarkdownLines(frag, part.trimEnd().split("\n"));
     });
     return frag;
   }

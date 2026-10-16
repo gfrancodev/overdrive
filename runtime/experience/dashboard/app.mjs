@@ -7,6 +7,11 @@ function alive(peer) {
   const t = Date.parse(peer.last_seen);
   return Number.isFinite(t) && (Date.now() - t) < 15 * 60 * 1000;
 }
+function setInviteCopyStatus(status, copied, when) {
+  if (!status) return;
+  status.textContent = (copied ? "Copied. It expires " : "Could not copy. It expires ") + when + ". An expired connection is refused.";
+}
+
 function circleInviteErrorMessage(res, body) {
   return body.error || (res.status === 403
     ? "Open the dashboard on this computer (127.0.0.1) to create a connection."
@@ -2699,11 +2704,6 @@ function roster(data) {
         if (err != null && globalThis.console?.debug) globalThis.console.debug(err);
         return copyInviteJSONFallback(json);
       }
-    }
-
-    function setInviteCopyStatus(status, copied, when) {
-      if (!status) return;
-      status.textContent = (copied ? "Copied. It expires " : "Could not copy. It expires ") + when + ". An expired connection is refused.";
     }
 
     async function copyConnection() {
