@@ -229,101 +229,109 @@ func TestUnconfirmedHintDoesNotBecomeDecision(t *testing.T) {
 }
 
 func TestSecurityPredicates(t *testing.T) {
-	redacted := redact("api_key=supersecretvalue")
-	if strings.Contains(redacted, "supersecretvalue") || !strings.Contains(redacted, "<redacted>") {
-		t.Fatalf("redact: %s", redacted)
-	}
-	if redact("") != "" {
-		t.Fatal("empty redact")
-	}
-	key := "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n-----END OPENSSH PRIVATE KEY-----"
-	if !strings.Contains(redact(key), "redacted-private-key") {
-		t.Fatal("private key")
-	}
-
-	pub, priv, err := ed25519.GenerateKey(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req := SyncRequest{DeviceID: "dev_a", CircleID: "c1", Repository: "acme/r", Timestamp: "2026-01-01T00:00:00Z"}
-	signed, err := signSyncRequest(priv, req)
-	if err != nil || !verifySyncRequest(pub, signed) {
-		t.Fatal("valid signature rejected")
-	}
-	signed.DeviceID = "dev_b"
-	if verifySyncRequest(pub, signed) {
-		t.Fatal("tampered request accepted")
-	}
-	signed, _ = signSyncRequest(priv, req)
-	signed.Signature = "bm90LWEgc2ln"
-	if verifySyncRequest(pub, signed) {
-		t.Fatal("bad signature accepted")
-	}
-
-	allowed := t.TempDir()
-	outside := t.TempDir()
-	circle := Circle{AllowedFolders: []string{allowed}}
-	if exportFolderAllowed(circle, outside) {
-		t.Fatal("outside folder exported")
-	}
-	if !exportFolderAllowed(circle, allowed) {
-		t.Fatal("allowed folder blocked")
-	}
-	if exportFolderAllowed(Circle{}, allowed) || exportFolderAllowed(circle, "  ") {
-		t.Fatal("empty allowlist or folder")
-	}
-	if shouldExportMemory(Memory{Kind: "preference", Scope: "repository"}) {
-		t.Fatal("preference exported")
-	}
-	if shouldExportMemory(Memory{Kind: "decision", Scope: "global"}) {
-		t.Fatal("global decision exported")
-	}
-	if !shouldExportMemory(Memory{Kind: "decision", Scope: "repository"}) {
-		t.Fatal("repository decision not exported")
-	}
-	if !shouldExportMemory(Memory{Kind: "handoff", Scope: "repository"}) {
-		t.Fatal("handoff not exported")
-	}
-
-	mem := sharedPacketToMemory(SharedPacket{Fingerprint: "mem_peer", Kind: "decision", LessonContent: "body", PacketContent: "pkt", HotIndex: true}, "circle", "dev_peer")
-	if mem.Origin != "peer" {
-		t.Fatalf("origin %s", mem.Origin)
-	}
-	pkt := memoryToSharedPacket(Memory{ID: "mem_local", Kind: "decision", ScopeID: "acme/r", Content: "body", HotIndex: true, Layer: 2}, allowed, true)
-	if len(pkt.Vector) != 0 {
-		t.Fatal("vector shipped")
-	}
-	pkt.VectorSpace = "other-embedder"
-	if !peerPacketImportable(pkt, "stub") {
-		t.Fatal("empty vector must import on another embedder")
-	}
-	pkt.Vector = []float32{0.1}
-	if peerPacketImportable(pkt, "stub") {
-		t.Fatal("foreign vector accepted")
-	}
-
-	if err := rejectGroupKeyLeak(`{"mode":"ready"}`, "group-secret"); err != nil {
-		t.Fatal(err)
-	}
-	if err := rejectGroupKeyLeak(`{"group_key":"group-secret"}`, "group-secret"); err == nil {
-		t.Fatal("group key leak accepted")
-	}
-	if err := rejectGroupKeyLeak(`{"mode":"ready"}`, "  "); err != nil {
-		t.Fatal("blank key")
-	}
-
-	if !strings.Contains(formatPeerSyncLine("ci-box", "timeout", 0), "sem resposta (timeout)") {
-		t.Fatal("timeout line")
-	}
-	if !strings.Contains(formatPeerSyncLine("notebook-ana", "ok", 1), "online, sync ok, 1 pacotes") {
-		t.Fatal("ok line")
-	}
-	if !strings.HasPrefix(formatPeerSyncLine("  ", "timeout", 0), "- peer:") {
-		t.Fatal("blank peer name")
-	}
-	if hookRemoteAllowed("10.0.0.8:9") || !hookRemoteAllowed("127.0.0.1:9") || !hookRemoteAllowed("[::1]:9") {
-		t.Fatal("hook remote")
-	}
+	t.Run("redact", func(t *testing.T) {
+		redacted := redact("api_key=supersecretvalue")
+		if strings.Contains(redacted, "supersecretvalue") || !strings.Contains(redacted, "<redacted>") {
+			t.Fatalf("redact: %s", redacted)
+		}
+		if redact("") != "" {
+			t.Fatal("empty redact")
+		}
+		key := "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n-----END OPENSSH PRIVATE KEY-----"
+		if !strings.Contains(redact(key), "redacted-private-key") {
+			t.Fatal("private key")
+		}
+	})
+	t.Run("sync signatures", func(t *testing.T) {
+		pub, priv, err := ed25519.GenerateKey(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req := SyncRequest{DeviceID: "dev_a", CircleID: "c1", Repository: "acme/r", Timestamp: "2026-01-01T00:00:00Z"}
+		signed, err := signSyncRequest(priv, req)
+		if err != nil || !verifySyncRequest(pub, signed) {
+			t.Fatal("valid signature rejected")
+		}
+		signed.DeviceID = "dev_b"
+		if verifySyncRequest(pub, signed) {
+			t.Fatal("tampered request accepted")
+		}
+		signed, _ = signSyncRequest(priv, req)
+		signed.Signature = "bm90LWEgc2ln"
+		if verifySyncRequest(pub, signed) {
+			t.Fatal("bad signature accepted")
+		}
+	})
+	t.Run("export policy", func(t *testing.T) {
+		allowed := t.TempDir()
+		outside := t.TempDir()
+		circle := Circle{AllowedFolders: []string{allowed}}
+		if exportFolderAllowed(circle, outside) {
+			t.Fatal("outside folder exported")
+		}
+		if !exportFolderAllowed(circle, allowed) {
+			t.Fatal("allowed folder blocked")
+		}
+		if exportFolderAllowed(Circle{}, allowed) || exportFolderAllowed(circle, "  ") {
+			t.Fatal("empty allowlist or folder")
+		}
+		if shouldExportMemory(Memory{Kind: "preference", Scope: "repository"}) {
+			t.Fatal("preference exported")
+		}
+		if shouldExportMemory(Memory{Kind: "decision", Scope: "global"}) {
+			t.Fatal("global decision exported")
+		}
+		if !shouldExportMemory(Memory{Kind: "decision", Scope: "repository"}) {
+			t.Fatal("repository decision not exported")
+		}
+		if !shouldExportMemory(Memory{Kind: "handoff", Scope: "repository"}) {
+			t.Fatal("handoff not exported")
+		}
+	})
+	t.Run("peer packets", func(t *testing.T) {
+		allowed := t.TempDir()
+		mem := sharedPacketToMemory(SharedPacket{Fingerprint: "mem_peer", Kind: "decision", LessonContent: "body", PacketContent: "pkt", HotIndex: true}, "circle", "dev_peer")
+		if mem.Origin != "peer" {
+			t.Fatalf("origin %s", mem.Origin)
+		}
+		pkt := memoryToSharedPacket(Memory{ID: "mem_local", Kind: "decision", ScopeID: "acme/r", Content: "body", HotIndex: true, Layer: 2}, allowed, true)
+		if len(pkt.Vector) != 0 {
+			t.Fatal("vector shipped")
+		}
+		pkt.VectorSpace = "other-embedder"
+		if !peerPacketImportable(pkt, "stub") {
+			t.Fatal("empty vector must import on another embedder")
+		}
+		pkt.Vector = []float32{0.1}
+		if peerPacketImportable(pkt, "stub") {
+			t.Fatal("foreign vector accepted")
+		}
+	})
+	t.Run("group key leak", func(t *testing.T) {
+		if err := rejectGroupKeyLeak(`{"mode":"ready"}`, "group-secret"); err != nil {
+			t.Fatal(err)
+		}
+		if err := rejectGroupKeyLeak(`{"group_key":"group-secret"}`, "group-secret"); err == nil {
+			t.Fatal("group key leak accepted")
+		}
+		if err := rejectGroupKeyLeak(`{"mode":"ready"}`, "  "); err != nil {
+			t.Fatal("blank key")
+		}
+	})
+	t.Run("peer sync lines and hook remote", func(t *testing.T) {
+		if !strings.Contains(formatPeerSyncLine("ci-box", "timeout", 0), "sem resposta (timeout)") {
+			t.Fatal("timeout line")
+		}
+		if !strings.Contains(formatPeerSyncLine("notebook-ana", "ok", 1), "online, sync ok, 1 pacotes") {
+			t.Fatal("ok line")
+		}
+		if !strings.HasPrefix(formatPeerSyncLine("  ", "timeout", 0), "- peer:") {
+			t.Fatal("blank peer name")
+		}
+		if hookRemoteAllowed("10.0.0.8:9") || !hookRemoteAllowed("127.0.0.1:9") || !hookRemoteAllowed("[::1]:9") {
+			t.Fatal("hook remote")
+		}
+	})
 }
 
 func TestSessionEndPromotesAndContextFile(t *testing.T) {
