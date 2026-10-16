@@ -1441,6 +1441,25 @@ def test_mesh_call_signaling_node_runner():
     assert proc.returncode == 0, proc.stderr or proc.stdout
 
 
+def test_dashboard_async_fire_and_forget_uses_catch():
+    """Sonar javascript:S9383 — async calls in handlers must not float."""
+    app = (ROOT / "runtime/experience/dashboard/app.mjs").read_text(encoding="utf-8")
+    chat = CHAT_MJS.read_text(encoding="utf-8")
+    call = CALL_MJS.read_text(encoding="utf-8")
+    term = TERMINAL_MJS.read_text(encoding="utf-8")
+    assert "loadContexts().catch(() => {})" in app
+    assert "setInterval(() => { refresh().catch(() => {})" in app
+    assert "postMesh(\"/api/mesh/pause\").catch(() => {})" in app
+    assert "copyConnection().catch(() => {})" in app
+    assert "loadThread(openConversation, true).catch(() => {})" in chat
+    assert "sendMessage(ev).catch(() => {})" in chat
+    assert "attachFile(file).catch(() => {})" in chat
+    assert "endCall(true).catch(() => {})" in call
+    assert "addEventListener(\"click\", async () =>" not in term
+    assert "createSession().catch(() => {})" in term
+    assert "refreshSessionList().catch(() => {})" in term
+
+
 def test_terminal_owner_grant_control_badge_opens_inspector():
     html = (ROOT / "runtime" / "experience" / "dashboard" / "shell.html").read_text(encoding="utf-8")
     js = (ROOT / "runtime" / "experience" / "dashboard" / "terminal.mjs").read_text(encoding="utf-8")

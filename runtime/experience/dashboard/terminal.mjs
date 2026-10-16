@@ -1775,6 +1775,8 @@ function createLiveSessions(deps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
+      }).then((res) => {
+        if (!res.ok) tab.statusEl.textContent = "Could not change control.";
       }).catch((err) => {
         if (err != null && globalThis.console?.debug) globalThis.console.debug(err);
         tab.statusEl.textContent = "Could not change control.";
@@ -1805,6 +1807,8 @@ function createLiveSessions(deps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
+      }).then((res) => {
+        if (!res.ok) tab.statusEl.textContent = "Could not change control.";
       }).catch((err) => {
         if (err != null && globalThis.console?.debug) globalThis.console.debug(err);
         tab.statusEl.textContent = "Could not change control.";
