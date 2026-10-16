@@ -199,8 +199,10 @@ def test_voice_call_connects_with_fake_media(dual_dashboard, playwright):
         page_a.locator("#msgNew").click(force=True, timeout=10_000)
         page_a.locator("#composeContacts button.compose-contact").first.click(timeout=45_000)
         page_a.locator("#msgCall").click(force=True, timeout=10_000)
+        page_a.locator("#callSetupContinue").click(timeout=15_000)
         page_b.locator("#callAccept").wait_for(state="visible", timeout=20_000)
         page_b.click("#callAccept", timeout=10_000)
+        page_b.locator("#callSetupContinue").click(timeout=15_000)
 
         page_a.locator("#callPanel[data-phase='active']").wait_for(timeout=25_000)
         page_b.locator("#callPanel[data-phase='active']").wait_for(timeout=25_000)

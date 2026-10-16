@@ -132,6 +132,13 @@ is 100% killed mutants on those predicates and 85% efficacy on that file set.
 
 CI uploads Go coverage and runs a SonarCloud scan (`sonar-project.properties`, workflow job **SonarCloud scan**).
 
+SonarCloud uses `sonar.projectKey=gfrancodev_overdrive` and `sonar.organization=gfrancodev`
+(see `sonar-project.properties`). A token created in the SonarCloud UI is **not** automatically
+available to GitHub Actions: add the same token as a repository secret named `SONAR_TOKEN`
+(**Settings → Secrets and variables → Actions → New repository secret**). The workflow passes
+`${{ secrets.SONAR_TOKEN }}` to `SonarSource/sonarqube-scan-action`. If the secret is missing or
+invalid, the scan fails with **Not authorized** even when analysis works locally with `.env.sonar`.
+
 Use `-tags=overdrive_fake_ort` so tests swap the ONNX Runtime FFI for an
 in-process fake session. Coverage of that path must stay at 100%.
 

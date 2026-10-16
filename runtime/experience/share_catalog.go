@@ -91,14 +91,15 @@ func (e *Engine) buildCatalogResponse(circle Circle, id DeviceIdentity, priv ed2
 	}
 	tree, edges := e.catalogGraphExport(id.DeviceID)
 	resp := CatalogResponse{
-		DeviceID: id.DeviceID,
-		CircleID: circle.ID,
-		Hostname: computerName(),
-		Folders:  append([]string{}, circle.AllowedFolders...),
-		Items:    local,
-		Tree:     tree,
-		Edges:    edges,
-		Members:  circle.Members,
+		DeviceID:     id.DeviceID,
+		CircleID:     circle.ID,
+		Hostname:     computerName(),
+		Folders:      append([]string{}, circle.AllowedFolders...),
+		Items:        local,
+		Tree:         tree,
+		Edges:        edges,
+		Members:      circle.Members,
+		MeshMQTTPort: meshMQTTPort(),
 	}
 	return signCatalogResponse(priv, resp)
 }

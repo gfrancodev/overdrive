@@ -835,7 +835,7 @@ function createLiveSessions(deps) {
       const body = {
         lease_id: this.lease.id || this.lease.ID || "",
         epoch: this.lease.epoch ?? this.lease.Epoch ?? 0,
-        input_id: "in_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+        input_id: "in_" + Date.now() + "_" + (globalThis.crypto?.randomUUID?.() || String(Date.now())).slice(0, 8),
         data: bytes
       };
       this.ws.send(encodeInputFrame(body));

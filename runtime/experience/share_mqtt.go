@@ -624,8 +624,34 @@ func meshBrokerAddr(home string, circle Circle, self DeviceIdentity, priv ed2551
 	}
 	addr, found := meshEndpoint(host)
 	if !found {
+		addr, err := brokerAddrFromPeerCatalog(home, circle, self, priv, host)
+		if err != nil {
+			return "", errBrokerUnknown
+		}
+		return addr, nil
+	}
+	return addr, nil
+}
+
+func brokerAddrFromPeerCatalog(home string, circle Circle, self DeviceIdentity, priv ed25519.PrivateKey, host string) (string, error) {
+	member, ok := circle.activeMember(host)
+	if !ok {
 		return "", errBrokerUnknown
 	}
+	endpoint := strings.TrimSpace(member.Endpoint)
+	if endpoint == "" {
+		return "", errBrokerUnknown
+	}
+	resp, err := fetchPeerCatalog(home, endpoint, circle, self, priv)
+	if err != nil || resp.MeshMQTTPort <= 0 {
+		return "", errBrokerUnknown
+	}
+	hostIP, _, err := net.SplitHostPort(endpoint)
+	if err != nil {
+		return "", errBrokerUnknown
+	}
+	addr := net.JoinHostPort(hostIP, strconv.Itoa(resp.MeshMQTTPort))
+	setMeshEndpoint(host, addr)
 	return addr, nil
 }
 

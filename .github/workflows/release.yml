@@ -52,9 +52,9 @@ jobs:
             lib: overdrive_turbovec_ffi.dll
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: "1.27.2"
           cache: false
@@ -103,7 +103,7 @@ jobs:
           Compress-Archive -Path "dist/${{ matrix.target }}" -DestinationPath "dist/overdrive-runtime-${{ matrix.target }}.zip" -Force
 
       - name: Upload platform artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: overdrive-runtime-${{ matrix.target }}
           path: dist/overdrive-runtime-${{ matrix.target }}.zip
@@ -116,7 +116,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           path: dist
           merge-multiple: true

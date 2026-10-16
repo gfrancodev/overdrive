@@ -60,15 +60,16 @@ type CatalogItem struct {
 }
 
 type CatalogResponse struct {
-	DeviceID  string          `json:"device_id"`
-	CircleID  string          `json:"circle_id"`
-	Hostname  string          `json:"hostname,omitempty"`
-	Folders   []string        `json:"folders,omitempty"`
-	Items     []CatalogItem   `json:"items"`
-	Tree      []PageIndexNode `json:"tree,omitempty"`
-	Edges     []GraphEdge     `json:"edges,omitempty"`
-	Members   []CircleMember  `json:"members,omitempty"`
-	Signature string          `json:"signature"`
+	DeviceID     string          `json:"device_id"`
+	CircleID     string          `json:"circle_id"`
+	Hostname     string          `json:"hostname,omitempty"`
+	Folders      []string        `json:"folders,omitempty"`
+	Items        []CatalogItem   `json:"items"`
+	Tree         []PageIndexNode `json:"tree,omitempty"`
+	Edges        []GraphEdge     `json:"edges,omitempty"`
+	Members      []CircleMember  `json:"members,omitempty"`
+	MeshMQTTPort int             `json:"mqtt_port,omitempty"`
+	Signature    string          `json:"signature"`
 }
 
 type wireEnvelope struct {
