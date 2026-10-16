@@ -10,6 +10,11 @@ import test from "node:test";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const chatMjs = join(root, "runtime/experience/dashboard/chat.mjs");
 const {
+  appendMarkdownListBlock,
+  appendMarkdownQuoteBlock,
+  appendMarkdownTableBlock,
+  continuesMarkdownParagraph,
+  emojiCatalogSearch,
   fileKind,
   formatVoiceTime,
   meshSplitPaneWidth,
@@ -56,4 +61,44 @@ test("meshSplitPaneWidth clamps chat and stage widths", () => {
   assert.equal(meshSplitPaneWidth("chat", 500, 0, w), 500);
   assert.equal(meshSplitPaneWidth("stage", 0, 0, w), MESH_STAGE_MIN_WIDTH);
   assert.equal(meshSplitPaneWidth("stage", 2000, 0, w), MESH_STAGE_MAX_WIDTH);
+});
+
+test("markdown block helpers render tables quotes and lists", () => {
+  globalThis.document = {
+    createElement(tag) {
+      const kids = [];
+      return { tagName: tag, className: "", children: kids, appendChild(c) { kids.push(c); } };
+    },
+  };
+  const appendInlines = (parent, text) => { parent.text = text; };
+  const frag = { kids: [], appendChild(c) { this.kids.push(c); } };
+
+  assert.equal(continuesMarkdownParagraph("hello"), true);
+  assert.equal(continuesMarkdownParagraph("- item"), false);
+
+  assert.equal(appendMarkdownTableBlock(frag, ["plain text"], 0, appendInlines), 0);
+
+  const tableNext = appendMarkdownTableBlock(
+    frag,
+    ["| A | B |", "| --- | --- |", "| 1 | 2 |"],
+    0,
+    appendInlines,
+  );
+  assert.equal(tableNext, 3);
+  assert.equal(frag.kids[0].tagName, "table");
+
+  const quoteNext = appendMarkdownQuoteBlock(frag, ["> q"], 0, appendInlines);
+  assert.equal(quoteNext, 1);
+
+  const listNext = appendMarkdownListBlock(frag, ["1. step"], 0, appendInlines);
+  assert.equal(listNext, 1);
+  assert.equal(frag.kids.at(-1).tagName, "ol");
+});
+
+test("emojiCatalogSearch skips recent tab", () => {
+  const hits = emojiCatalogSearch(
+    { tabs: ["recent", "nature"], emojis: { nature: [["🌲", "tree"]] } },
+    "tree",
+  );
+  assert.deepEqual(hits, [["🌲", "tree"]]);
 });

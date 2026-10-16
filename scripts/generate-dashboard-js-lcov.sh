@@ -11,7 +11,7 @@ cd "$ROOT"
 node --experimental-test-coverage \
   --test-coverage-include='runtime/experience/dashboard/**/*.mjs' \
   --test-coverage-exclude='**/vendor/**' \
-  --test tests/mesh_call_signaling.test.mjs tests/mesh_chat_helpers.test.mjs >/dev/null
+  --test tests/mesh_call_signaling.test.mjs tests/mesh_chat_helpers.test.mjs tests/dashboard_sonar_coverage.test.mjs >/dev/null
 if command -v npx >/dev/null 2>&1; then
   npx --yes c8@10.1.2 report "$TMP" --reporter=lcovonly --reports-dir="$(dirname "$OUT")" --temp-directory="$TMP" 2>/dev/null || true
 fi

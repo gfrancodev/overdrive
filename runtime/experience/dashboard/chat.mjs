@@ -3028,7 +3028,12 @@ function createMeshChat(deps) {
 }
 
 export {
+  appendMarkdownListBlock,
+  appendMarkdownQuoteBlock,
+  appendMarkdownTableBlock,
+  continuesMarkdownParagraph,
   createMeshChat,
+  emojiCatalogSearch,
   fileKind,
   FILE_KIND_STRATEGIES,
   formatVoiceTime,

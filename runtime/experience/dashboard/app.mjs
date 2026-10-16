@@ -2869,4 +2869,11 @@ function roster(data) {
     globalThis.overdriveShareLiveTerminal = () => liveSessions.shareActiveToChat();
     }
 
-  
+export {
+  alive,
+  circleInviteErrorMessage,
+  computerLabel,
+  roster,
+  setInviteCopyStatus,
+};
+
