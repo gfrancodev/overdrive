@@ -25,7 +25,7 @@ jobs:
           cache-dependency-path: runtime/experience/go.sum
 
       - name: Install test dependencies
-        run: pip install --only-binary :all: -r requirements-dev.txt
+        run: 'pip install --only-binary :all: -r requirements-dev.txt'
 
       - name: Validate package structure
         run: python3 scripts/validate.py
@@ -110,7 +110,7 @@ jobs:
           cache-dependency-path: runtime/experience/go.sum
 
       - name: Install test dependencies
-        run: pip install --only-binary :all: -r requirements-dev.txt
+        run: 'pip install --only-binary :all: -r requirements-dev.txt'
 
       - name: Install Playwright Chromium
         run: python3 -m playwright install chromium
