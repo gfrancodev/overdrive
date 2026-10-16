@@ -130,15 +130,23 @@ runs when the security files change: redact, signature verification, folder
 export, decision lifetime, span bounds, handoff, and per-peer status. The gate
 is 100% killed mutants on those predicates and 85% efficacy on that file set.
 
-CI uploads Go coverage and runs a SonarCloud scan (`sonar-project.properties`, workflow job **SonarCloud scan**).
+CI enforces Go coverage via `scripts/go-coverage-gate.sh` (≥82%, excluding `terminal_host.go`).
 
-SonarCloud uses `sonar.projectKey=gfrancodev_overdrive` and `sonar.organization=devgfrancodev`
-  (organization **key** on SonarCloud; the display name may differ, e.g. `gfrancodev`)
-(see `sonar-project.properties`). A token created in the SonarCloud UI is **not** automatically
-available to GitHub Actions: add the same token as a repository secret named `SONAR_TOKEN`
-(**Settings → Secrets and variables → Actions → New repository secret**). The workflow passes
-`${{ secrets.SONAR_TOKEN }}` to `SonarSource/sonarqube-scan-action`. If the secret is missing or
-invalid, the scan fails with **Not authorized** even when analysis works locally with `.env.sonar`.
+**SonarCloud** (`sonar.projectKey=gfrancodev_overdrive`, `sonar.organization=devgfrancodev` in
+`sonar-project.properties`; the organization **key** is not always the display name). This project
+currently uses **Automatic Analysis** on SonarCloud. You cannot run `sonar-scanner` from GitHub
+Actions at the same time — the scanner fails with *You are running CI analysis while Automatic
+Analysis is enabled*.
+
+To use CI-based analysis with coverage reports instead:
+
+1. In SonarCloud, open **Administration → Analysis Method** for the project (project admin required)
+   and turn **off** Automatic Analysis.
+2. Restore the commented Sonar steps in `.github/workflows/ci.yml` (JS lcov, Go path rewrite,
+   `SonarSource/sonarqube-scan-action` with `SONAR_TOKEN`).
+
+The repository secret `SONAR_TOKEN` must be a SonarCloud analysis token with access to org
+`devgfrancodev`. A missing or wrong org key in `sonar-project.properties` causes **Not authorized**.
 
 Use `-tags=overdrive_fake_ort` so tests swap the ONNX Runtime FFI for an
 in-process fake session. Coverage of that path must stay at 100%.
