@@ -1928,7 +1928,7 @@
       letter-spacing: -0.01em;
       color: var(--term-insp-text, rgba(255, 255, 255, 0.82));
       margin: 0;
-      word-break: break-word;
+      overflow-wrap: anywhere;
     }
     .term-side-meta--failed { color: #ffffff; }
     .term-side-list {

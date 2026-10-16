@@ -62,7 +62,7 @@ def http_json(method: str, url: str, body: dict | None = None) -> tuple[int, dic
         return err.code, payload
 
 
-@pytest.fixture()
+@pytest.fixture
 def share_ui(runtime_bin: Path, tmp_path: Path):
     home = Path("/tmp") / f"od-e2e-{uuid.uuid4().hex[:10]}"
     home.mkdir(parents=True, exist_ok=True)

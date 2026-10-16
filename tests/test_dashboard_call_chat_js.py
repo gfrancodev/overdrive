@@ -1257,8 +1257,10 @@ def test_mesh_joined_resize_handle_and_drag_wiring():
     css = (ROOT / "runtime/experience/dashboard/chat.css").read_text(encoding="utf-8")
     js = CHAT_MJS.read_text(encoding="utf-8")
     assert 'id="msgResize"' in html
-    assert 'aria-orientation="vertical"' in html
-    assert 'role="separator"' in html.split("msgResize")[1].split(">", 1)[0]
+    idx = html.index('id="msgResize"')
+    resize_tag = html[max(0, idx - 80) : html.index(">", idx) + 1]
+    assert 'type="button"' in resize_tag
+    assert 'role="separator"' not in resize_tag
     assert ".mesh-live.call-joined .chat-resize" in css
     assert "z-index: 25" in css.split(".mesh-live.call-joined .chat-resize", 1)[1].split("}", 1)[0]
     assert "width: 10px" in css

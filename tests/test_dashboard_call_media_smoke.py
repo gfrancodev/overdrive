@@ -74,7 +74,7 @@ def wait_http(url: str, timeout: float = 15.0) -> None:
     pytest.fail(f"HTTP server did not start: {url}")
 
 
-@pytest.fixture()
+@pytest.fixture
 def dual_dashboard(runtime_bin: Path, tmp_path: Path):
     repo = make_repo(tmp_path / "repo")
     home_a = tmp_path / "home-a"
