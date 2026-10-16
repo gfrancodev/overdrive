@@ -258,9 +258,15 @@ func TestShareListenCommandReturnsWithHook(t *testing.T) {
 	repo := makeTestRepo(t, filepath.Join(t.TempDir(), "repo"), "https://github.com/acme/a.git")
 	port := freeTCPPort(t)
 	t.Setenv("OVERDRIVE_SHARE_LISTEN", fmt.Sprintf("127.0.0.1:%d", port))
+	t.Setenv("OVERDRIVE_SHARE_UI", "off")
 	oldWait := shareListenWait
-	shareListenWait = func(sl *shareListener) {}
-	defer func() { shareListenWait = oldWait }()
+	shareListenWait = func(sl *shareListener) {
+		sl.Close()
+	}
+	t.Cleanup(func() {
+		stopMeshServices()
+		shareListenWait = oldWait
+	})
 	_, _, code := runCLICapture(t, []string{"share", "listen", "--cwd", repo})
 	if code != 0 {
 		t.Fatal(code)
