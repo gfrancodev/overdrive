@@ -74,18 +74,17 @@ def dual_dashboard(runtime_bin: Path, tmp_path: Path):
     env_a["OVERDRIVE_SHARE_LISTEN"] = f"127.0.0.1:{port_a}"
     env_b["OVERDRIVE_SHARE_LISTEN"] = f"127.0.0.1:{port_b}"
 
-    for env, circle_id in ((env_a, circle["id"]), (env_b, circle["id"])):
-        run(
-            str(runtime_bin),
-            "share",
-            "circle",
-            "folder-add",
-            "--circle",
-            circle_id,
-            "--folder",
-            str(repo),
-            env=env,
-        )
+    run(
+        str(runtime_bin),
+        "share",
+        "circle",
+        "folder-add",
+        "--circle",
+        circle["id"],
+        "--folder",
+        str(repo),
+        env=env_a,
+    )
 
     proc_a = subprocess.Popen(
         [str(runtime_bin), "share", "listen", "--cwd", str(repo)],
@@ -105,6 +104,17 @@ def dual_dashboard(runtime_bin: Path, tmp_path: Path):
         invite["fingerprint"],
         "--peer",
         env_a["OVERDRIVE_SHARE_LISTEN"],
+        env=env_b,
+    )
+    run(
+        str(runtime_bin),
+        "share",
+        "circle",
+        "folder-add",
+        "--circle",
+        circle["id"],
+        "--folder",
+        str(repo),
         env=env_b,
     )
     proc_b = subprocess.Popen(

@@ -27,6 +27,15 @@ jobs:
       - name: Install test dependencies
         run: 'pip install --only-binary :all: -r requirements-dev.txt'
 
+      - name: Build host runtime for installer test
+        working-directory: runtime/experience
+        env:
+          OVERDRIVE_EMBEDDER: stub
+          OVERDRIVE_SKIP_EMBED_DOWNLOAD: "1"
+        run: |
+          go build -buildvcs=false -o ../../runtime/bin/overdrive-runtime-linux-amd64 .
+          chmod +x ../../runtime/bin/overdrive-runtime-linux-amd64
+
       - name: Validate package structure
         run: python3 scripts/validate.py
 
