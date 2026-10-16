@@ -307,7 +307,7 @@ def test_terminal_ended_pane_is_centered_empty_state():
     assert "Session ended. Use + to open a new terminal." in term
     assert 'setOption("theme"' in term
     assert "--term-bg-opacity" in term
-    assert ".term-view.term-view--ended .term-xterm { display: none; }" in css
+    assert ".term-view--ended .term-xterm { display: none; }" in css
     assert ".term-view--ended .term-view-status" in css
     assert "overflow-x: hidden;" in css
     assert "background: transparent;" in css.split(".term-view-status {", 1)[1].split("}", 1)[0]
@@ -325,7 +325,7 @@ def test_terminal_bg_opacity_slider_wires_transparency():
     assert "bgOpacitySlider.addEventListener(\"input\"" in term
     assert "overdriveTermBgOpacity" in term
     assert "calc(var(--term-bg-opacity, 1) * 0.72)" in css
-    viewport_sel = ".live-sessions .term-xterm .xterm .xterm-viewport"
+    viewport_sel = ".term-xterm .xterm-viewport"
     assert viewport_sel in css
     viewport = css.split(viewport_sel + " {", 1)[1].split("}", 1)[0]
     assert "background-color: transparent;" in viewport
@@ -425,6 +425,22 @@ function node(id) {
       listeners: {}, addEventListener(type, fn) { this.listeners[type] = fn; },
       replaceChildren() {}, appendChild() {}, querySelector() { return null; },
     };
+    const dataAttrKey = (name) => String(name).replace(/([A-Z])/g, "-$1").toLowerCase();
+    const rawDataset = {};
+    el.dataset = new Proxy(rawDataset, {
+      set(target, key, value) {
+        if (typeof key !== "string") return false;
+        target[key] = value;
+        el.attrs[`data-${dataAttrKey(key)}`] = value;
+        return true;
+      },
+      deleteProperty(target, key) {
+        if (typeof key !== "string") return false;
+        delete target[key];
+        delete el.attrs[`data-${dataAttrKey(key)}`];
+        return true;
+      },
+    });
     let textContent = "";
     Object.defineProperty(el, "textContent", {
       get() { return textContent; },
