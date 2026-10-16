@@ -552,15 +552,26 @@ while True:
 	return path
 }
 
+func shareHookCanUnshare() bool {
+	if os.Getenv("OVERDRIVE_TEST_DISABLE_UNSHARE") == "1" {
+		return false
+	}
+	if _, err := exec.LookPath("unshare"); err != nil {
+		return false
+	}
+	return exec.Command("unshare", "-Urn", "true").Run() == nil
+}
+
 func runShareHookScript(t *testing.T, runtime, body string) {
 	t.Helper()
-	if _, err := exec.LookPath("unshare"); err != nil {
-		t.Fatal(err)
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
-	script := hookLibrary(t) + `
-ip link set lo up
+	isolated := shareHookCanUnshare()
+	prefix := ""
+	if isolated {
+		prefix = "ip link set lo up\n"
+	}
+	script := hookLibrary(t) + "\n" + prefix + `
 wait_for_port() {
   local port="$1" i
   for i in $(seq 1 50); do
@@ -573,7 +584,11 @@ wait_for_port() {
   return 1
 }
 ` + body
-	cmd := exec.CommandContext(ctx, "unshare", "-Urn", "bash", "-s", "--", runtime)
+	argv := []string{"bash", "-s", "--", runtime}
+	if isolated {
+		argv = append([]string{"unshare", "-Urn"}, argv...)
+	}
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Stdin = strings.NewReader(script)
 	cmd.Env = []string{
 		"PATH=" + os.Getenv("PATH"),
