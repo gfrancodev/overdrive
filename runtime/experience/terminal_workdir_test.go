@@ -65,6 +65,21 @@ func TestSharedWorkspaceShortLabel(t *testing.T) {
 	}
 }
 
+func TestAssertCircleScopedPathRejectsEscape(t *testing.T) {
+	home := t.TempDir()
+	outside := filepath.Join(home, "..", "escape")
+	if err := assertCircleScopedPath(home, outside); err == nil {
+		t.Fatal("expected path outside circles dir to be rejected")
+	}
+}
+
+func TestCircleTerminalSessionLinkPathRejectsTraversal(t *testing.T) {
+	home := t.TempDir()
+	if _, err := circleTerminalSessionLinkPath(home, "circle_ok", "ws_a", "../evil", false); err == nil {
+		t.Fatal("expected traversal rejection in session link path")
+	}
+}
+
 func TestCircleTerminalSessionLinkPathMultiWorkspace(t *testing.T) {
 	home := t.TempDir()
 	circleID := "circle_multi"

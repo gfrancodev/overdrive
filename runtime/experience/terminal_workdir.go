@@ -162,6 +162,16 @@ func resolveCircleScopedPath(home, circleID string, elems ...string) (string, er
 	return candidate, nil
 }
 
+// assertCircleScopedPath re-validates a path under circlesDir before symlink creation (gosecurity:S2083).
+func assertCircleScopedPath(home, absolutePath string) error {
+	base := filepath.Clean(circlesDir(home)) + string(os.PathSeparator)
+	absolutePath = filepath.Clean(absolutePath)
+	if !strings.HasPrefix(absolutePath, base) {
+		return errors.New(errMsgPathTraversal)
+	}
+	return nil
+}
+
 func countCircleWorkspaces(home, circleID string) int {
 	dir, err := resolveCircleScopedPath(home, circleID, "workspaces")
 	if err != nil {
@@ -211,6 +221,9 @@ func ensureCircleTerminalSessionLink(home, circleID, workspaceID, workName, sess
 	}
 	targetAbs, err := hookFilepathAbs(sessionDir)
 	if err != nil {
+		return fallback()
+	}
+	if err := assertCircleScopedPath(home, linkPath); err != nil {
 		return fallback()
 	}
 	_ = os.Remove(linkPath)

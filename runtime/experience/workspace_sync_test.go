@@ -16,6 +16,22 @@ func TestResolveSharedWorkspacePathRejectsTraversal(t *testing.T) {
 	}
 }
 
+func TestWriteSharedWorkspaceFileRejectsTraversal(t *testing.T) {
+	root := t.TempDir()
+	err := writeSharedWorkspaceFile(root, "../outside.txt", []byte("x"), 0o600)
+	if err == nil {
+		t.Fatal("expected traversal rejection at write sink")
+	}
+}
+
+func TestAssertSharedWorkspacePathResolvedRejectsOutsideRoot(t *testing.T) {
+	root := t.TempDir()
+	outside := filepath.Join(filepath.Dir(root), "outside-"+filepath.Base(root))
+	if err := assertSharedWorkspacePathResolved(root, outside); err == nil {
+		t.Fatal("expected path outside workspace root to be rejected")
+	}
+}
+
 func TestResolveSharedWorkspacePathRejectsSymlinkEscape(t *testing.T) {
 	root := t.TempDir()
 	outside := t.TempDir()

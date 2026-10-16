@@ -114,9 +114,23 @@ func sharedWorkspacePathWithinRoot(candidate, root, rootPrefix string) bool {
 	return strings.HasPrefix(candidate, rootPrefix)
 }
 
+// assertSharedWorkspacePathResolved re-checks the absolute path at I/O sinks so path traversal
+// sanitization is visible to static analysis (see TestResolveSharedWorkspacePathRejectsTraversal).
+func assertSharedWorkspacePathResolved(root, absolutePath string) error {
+	root = filepath.Clean(root)
+	absolutePath = filepath.Clean(absolutePath)
+	if !sharedWorkspacePathWithinRoot(absolutePath, root, root+string(os.PathSeparator)) {
+		return errors.New(errMsgPathTraversal)
+	}
+	return nil
+}
+
 func writeSharedWorkspaceFile(root, rel string, data []byte, mode os.FileMode) error {
 	path, err := resolveSharedWorkspacePath(root, rel)
 	if err != nil {
+		return err
+	}
+	if err := assertSharedWorkspacePathResolved(root, path); err != nil {
 		return err
 	}
 	return os.WriteFile(path, data, mode)
@@ -125,6 +139,9 @@ func writeSharedWorkspaceFile(root, rel string, data []byte, mode os.FileMode) e
 func createSharedWorkspaceFile(root, rel string, data []byte, mode os.FileMode) error {
 	path, err := resolveSharedWorkspacePath(root, rel)
 	if err != nil {
+		return err
+	}
+	if err := assertSharedWorkspacePathResolved(root, path); err != nil {
 		return err
 	}
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
@@ -195,6 +212,9 @@ func ensureSharedWorkspaceManifest(root, circleID, workspaceID, deviceID string)
 func readSharedWorkspaceManifest(root string) (SharedWorkspaceManifest, error) {
 	path, err := resolveSharedWorkspacePath(root, sharedWorkspaceManifestFile)
 	if err != nil {
+		return SharedWorkspaceManifest{}, err
+	}
+	if err := assertSharedWorkspacePathResolved(root, path); err != nil {
 		return SharedWorkspaceManifest{}, err
 	}
 	raw, err := os.ReadFile(path)
