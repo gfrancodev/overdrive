@@ -855,7 +855,7 @@ function createLiveSessions(deps) {
         this.endedBtn.addEventListener("click", (ev) => {
           ev.preventDefault();
           ev.stopPropagation();
-          void createSession();
+          createSession().catch(() => {});
         });
       }
       this.statusEl.appendChild(this.endedBtn);
@@ -923,7 +923,7 @@ function createLiveSessions(deps) {
       }
       this.reconnectTimer = setTimeout(() => {
         this.reconnectTimer = 0;
-        void this.recoverStream();
+        this.recoverStream().catch(() => {});
       }, 250 * this.recoverAttempts);
     }
     applyAttachBody(body) {
@@ -1726,7 +1726,7 @@ function createLiveSessions(deps) {
     }
     if (badgeRec) badgeRec.hidden = !s.recording_paused;
     if (badgePrivate) badgePrivate.hidden = !s.private_mode;
-    fetchParticipants(tab);
+    fetchParticipants(tab).catch(() => {});
     renderControlActions(tab);
   }
 
@@ -1765,23 +1765,20 @@ function createLiveSessions(deps) {
     const cls = "term-ctl term-ctl--inline" + (pending && !holds ? " term-ctl--accent" : "");
     const btn = el("button", cls, holds ? "Take back" : "Give control");
     btn.type = "button";
-    btn.addEventListener("click", async () => {
+    btn.addEventListener("click", () => {
       const body = holds
         ? { target_device_id: deviceId, reason: "owner took back control" }
         : { target_device_id: deviceId, epoch: tab.lease ? tab.lease.epoch : 0 };
-      try {
-        const res = await fetch(tab.api() + "/control/" + (holds ? "revoke" : "grant"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
-        });
-        if (!res.ok) tab.statusEl.textContent = "Could not change control.";
-      } catch (err) {
+      fetch(tab.api() + "/control/" + (holds ? "revoke" : "grant"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      }).catch((err) => {
         if (err != null && globalThis.console?.debug) globalThis.console.debug(err);
         tab.statusEl.textContent = "Could not change control.";
-      }
-      await refreshLease(tab);
-      renderSide(tab);
+      }).finally(() => {
+        refreshLease(tab).catch(() => {}).finally(() => { renderSide(tab); });
+      });
     });
     return btn;
   }
@@ -1800,21 +1797,18 @@ function createLiveSessions(deps) {
     const base = tab.api() + "/control/";
     const req = el("button", "term-ctl", isOwner ? "Take control" : "Request control");
     req.type = "button";
-    req.addEventListener("click", async () => {
+    req.addEventListener("click", () => {
       const body = isOwner ? { target_device_id: self, epoch: tab.lease ? tab.lease.epoch : 0 } : {};
-      try {
-        const res = await fetch(base + (isOwner ? "grant" : "request"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
-        });
-        if (!res.ok) tab.statusEl.textContent = "Could not change control.";
-      } catch (err) {
+      fetch(base + (isOwner ? "grant" : "request"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      }).catch((err) => {
         if (err != null && globalThis.console?.debug) globalThis.console.debug(err);
         tab.statusEl.textContent = "Could not change control.";
-      }
-      await refreshLease(tab);
-      renderControlActions(tab);
+      }).finally(() => {
+        refreshLease(tab).catch(() => {}).finally(() => { renderControlActions(tab); });
+      });
     });
     if (!holdsLease) {
       if (!isOwner) sideControl.appendChild(el("p", "term-ctl-hint", "You're watching. Request control, then the owner gives it to you."));
@@ -1823,20 +1817,18 @@ function createLiveSessions(deps) {
     }
     const rel = el("button", "term-ctl", "Release control");
     rel.type = "button";
-    rel.addEventListener("click", async () => {
+    rel.addEventListener("click", () => {
       if (!tab.lease) return;
-      try {
-        await fetch(base + "release", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            lease_id: tab.lease.id || tab.lease.ID,
-            epoch: tab.lease.epoch ?? tab.lease.Epoch
-          })
-        });
-      } catch { /* refreshed below */ }
-      await refreshLease(tab);
-      renderControlActions(tab);
+      fetch(base + "release", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lease_id: tab.lease.id || tab.lease.ID,
+          epoch: tab.lease.epoch ?? tab.lease.Epoch
+        })
+      }).catch(() => {}).finally(() => {
+        refreshLease(tab).catch(() => {}).finally(() => { renderControlActions(tab); });
+      });
     });
     sideControl.append(rel);
   }
@@ -1970,16 +1962,16 @@ function createLiveSessions(deps) {
       const rowName = open ? open.displayName() : friendlySessionName(sess, "Terminal");
       main.appendChild(el("span", "term-session-name", rowName));
       main.appendChild(el("span", "term-session-sub", sessionSubline(sess)));
-      main.addEventListener("click", () => openSession(sess.id, sess.name));
+      main.addEventListener("click", () => openSession(sess.id, sess.name).catch(() => {}));
       const kill = el("button", "term-session-kill", "×");
       kill.type = "button";
       kill.title = "End session";
       kill.setAttribute("aria-label", "End session");
-      kill.addEventListener("click", async (ev) => {
+      kill.addEventListener("click", (ev) => {
         ev.stopPropagation();
         if (tabs.has(sess.id)) closeTab(sess.id);
-        else await purgeSession(sess.id);
-        await refreshSessionList();
+        const ending = tabs.has(sess.id) ? Promise.resolve() : purgeSession(sess.id);
+        ending.catch(() => {}).finally(() => { refreshSessionList().catch(() => {}); });
       });
       row.append(main, kill);
       sessionList.appendChild(row);

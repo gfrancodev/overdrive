@@ -513,7 +513,7 @@ function createMeshChat(deps) {
     closeComposeSheet();
     syncNewButton();
     updateHeader();
-    if (openConversation && meshID) loadThread(openConversation, expanded);
+    if (openConversation && meshID) loadThread(openConversation, expanded).catch(() => {});
     else renderThread(lastMessages);
   }
   function dismissComposeSheet() {
@@ -559,7 +559,7 @@ function createMeshChat(deps) {
     syncNewButton();
     updateHeader();
     renderConversationList();
-    if (meshID) loadThread(conversationId, true);
+    if (meshID) loadThread(conversationId, true).catch(() => {});
   }
   function renderComposeChannels() {
     const list = document.getElementById("composeChannels");
@@ -816,7 +816,7 @@ function createMeshChat(deps) {
         syncNewButton();
         updateHeader();
         renderConversationList();
-        loadThread(openConversation, true);
+        loadThread(openConversation, true).catch(() => {});
       });
       group.appendChild(btn);
     });
@@ -2387,7 +2387,7 @@ function createMeshChat(deps) {
       composeMode = "group";
       syncComposeModeUI();
     });
-    createBtn?.addEventListener("click", () => createGroupFromCompose());
+    createBtn?.addEventListener("click", () => createGroupFromCompose().catch(() => {}));
     groupName?.addEventListener("input", syncComposeCreateButton);
     if (back) {
       back.addEventListener("click", () => dismissComposeSheet());
@@ -2545,7 +2545,7 @@ function createMeshChat(deps) {
         composerDragDepth = 0;
         setDragHighlight(false);
         const file = ev.dataTransfer?.files?.[0];
-        if (file) attachFile(file);
+        if (file) attachFile(file).catch(() => {});
       });
     });
   }
@@ -2566,18 +2566,18 @@ function createMeshChat(deps) {
       attachBtn.addEventListener("click", () => fileInput.click());
       fileInput.addEventListener("change", () => {
         const file = fileInput.files?.[0];
-        if (file) attachFile(file);
+        if (file) attachFile(file).catch(() => {});
       });
     }
     if (terminalBtn) {
-      terminalBtn.addEventListener("click", async () => {
+      terminalBtn.addEventListener("click", () => {
         const hasLive = typeof globalThis.overdriveLiveTerminalOpen === "function" && globalThis.overdriveLiveTerminalOpen();
         if (hasLive && typeof globalThis.overdriveShareLiveTerminal === "function") {
-          await globalThis.overdriveShareLiveTerminal();
+          Promise.resolve(globalThis.overdriveShareLiveTerminal()).catch(() => {});
           return;
         }
         if (typeof globalThis.overdriveShowLiveTerminal === "function") {
-          globalThis.overdriveShowLiveTerminal();
+          Promise.resolve(globalThis.overdriveShowLiveTerminal()).catch(() => {});
           setComposerStatus("Use Send to chat to share this terminal live", { ttlMs: 4500 });
         }
       });
@@ -2595,7 +2595,7 @@ function createMeshChat(deps) {
         micStartedThisGesture = false;
         if (!audioRecording) {
           ev.preventDefault();
-          startAudioRecording();
+          startAudioRecording().catch(() => {});
           micStartedThisGesture = true;
         }
         try {
@@ -2641,7 +2641,7 @@ function createMeshChat(deps) {
           return;
         }
         if (audioRecording) stopAudioRecording(false);
-        else startAudioRecording();
+        else startAudioRecording().catch(() => {});
       });
       audioBtn.addEventListener("keydown", (ev) => {
         if (ev.key === "Escape" && audioRecording) {
@@ -2652,13 +2652,13 @@ function createMeshChat(deps) {
         if (ev.key !== "Enter" && ev.key !== " ") return;
         ev.preventDefault();
         if (audioRecording) stopAudioRecording(false);
-        else startAudioRecording();
+        else startAudioRecording().catch(() => {});
       });
     }
     if (audioInput) {
       audioInput.addEventListener("change", () => {
         const file = audioInput.files?.[0];
-        if (file) attachFile(file);
+        if (file) attachFile(file).catch(() => {});
       });
     }
     bindComposerDragDrop();
@@ -2836,7 +2836,7 @@ function createMeshChat(deps) {
     bindComposeSheet();
     bindComposerExtras();
     const form = document.getElementById("messageForm");
-    if (form) form.addEventListener("submit", sendMessage);
+    if (form) form.addEventListener("submit", (ev) => { sendMessage(ev).catch(() => {}); });
     const field = document.getElementById("messageText");
     if (field) {
       field.addEventListener("input", growComposer);
@@ -2885,7 +2885,7 @@ function createMeshChat(deps) {
     threadSig = "";
     forceThreadScroll = true;
     renderThread(lastMessages);
-    if (!drafting && openConversation && meshID) loadThread(openConversation, true);
+    if (!drafting && openConversation && meshID) loadThread(openConversation, true).catch(() => {});
   }
   function collapse() {
     if (!expanded) return;

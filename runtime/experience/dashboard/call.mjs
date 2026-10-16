@@ -50,7 +50,10 @@ function payloadObject(payload) {
 }
 
 async function runSequential(items, step) {
-  await items.reduce((chain, item) => chain.then(() => step(item)), Promise.resolve());
+  await items.reduce(
+    (chain, item) => chain.then(() => Promise.resolve(step(item)).catch(() => {})),
+    Promise.resolve()
+  );
 }
 
 function parseCallRoster(payload) {
@@ -1770,11 +1773,12 @@ function createMeshCall(deps) {
   }
 
   function bind() {
-    $("callClose")?.addEventListener("click", () => endCall(true));
-    $("callEnd")?.addEventListener("click", () => endCall(true));
-    $("callDecline")?.addEventListener("click", async () => {
-      try { await postSignal("reject", {}, peerID); } catch { /* offline */ }
-      await endCall(false);
+    $("callClose")?.addEventListener("click", () => endCall(true).catch(() => {}));
+    $("callEnd")?.addEventListener("click", () => endCall(true).catch(() => {}));
+    $("callDecline")?.addEventListener("click", () => {
+      postSignal("reject", {}, peerID).catch(() => {}).finally(() => {
+        endCall(false).catch(() => {});
+      });
     });
     $("callAccept")?.addEventListener("click", () => acceptInbound().catch(async (err) => {
       const reason = describeCallError(err);

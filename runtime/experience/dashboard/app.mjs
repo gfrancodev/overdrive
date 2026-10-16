@@ -149,8 +149,8 @@
         const current = members.find((peer) => peer.device_id === selected) || members.find((peer) => peer.self) || members[0];
         if (current) showInspect(current, data);
       }
-      tick();
-      setInterval(tick, 3000);
+      tick().catch(() => {});
+      setInterval(() => { tick().catch(() => {}); }, 3000);
     }
 
     function catalogEntries(network) {
@@ -384,17 +384,17 @@
     document.getElementById("messages").addEventListener("click", (ev) => ev.stopPropagation());
     document.getElementById("nearby").addEventListener("click", (ev) => ev.stopPropagation());
     document.getElementById("settings").addEventListener("click", (ev) => ev.stopPropagation());
-    document.getElementById("meshPause").addEventListener("click", () => postMesh("/api/mesh/pause"));
-    document.getElementById("meshResume").addEventListener("click", () => postMesh("/api/mesh/resume"));
+    document.getElementById("meshPause").addEventListener("click", () => postMesh("/api/mesh/pause").catch(() => {}));
+    document.getElementById("meshResume").addEventListener("click", () => postMesh("/api/mesh/resume").catch(() => {}));
     document.getElementById("drawerClose").addEventListener("click", () => toggleDrawer(drawerKind));
     document.getElementById("stackClose").addEventListener("click", closeStack);
-    document.getElementById("copyInvite").addEventListener("click", copyConnection);
-    document.getElementById("joinDevice").addEventListener("click", joinConnection);
+    document.getElementById("copyInvite").addEventListener("click", () => copyConnection().catch(() => {}));
+    document.getElementById("joinDevice").addEventListener("click", () => joinConnection().catch(() => {}));
     document.getElementById("nearbyConnection").addEventListener("click", () => openManualConnection("joinJSON"));
     document.getElementById("chips").addEventListener("change", () => {
       selectedDevice = document.getElementById("chips").value;
       if (lastData) renderDock(lastData);
-      loadContexts();
+      loadContexts().catch(() => {});
     });
     bindChipsPicker();
     circleApp.addEventListener("click", overview);
@@ -407,7 +407,7 @@
       if (drawerKind === "contexts") hidePopover();
       else toggleDrawer("contexts");
       renderDock(lastData);
-      loadContexts();
+      loadContexts().catch(() => {});
     });
     const menubarPopoverPairs = [];
     const openMenubarPopover = (popover) => {
@@ -908,7 +908,7 @@
       const self = (lastData && roster(lastData).find((peer) => peer.self)) || null;
       if (self) spinTo(self);
       if (lastData) renderDock(lastData);
-      loadContexts();
+      loadContexts().catch(() => {});
     }
 
     const DRAWER_TITLE = { contexts: "Contexts", activity: "Activity", legend: "Legend" };
@@ -1135,7 +1135,7 @@
       renderStack("");
       const tile = document.getElementById("stackApp");
       if (tile) tile.setAttribute("aria-pressed", "true");
-      loadInviteRule();
+      loadInviteRule().catch(() => {});
       const manual = document.getElementById("connectionManual");
       const manualFocus = focusID === "joinJSON";
       if (manual) manual.open = !!(revealManual || manualFocus);
@@ -1239,7 +1239,7 @@
       if (peer) spinTo(peer);
       if (lastData) renderDock(lastData);
       if (drawerKind !== "contexts") toggleDrawer("contexts");
-      loadContexts();
+      loadContexts().catch(() => {});
     }
     function checkMark() {
       const mark = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -1461,7 +1461,7 @@
         else openFor(peer);
       }
       if (lastData) renderDock(lastData);
-      loadContexts();
+      loadContexts().catch(() => {});
     }
     function spinTo(peer) {
       const station = stations.find((s) => s.peer.device_id === peer.device_id);
@@ -2718,7 +2718,7 @@
         if (status) {
           status.textContent = (copied ? "Copied. It expires " : "Could not copy. It expires ") + when + ". An expired connection is refused.";
         }
-        refresh();
+        refresh().catch(() => {});
       } catch (err) {
         if (err != null && globalThis.console?.debug) globalThis.console.debug(err);
         if (status) status.textContent = "Could not create a connection.";
@@ -2756,7 +2756,7 @@
         }
         if (field) field.value = "";
         if (status) status.textContent = "This device joined " + (body.name || "the circle") + ".";
-        refresh();
+        refresh().catch(() => {});
       } catch (err) {
         if (err != null && globalThis.console?.debug) globalThis.console.debug(err);
         if (status) status.textContent = "Could not add this device.";
@@ -2850,9 +2850,9 @@
     else if (initialDrawer === "live-sessions" || initialDrawer === "terminals") liveSessions.openFromHash();
     else if (initialDrawer === "nearby") openNearby();
     else if (initialDrawer === "settings") openSettings();
-    loadInviteRule();
-    refresh();
-    setInterval(refresh, 3000);
+    loadInviteRule().catch(() => {});
+    refresh().catch(() => {});
+    setInterval(() => { refresh().catch(() => {}); }, 3000);
     globalThis.overdriveResize = resize;
     globalThis.overdriveParkSheets = parkSheets;
     globalThis.overdriveShowLiveTerminal = showLiveTerminal;
