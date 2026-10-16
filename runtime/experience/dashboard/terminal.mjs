@@ -446,6 +446,10 @@ async function terminalCreateErrorDetail(res) {
   return detail;
 }
 
+async function runSequential(items, step) {
+  await items.reduce((chain, item) => chain.then(() => step(item)), Promise.resolve());
+}
+
 function createLiveSessions(deps) {
   const FRAME = {
     OUTPUT: 1,
@@ -1466,7 +1470,7 @@ function createLiveSessions(deps) {
     if (other) { finish(other); return; }
     createSession({ forSplit: true }).then((newId) => {
       if (newId && tabs.has(newId) && !containsLeaf(splitRoot, newId)) finish(newId);
-    });
+    }).catch(() => {});
   }
   function closePane(sessionId) {
     if (!splitRoot || splitRoot.t === "leaf") return;
@@ -1989,7 +1993,7 @@ function createLiveSessions(deps) {
       const clear = el("button", "term-sidebar-btn term-clear-dead", "Clear " + dead.length + " ended");
       clear.type = "button";
       clear.addEventListener("click", async () => {
-        for (const sess of dead) await purgeSession(sess.id);
+        await Promise.all(dead.map((sess) => purgeSession(sess.id)));
         await refreshSessionList();
       });
       sessionList.appendChild(clear);
@@ -2109,7 +2113,7 @@ function createLiveSessions(deps) {
     showPanel();
     return refreshSessionList().then(() => {
       if (tabs.size === 0) return ensureDefaultSession();
-    });
+    }).catch(() => {});
   }
 
   function togglePanel() {
@@ -2189,15 +2193,16 @@ function createLiveSessions(deps) {
     try {
       const sessions = await refreshSessionList();
       const dead = (sessions || []).filter((s) => terminalSessionEnded(s));
-      for (const sess of dead) await purgeSession(sess.id);
+      await runSequential(dead, (sess) => purgeSession(sess.id));
       const self = selfDeviceId();
       const mine = (sessions || [])
         .filter((s) => sessionLive(s) && (!self || s.host_device_id === self))
         .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
       if (mine.length) {
-        for (let i = 0; i < mine.length; i++) {
-          await openSession(mine[i].id, mine[i].name, { focus: i === mine.length - 1 });
-        }
+        await mine.reduce(
+          (chain, sess, i) => chain.then(() => openSession(sess.id, sess.name, { focus: i === mine.length - 1 })),
+          Promise.resolve()
+        );
         await refreshSessionList();
         return;
       }

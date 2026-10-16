@@ -979,9 +979,6 @@
         : "Nothing stored yet";
       box.textContent = scope + " · " + tally;
     }
-    function computerLabel(peer, data) {
-      return peer.name || peer.hostname || (peer.self ? data.hostname : "") || "computer";
-    }
     function peerState(peer) {
       if (peer.revoked) return "revoked";
       if (peer.self) return "this station";
@@ -1170,7 +1167,7 @@
       const token = ++catalogToken;
       loadCatalog().then(() => {
         if (token === catalogToken && !find.hidden) renderFind(findSearch.value);
-      });
+      }).catch(() => {});
       findSearch.focus({ preventScroll: true });
     }
     function closeFind() {

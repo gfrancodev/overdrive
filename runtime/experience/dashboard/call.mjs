@@ -49,6 +49,10 @@ function payloadObject(payload) {
   return payload;
 }
 
+async function runSequential(items, step) {
+  await items.reduce((chain, item) => chain.then(() => step(item)), Promise.resolve());
+}
+
 function parseCallRoster(payload) {
   const body = payloadObject(payload);
   const participants = Array.isArray(body.participants)
@@ -278,8 +282,8 @@ function createMeshCall(deps) {
       videoVisible("callLocalScreen"),
       videoVisible("callRemoteScreen")
     );
-    if (mode) stage.setAttribute("data-screen-mode", mode);
-    else stage.removeAttribute("data-screen-mode");
+    if (mode) stage.dataset.screenMode = mode;
+    else delete stage.dataset.screenMode;
     const pipBtn = $("callPip");
     if (pipBtn) pipBtn.hidden = !mode;
     if (!mode) exitScreenPip(false).catch(() => {});
@@ -288,8 +292,8 @@ function createMeshCall(deps) {
 
   function syncPipOverlay() {
     const stage = $("callStage");
-    if (!stage || !stage.getAttribute("data-screen-mode")) return;
-    const mode = stage.getAttribute("data-screen-mode");
+    if (!stage?.dataset?.screenMode) return;
+    const mode = stage.dataset.screenMode;
     const companion = pipCompanionVideoId(
       mode,
       videoVisible("callLocalVideo"),
@@ -321,7 +325,7 @@ function createMeshCall(deps) {
   async function exitScreenPip(_userInitiated) {
     screenPipMode = "";
     activePipVideo = null;
-    $("callStage")?.removeAttribute("data-screen-pip");
+    delete $("callStage")?.dataset?.screenPip;
     const float = $("callPipFloat");
     const pipVid = $("callPipVideo");
     if (float) float.hidden = true;
@@ -397,11 +401,11 @@ function createMeshCall(deps) {
       return;
     }
     const stage = $("callStage");
-    const mode = stage?.getAttribute("data-screen-mode");
+    const mode = stage?.dataset?.screenMode;
     if (!mode) return;
     const video = $(pipScreenVideoId(mode));
     if (!video?.srcObject) return;
-    stage.setAttribute("data-screen-pip", "screen");
+    stage.dataset.screenPip = "screen";
     screenPipMode = "screen";
     syncPipOverlay();
     let nativeOk = false;
@@ -422,7 +426,7 @@ function createMeshCall(deps) {
   function focusStageForScreen() {
     const live = document.getElementById("meshLive");
     if (!live?.classList?.contains?.("call-joined")) return;
-    live.setAttribute("data-focus", "stage");
+    live.dataset.focus = "stage";
     const btn = $("callFocus");
     if (btn) {
       btn.setAttribute("aria-pressed", "true");
@@ -476,7 +480,7 @@ function createMeshCall(deps) {
     const live = document.getElementById("meshLive");
     if (!live) return;
     live.classList.toggle("call-joined", open);
-    if (open && !live.getAttribute("data-focus")) live.setAttribute("data-focus", "chat");
+    if (open && !live.dataset.focus) live.dataset.focus = "chat";
   }
 
   function setStatus(text) {
@@ -1052,10 +1056,10 @@ function createMeshCall(deps) {
     };
     peerConnections.set(remotePeerID, pc);
     const stream = await ensureMedia(wantVideo);
-    for (const track of stream.getTracks()) {
+    await Promise.all(stream.getTracks().map(async (track) => {
       pc.addTrack(track, stream);
       await capVideoSender(pc, track);
-    }
+    }));
     syncCallModeUI();
     return pc;
   }
@@ -1110,10 +1114,10 @@ function createMeshCall(deps) {
         participants
       }, peerID);
       callID = data.call_id || callID;
-      for (const tid of groupPeerIDs) {
+      await Promise.all(groupPeerIDs.map(async (tid) => {
         if (shouldOfferTo(tid)) await offerToPeer(tid);
         else await ensurePC(tid);
-      }
+      }));
     } catch (err) {
       const reason = err?.message === PARTY_CAP_NOTICE ? PARTY_CAP_NOTICE : describeCallError(err);
       await endCall(Boolean(callID));
@@ -1166,9 +1170,7 @@ function createMeshCall(deps) {
   async function flushPendingIce(remotePeerID) {
     const list = pendingIceCandidates.get(remotePeerID) || [];
     pendingIceCandidates.delete(remotePeerID);
-    for (const payload of list) {
-      await addIce(remotePeerID, payload);
-    }
+    await runSequential(list, (payload) => addIce(remotePeerID, payload));
   }
 
   async function renegotiatePeer(remotePeerID) {
@@ -1189,11 +1191,11 @@ function createMeshCall(deps) {
   async function connectAfterAccept() {
     const peers = groupPeerIDs.length ? groupPeerIDs.slice() : (peerID ? [peerID] : []);
     const mesh = peers.length > 1;
-    for (const id of peers) {
+    await runSequential(peers, async (id) => {
       const queued = pendingRemoteOffers.get(id);
       if (mesh && String(selfID) < String(id) && !queued) {
         await offerToPeer(id);
-        continue;
+        return;
       }
       if (queued) {
         pendingRemoteOffers.delete(id);
@@ -1202,7 +1204,7 @@ function createMeshCall(deps) {
         await ensurePC(id);
       }
       await flushPendingIce(id);
-    }
+    });
   }
 
   async function acceptInbound() {
@@ -1303,8 +1305,8 @@ function createMeshCall(deps) {
       remoteScreen.srcObject = null;
       remoteScreen.hidden = true;
     }
-    $("callStage")?.removeAttribute("data-screen-mode");
-    $("callStage")?.removeAttribute("data-screen-pip");
+    delete $("callStage")?.dataset?.screenMode;
+    delete $("callStage")?.dataset?.screenPip;
     screenPipMode = "";
     const pipFloat = $("callPipFloat");
     if (pipFloat) pipFloat.hidden = true;
@@ -1327,9 +1329,9 @@ function createMeshCall(deps) {
       let targets = [];
       if (groupPeerIDs.length) targets = groupPeerIDs;
       else if (peerID) targets = [peerID];
-      for (const tid of targets) {
+      await Promise.all(targets.map(async (tid) => {
         try { await postSignal("hangup", {}, tid); } catch { /* offline */ }
-      }
+      }));
     }
     teardown();
     setVisible(false);
@@ -1337,9 +1339,9 @@ function createMeshCall(deps) {
 
   async function broadcast(kind, payload) {
     const targets = groupPeerIDs.length ? groupPeerIDs.slice() : (peerID ? [peerID] : []);
-    for (const tid of targets) {
+    await Promise.all(targets.map(async (tid) => {
       try { await postSignal(kind, payload, tid); } catch { /* offline */ }
-    }
+    }));
   }
 
   function mediaStatePayload() {
@@ -1391,9 +1393,9 @@ function createMeshCall(deps) {
       else if (track) pc.addTrack(track, localStream);
       renegotiate.push(remotePeerID);
     });
-    for (const remotePeerID of renegotiate) {
+    await Promise.all(renegotiate.map(async (remotePeerID) => {
       if (track) await requestRenegotiation(remotePeerID);
-    }
+    }));
     showLocalPreview(Boolean(track));
   }
 
@@ -1458,9 +1460,9 @@ function createMeshCall(deps) {
     $("callScreen")?.setAttribute("aria-pressed", "false");
     const voice = $("callVoiceOnly");
     if (voice && callMode !== "video" && $("callLocalVideo")?.hidden !== false) voice.hidden = false;
-    for (const remotePeerID of peerConnections.keys()) {
+    await Promise.all([...peerConnections.keys()].map(async (remotePeerID) => {
       if (role === "active") await renegotiatePeer(remotePeerID);
-    }
+    }));
     await broadcastMediaState();
     syncScreenStage();
   }
@@ -1492,11 +1494,11 @@ function createMeshCall(deps) {
     }
     const voice = $("callVoiceOnly");
     if (voice) voice.hidden = true;
-    for (const [remotePeerID, pc] of peerConnections) {
+    await Promise.all([...peerConnections.entries()].map(async ([remotePeerID, pc]) => {
       pc.addTrack(track, display);
       await capVideoSender(pc, track);
       await requestRenegotiation(remotePeerID);
-    }
+    }));
     await broadcastMediaState();
     focusStageForScreen();
     syncScreenStage();
@@ -1630,9 +1632,9 @@ function createMeshCall(deps) {
   function toggleCallFocus() {
     const live = document.getElementById("meshLive");
     if (!live) return;
-    const current = live.getAttribute("data-focus") || "chat";
+    const current = live.dataset.focus || "chat";
     const next = current === "stage" ? "chat" : "stage";
-    live.setAttribute("data-focus", next);
+    live.dataset.focus = next;
     const btn = $("callFocus");
     if (!btn) return;
     btn.setAttribute("aria-pressed", next === "stage" ? "true" : "false");
@@ -1641,7 +1643,7 @@ function createMeshCall(deps) {
   }
 
   async function promoteHost() {
-    const remaining = [selfID, ...groupPeerIDs].filter(Boolean).sort();
+    const remaining = [selfID, ...groupPeerIDs].filter(Boolean).sort((a, b) => String(a).localeCompare(String(b)));
     const next = remaining[0] || "";
     hostID = next;
     if (next && next === selfID) await broadcast("host", { host_device_id: next });
@@ -1754,7 +1756,7 @@ function createMeshCall(deps) {
     const body = await res.json();
     if (body.seq) eventSince = body.seq;
     let events = primeCallReplayEvents(body, body.events || []);
-    for (const ev of events) await dispatchCallEvent(ev);
+    await runSequential(events, (ev) => dispatchCallEvent(ev));
   }
 
   function ensurePoll() {
