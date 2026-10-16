@@ -50,13 +50,11 @@ function payloadObject(payload) {
 }
 
 async function runSequential(items, step) {
+  let chain = Promise.resolve();
   for (const item of items) {
-    try {
-      await step(item);
-    } catch {
-      /* step failed */
-    }
+    chain = chain.then(() => Promise.resolve(step(item)).catch(() => {}));
   }
+  await chain;
 }
 
 function callMeshPeerIDs(groupPeerIDs, peerID) {
@@ -1020,7 +1018,7 @@ function createMeshCall(deps) {
   }
 
   async function capVideoSender(pc, track) {
-    if (!track || track.kind !== "video" || !pc?.getSenders) return;
+    if (track?.kind !== "video" || !pc?.getSenders) return;
     const sender = pc.getSenders().find((item) => item.track === track);
     if (!sender?.getParameters || !sender.setParameters) return;
     try {

@@ -7,6 +7,12 @@ function alive(peer) {
   const t = Date.parse(peer.last_seen);
   return Number.isFinite(t) && (Date.now() - t) < 15 * 60 * 1000;
 }
+function circleInviteErrorMessage(res, body) {
+  return body.error || (res.status === 403
+    ? "Open the dashboard on this computer (127.0.0.1) to create a connection."
+    : "Could not create a connection.");
+}
+
 function roster(data) {
   const circle = (data.circles || [])[0];
   const members = (circle?.members.slice()) || [];
@@ -2695,10 +2701,9 @@ function roster(data) {
       }
     }
 
-    function circleInviteErrorMessage(res, body) {
-      return body.error || (res.status === 403
-        ? "Open the dashboard on this computer (127.0.0.1) to create a connection."
-        : "Could not create a connection.");
+    function setInviteCopyStatus(status, copied, when) {
+      if (!status) return;
+      status.textContent = (copied ? "Copied. It expires " : "Could not copy. It expires ") + when + ". An expired connection is refused.";
     }
 
     async function copyConnection() {
@@ -2717,11 +2722,7 @@ function roster(data) {
         if (manual) manual.open = true;
         const rule = document.getElementById("inviteRule");
         if (rule && body.ttl_seconds) rule.textContent = inviteLimitText(body.ttl_seconds);
-        const copied = await copyInviteText(json);
-        const when = formatWhen(body.expires_at);
-        if (status) {
-          status.textContent = (copied ? "Copied. It expires " : "Could not copy. It expires ") + when + ". An expired connection is refused.";
-        }
+        setInviteCopyStatus(status, await copyInviteText(json), formatWhen(body.expires_at));
         refresh().catch(() => {});
       } catch (err) {
         if (err != null && globalThis.console?.debug) globalThis.console.debug(err);
@@ -2739,6 +2740,17 @@ function roster(data) {
       }
     }
 
+    async function applyJoinPayload(payload, field, status) {
+      const { res, body } = await submitJoinPayload(payload);
+      if (!res.ok) {
+        if (status) status.textContent = body.error || "Could not add this device.";
+        return;
+      }
+      if (field) field.value = "";
+      if (status) status.textContent = "This device joined " + (body.name || "the circle") + ".";
+      refresh().catch(() => {});
+    }
+
     async function joinConnection() {
       const status = document.getElementById("joinStatus");
       const field = document.getElementById("joinJSON");
@@ -2753,14 +2765,7 @@ function roster(data) {
         return;
       }
       try {
-        const { res, body } = await submitJoinPayload(payload);
-        if (!res.ok) {
-          if (status) status.textContent = body.error || "Could not add this device.";
-          return;
-        }
-        if (field) field.value = "";
-        if (status) status.textContent = "This device joined " + (body.name || "the circle") + ".";
-        refresh().catch(() => {});
+        await applyJoinPayload(payload, field, status);
       } catch (err) {
         if (err != null && globalThis.console?.debug) globalThis.console.debug(err);
         if (status) status.textContent = "Could not add this device.";

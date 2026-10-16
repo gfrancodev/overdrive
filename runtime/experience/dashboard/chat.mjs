@@ -168,6 +168,88 @@ function splitMarkdownTableCells(line) {
   return t.split("|");
 }
 
+function continuesMarkdownParagraph(line) {
+  if (!line.trim()) return false;
+  if (isMarkdownTableRow(line) || parseMarkdownHeading(line)) return false;
+  if (line.startsWith(">")) return false;
+  if (/^[-*]\s+/.test(line) || /^\d+\.\s+/.test(line)) return false;
+  return true;
+}
+
+function emojiCatalogSearch(catalog, q) {
+  const hits = [];
+  const tabs = catalog.tabs || [];
+  for (const id of tabs) {
+    if (id === "recent") continue;
+    const rows = catalog.emojis[id] || [];
+    for (const row of rows) {
+      const glyph = row[0];
+      const tags = String(row[1] || "").toLowerCase();
+      if (glyph.includes(q) || tags.includes(q)) hits.push([glyph, row[1] || glyph]);
+    }
+  }
+  return hits;
+}
+
+function appendMarkdownTableBlock(frag, lines, start, appendInlines) {
+  const line = lines[start];
+  if (!isMarkdownTableRow(line) || start + 1 >= lines.length || !isMarkdownTableSeparator(lines[start + 1])) {
+    return start;
+  }
+  const table = document.createElement("table");
+  table.className = "msg-table";
+  const head = document.createElement("tr");
+  splitMarkdownTableCells(line).forEach((cell) => {
+    const th = document.createElement("th");
+    appendInlines(th, cell.trim());
+    head.appendChild(th);
+  });
+  table.appendChild(head);
+  let i = start + 2;
+  while (i < lines.length && isMarkdownTableRow(lines[i])) {
+    const tr = document.createElement("tr");
+    splitMarkdownTableCells(lines[i]).forEach((cell) => {
+      const td = document.createElement("td");
+      appendInlines(td, cell.trim());
+      tr.appendChild(td);
+    });
+    table.appendChild(tr);
+    i += 1;
+  }
+  frag.appendChild(table);
+  return i;
+}
+
+function appendMarkdownQuoteBlock(frag, lines, start, appendInlines) {
+  if (!/^>\s?/.test(lines[start])) return start;
+  const quote = document.createElement("blockquote");
+  const buf = [];
+  let i = start;
+  while (i < lines.length && /^>\s?/.test(lines[i])) {
+    buf.push(lines[i].replace(/^>\s?/, ""));
+    i += 1;
+  }
+  appendInlines(quote, buf.join(" "));
+  frag.appendChild(quote);
+  return i;
+}
+
+function appendMarkdownListBlock(frag, lines, start, appendInlines) {
+  const line = lines[start];
+  if (!/^[-*]\s+/.test(line) && !/^\d+\.\s+/.test(line)) return start;
+  const ordered = /^\d+\.\s+/.test(line);
+  const list = document.createElement(ordered ? "ol" : "ul");
+  let i = start;
+  while (i < lines.length && (ordered ? /^\d+\.\s+/.test(lines[i]) : /^[-*]\s+/.test(lines[i]))) {
+    const li = document.createElement("li");
+    appendInlines(li, lines[i].replace(ordered ? /^\d+\.\s+/ : /^[-*]\s+/, ""));
+    list.appendChild(li);
+    i += 1;
+  }
+  frag.appendChild(list);
+  return i;
+}
+
 function matchInlineAt(text, from) {
   const rest = text.slice(from);
   let m = /^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/.exec(rest);
@@ -1497,30 +1579,8 @@ function createMeshChat(deps) {
     while (i < lines.length) {
       const line = lines[i];
       if (!line.trim()) { i += 1; continue; }
-      if (isMarkdownTableRow(line) && i + 1 < lines.length && isMarkdownTableSeparator(lines[i + 1])) {
-        const table = document.createElement("table");
-        table.className = "msg-table";
-        const head = document.createElement("tr");
-        splitMarkdownTableCells(line).forEach((cell) => {
-          const th = document.createElement("th");
-          appendInlines(th, cell.trim());
-          head.appendChild(th);
-        });
-        table.appendChild(head);
-        i += 2;
-        while (i < lines.length && isMarkdownTableRow(lines[i])) {
-          const tr = document.createElement("tr");
-          splitMarkdownTableCells(lines[i]).forEach((cell) => {
-            const td = document.createElement("td");
-            appendInlines(td, cell.trim());
-            tr.appendChild(td);
-          });
-          table.appendChild(tr);
-          i += 1;
-        }
-        frag.appendChild(table);
-        continue;
-      }
+      const tableNext = appendMarkdownTableBlock(frag, lines, i, appendInlines);
+      if (tableNext > i) { i = tableNext; continue; }
       const heading = parseMarkdownHeading(line);
       if (heading) {
         const h = document.createElement("h" + (heading.level + 2));
@@ -1529,32 +1589,13 @@ function createMeshChat(deps) {
         i += 1;
         continue;
       }
-      if (/^>\s?/.test(line)) {
-        const quote = document.createElement("blockquote");
-        const buf = [];
-        while (i < lines.length && /^>\s?/.test(lines[i])) {
-          buf.push(lines[i].replace(/^>\s?/, ""));
-          i += 1;
-        }
-        appendInlines(quote, buf.join(" "));
-        frag.appendChild(quote);
-        continue;
-      }
-      if (/^[-*]\s+/.test(line) || /^\d+\.\s+/.test(line)) {
-        const ordered = /^\d+\.\s+/.test(line);
-        const list = document.createElement(ordered ? "ol" : "ul");
-        while (i < lines.length && (ordered ? /^\d+\.\s+/.test(lines[i]) : /^[-*]\s+/.test(lines[i]))) {
-          const li = document.createElement("li");
-          appendInlines(li, lines[i].replace(ordered ? /^\d+\.\s+/ : /^[-*]\s+/, ""));
-          list.appendChild(li);
-          i += 1;
-        }
-        frag.appendChild(list);
-        continue;
-      }
+      const quoteNext = appendMarkdownQuoteBlock(frag, lines, i, appendInlines);
+      if (quoteNext > i) { i = quoteNext; continue; }
+      const listNext = appendMarkdownListBlock(frag, lines, i, appendInlines);
+      if (listNext > i) { i = listNext; continue; }
       const buf = [line];
       i += 1;
-      while (i < lines.length && lines[i].trim() && !/^(#{1,3}\s|>\s?|[-*]\s|\d+\.\s|\|)/.test(lines[i])) {
+      while (i < lines.length && continuesMarkdownParagraph(lines[i])) {
         buf.push(lines[i]);
         i += 1;
       }
@@ -1895,21 +1936,6 @@ function createMeshChat(deps) {
     }
     return emojiCatalog;
   }
-  function emojiCatalogSearch(catalog, q) {
-    const hits = [];
-    const tabs = catalog.tabs || [];
-    for (const id of tabs) {
-      if (id === "recent") continue;
-      const rows = catalog.emojis[id] || [];
-      for (const row of rows) {
-        const glyph = row[0];
-        const tags = String(row[1] || "").toLowerCase();
-        if (glyph.includes(q) || tags.includes(q)) hits.push([glyph, row[1] || glyph]);
-      }
-    }
-    return hits;
-  }
-
   function emojiEntriesForTab(tabId, query) {
     const catalog = loadEmojiCatalog();
     if (!catalog?.emojis) return [];

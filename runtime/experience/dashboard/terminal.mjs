@@ -89,7 +89,7 @@ const TERMINAL_OSC_END = new RegExp(
   "i",
 );
 const TERMINAL_OSC_STRIP = new RegExp(
-  TERMINAL_ESC + "]52;[^" + TERMINAL_BEL + TERMINAL_ESC + "]*(?:" + TERMINAL_BEL + "|" + TERMINAL_ESC + "\\\\)",
+  TERMINAL_ESC + "]52;[^" + TERMINAL_BEL + TERMINAL_ESC + "]*(?:" + TERMINAL_BEL + "|" + TERMINAL_ESC + String.raw`\\)`,
   "gi",
 );
 
@@ -2198,15 +2198,12 @@ function createLiveSessions(deps) {
       const mine = (sessions || [])
         .filter((s) => sessionLive(s) && (!self || s.host_device_id === self))
         .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
-      for (let i = 0; i < mine.length; i += 1) {
-        const sess = mine[i];
-        try {
-          await openSession(sess.id, sess.name, { focus: i === mine.length - 1 });
-        } catch {
-          /* skip broken session */
-        }
-      }
       if (mine.length) {
+        let chain = Promise.resolve();
+        mine.forEach((sess, i) => {
+          chain = chain.then(() => openSession(sess.id, sess.name, { focus: i === mine.length - 1 }).catch(() => {}));
+        });
+        await chain;
         await refreshSessionList();
         return;
       }
