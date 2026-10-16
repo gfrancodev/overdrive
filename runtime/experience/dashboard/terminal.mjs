@@ -1442,7 +1442,7 @@ function createLiveSessions(deps) {
       tab.scheduleResize();
       if (tab.dead) return;
       queueTabStreamConnect(tab, () => {
-        refreshLease(tab);
+        refreshLease(tab).catch(() => {});
         tab.scheduleResize();
       });
     });
@@ -2224,7 +2224,7 @@ function createLiveSessions(deps) {
     const id = payload.sessionId || payload.session_id;
     if (!id) return;
     const focus = payload.focus !== false;
-    openSession(id, payload.title || payload.name, { focus, host: payload.host || "" });
+    openSession(id, payload.title || payload.name, { focus, host: payload.host || "" }).catch(() => {});
   };
 
   return {
