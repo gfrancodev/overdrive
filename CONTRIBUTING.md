@@ -124,6 +124,14 @@ cd runtime/experience
 go test -tags=overdrive_fake_ort -cover ./...
 ```
 
+CI runs that package test on every pull request. Mutation testing with
+`scripts/mutation.sh` (gremlins, config in `runtime/experience/.gremlins.yaml`)
+runs when the security files change: redact, signature verification, folder
+export, decision lifetime, span bounds, handoff, and per-peer status. The gate
+is 100% killed mutants on those predicates and 85% efficacy on that file set.
+
+CI uploads Go coverage and runs a SonarCloud scan (`sonar-project.properties`, workflow job **SonarCloud scan**).
+
 Use `-tags=overdrive_fake_ort` so tests swap the ONNX Runtime FFI for an
 in-process fake session. Coverage of that path must stay at 100%.
 

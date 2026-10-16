@@ -93,7 +93,7 @@ func TestListActiveMemoriesScanFail(t *testing.T) {
 	}
 	defer e.Close()
 	project, _ := identifyProject(repo)
-	_, _ = e.recordMemory(project, "lesson", "repository", "", "scan fail", 0.5, 50, "agent_observation", "", "")
+	_, _ = e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "scan fail", Confidence: 0.5, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""})
 	resetHooksForTest()
 	defer resetHooksForTest()
 	hookScanMemory = func(scanner) (Memory, error) { return Memory{}, errors.New("scan fail") }
@@ -116,7 +116,7 @@ func TestStartSessionPreviousConsolidate(t *testing.T) {
 	if err != nil || s1 == "" {
 		t.Fatal(err)
 	}
-	m, _ := e.recordMemory(project, "lesson", "repository", "", "cold lesson", 0.2, 50, "agent_observation", "", "")
+	m, _ := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "cold lesson", Confidence: 0.2, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""})
 	for i := 0; i < 3; i++ {
 		_, _ = e.validateMemory(m.ID, "failure", "", "")
 	}
@@ -152,7 +152,7 @@ func TestConsolidateSessionScanFail(t *testing.T) {
 	}
 	defer e.Close()
 	project, _ := identifyProject(repo)
-	_, _ = e.recordMemory(project, "lesson", "repository", "", "consolidate row", 0.5, 50, "agent_observation", "", "")
+	_, _ = e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "consolidate row", Confidence: 0.5, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""})
 	resetHooksForTest()
 	defer resetHooksForTest()
 	hookConsolidateScanErr = errors.New("consolidate scan")
@@ -244,7 +244,7 @@ func TestHandleConnSyncRoundTrip(t *testing.T) {
 	_, _ = addAllowedFolder(home, circle.ID, project.Root, id)
 	e, _ := newEngine(home)
 	defer e.Close()
-	_, _ = e.recordMemory(project, "lesson", "repository", "", "shared lesson", 0.6, 50, "agent_observation", "", "")
+	_, _ = e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "shared lesson", Confidence: 0.6, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""})
 
 	sl := &shareListener{home: home, id: id}
 	server, client := net.Pipe()

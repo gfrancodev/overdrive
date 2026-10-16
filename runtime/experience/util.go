@@ -15,6 +15,8 @@ import (
 	"time"
 )
 
+const errMsgPathTraversal = "path traversal"
+
 var secretPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)\b(api[_-]?key|access[_-]?token|refresh[_-]?token|secret|password|passwd|authorization)\s*[:=]\s*([^\s,;]+)`),
 	regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b`),
@@ -35,22 +37,22 @@ func fail(message string) {
 	exitProcess(2)
 }
 
-func clamp(v, min, max float64) float64 {
-	if v < min {
-		return min
+func clamp(v, lower, upper float64) float64 {
+	if v < lower {
+		return lower
 	}
-	if v > max {
-		return max
+	if v > upper {
+		return upper
 	}
 	return v
 }
 
-func clampInt(v, min, max int) int {
-	if v < min {
-		return min
+func clampInt(v, lower, upper int) int {
+	if v < lower {
+		return lower
 	}
-	if v > max {
-		return max
+	if v > upper {
+		return upper
 	}
 	return v
 }
@@ -162,6 +164,7 @@ func ensureHome() (string, error) {
 var validKinds = map[string]bool{
 	"fact": true, "rule": true, "decision": true, "preference": true,
 	"procedure": true, "lesson": true, "anti_pattern": true, "episode": true,
+	"handoff": true,
 }
 
 func validKind(k string) bool {
@@ -192,11 +195,11 @@ var knowledgeKinds = map[string]bool{
 }
 
 var layerMatchers = map[string]func(string) bool{
-	"":       func(string) bool { return true },
-	"all":    func(string) bool { return true },
+	"":          func(string) bool { return true },
+	"all":       func(string) bool { return true },
 	"knowledge": func(kind string) bool { return knowledgeKinds[kind] },
-	"lessons": func(kind string) bool { return kind == "lesson" || kind == "anti_pattern" },
-	"episodes": func(kind string) bool { return kind == "episode" },
+	"lessons":   func(kind string) bool { return kind == "lesson" || kind == "anti_pattern" },
+	"episodes":  func(kind string) bool { return kind == "episode" },
 }
 
 func matchesLayer(kind, layer string) bool {

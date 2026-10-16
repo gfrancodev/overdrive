@@ -73,12 +73,48 @@ for rel in ['.claude-plugin/plugin.json', '.cursor-plugin/plugin.json', '.codex-
 if len(versions) != 1:
     errors.append(f'plugin versions disagree: {sorted(versions)}')
 
+def runtime_version_constant(source):
+    marker = 'const ('
+    lines = source.splitlines()
+    for index, line in enumerate(lines):
+        if not line.startswith(marker) or line[len(marker):].strip() != '':
+            continue
+        for follower in lines[index + 1:]:
+            stripped = follower.strip()
+            if not stripped:
+                continue
+            value = version_assignment(stripped)
+            if value is None:
+                break
+            return value
+    return None
+
+
+def version_assignment(stripped):
+    prefix = 'version'
+    if not stripped.startswith(prefix):
+        return None
+    rest = stripped[len(prefix):]
+    if not rest[:1].isspace():
+        return None
+    rest = rest.lstrip()
+    if not rest.startswith('=') or not rest[1:2].isspace():
+        return None
+    rest = rest[1:].lstrip()
+    if len(rest) < 3 or rest[0] != '"':
+        return None
+    end = rest.find('"', 1)
+    if end < 2:
+        return None
+    return rest[1:end]
+
+
 constants_go = (ROOT / 'runtime/experience/constants.go').read_text(encoding='utf-8')
-runtime_match = re.search(r'^const \(\s*\n\s*version\s+=\s+"([^"]+)"', constants_go, re.M)
-if not runtime_match:
+runtime_version = runtime_version_constant(constants_go)
+if not runtime_version:
     errors.append('runtime version constant missing in runtime/experience/constants.go')
-elif runtime_match.group(1) not in versions:
-    errors.append(f'runtime version {runtime_match.group(1)!r} disagrees with plugin versions {sorted(versions)}')
+elif runtime_version not in versions:
+    errors.append(f'runtime version {runtime_version!r} disagrees with plugin versions {sorted(versions)}')
 
 backend_match = re.search(r'backendName\s+=\s+"([^"]+)"', constants_go)
 if not backend_match or backend_match.group(1) != 'sqlite-fts5-turbovec-v1':

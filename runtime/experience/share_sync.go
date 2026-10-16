@@ -1,8 +1,11 @@
 package main
 
-import ()
+import "database/sql"
 
 func (e *Engine) syncCirclePeers(project Project) error {
+	if !meshAllowsSync() {
+		return nil
+	}
 	circle, ok := circleForProject(e.home, project.Root)
 	if !ok {
 		return nil
@@ -20,28 +23,58 @@ func (e *Engine) syncCirclePeers(project Project) error {
 	}
 
 	report := shareSyncReport{}
+	lines := []string{}
 	since := e.getMeta(shareCursorMetaKey(circle.ID, project.Repository))
+	var outgoing []SharedPacket
+	if mems, err := e.listExportableMemories(project, circle); err == nil {
+		outgoing = buildSyncPackets(mems, "", circle, project)
+	}
 	for _, endpoint := range nonEmptyEndpoints(circle.PeerEndpoints) {
 		result := sharePeerSyncResult{Contacted: true}
-		resp, err := fetchPeerSync(e.home, endpoint, circle, id, priv, project.Repository, since)
+		resp, err := fetchPeerSyncPackets(peerSyncCall{
+			Home: e.home, Endpoint: endpoint, Circle: circle, Identity: id, Priv: priv,
+			Repository: project.Repository, Since: since, Packets: outgoing,
+		})
+		name := endpoint
 		if err != nil {
 			applySharePeerSyncResult(&report, result, nil)
+			lines = append(lines, formatPeerSyncLine(name, "timeout", 0))
 			continue
 		}
 		result.OK = true
 		imported, err := e.importPeerBatch(circle, resp)
 		if err != nil {
 			applySharePeerSyncResult(&report, result, nil)
+			lines = append(lines, formatPeerSyncLine(name, "timeout", 0))
 			continue
+		}
+		if resp.DeviceID != "" {
+			name = resp.DeviceID
 		}
 		result.Imported = imported
 		result.Cursor = resp.Cursor
 		applySharePeerSyncResult(&report, result, func(cursor string) {
 			e.setMeta(shareCursorMetaKey(circle.ID, project.Repository), cursor)
 		})
+		lines = append(lines, formatPeerSyncLine(name, "ok", imported))
+	}
+	if len(nonEmptyEndpoints(circle.PeerEndpoints)) > 0 {
+		e.savePeerLines(circle.ID, project.Repository, lines)
 	}
 	e.recordShareSyncReport(circle.ID, project.Repository, report)
 	return nil
+}
+
+func (e *Engine) importPushedPackets(circle Circle, req SyncRequest) error {
+	if len(req.Packets) == 0 {
+		return nil
+	}
+	_, err := e.importPeerBatch(circle, SyncResponse{
+		DeviceID: req.DeviceID,
+		CircleID: req.CircleID,
+		Packets:  req.Packets,
+	})
+	return err
 }
 
 func (e *Engine) importPeerBatch(circle Circle, resp SyncResponse) (int, error) {
@@ -137,6 +170,22 @@ func boolToInt(v bool) int {
 	return 0
 }
 
+func peerMemoryIDsForDevice(tx *sql.Tx, circleID, deviceID string) ([]string, error) {
+	rows, err := tx.Query(`SELECT id FROM memories WHERE origin = 'peer' AND circle_id = ? AND peer_device_id = ?`, circleID, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	ids := []string{}
+	for rows.Next() {
+		var id string
+		if rows.Scan(&id) == nil && id != "" {
+			ids = append(ids, id)
+		}
+	}
+	return ids, rows.Err()
+}
+
 func (e *Engine) markPeerRevoked(circleID, deviceID string) error {
 	if e.db == nil {
 		return errGraphStoreUnavailable
@@ -150,21 +199,9 @@ func (e *Engine) markPeerRevoked(circleID, deviceID string) error {
 		circleID, deviceID); err != nil {
 		return err
 	}
-	rows, err := tx.Query(`SELECT id FROM memories WHERE origin = 'peer' AND circle_id = ? AND peer_device_id = ?`, circleID, deviceID)
+	ids, err := peerMemoryIDsForDevice(tx, circleID, deviceID)
 	if err != nil {
 		return err
-	}
-	ids := []string{}
-	for rows.Next() {
-		var id string
-		if rows.Scan(&id) == nil && id != "" {
-			ids = append(ids, id)
-		}
-	}
-	scanErr := rows.Err()
-	rows.Close()
-	if scanErr != nil {
-		return scanErr
 	}
 	for _, id := range ids {
 		if err := removeMemoryGraphOn(tx, id); err != nil {

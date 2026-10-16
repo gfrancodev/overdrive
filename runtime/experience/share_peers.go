@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+const listenAllIPv4 = "0.0.0.0"
+
 func defaultIfaceAddrs(iface net.Interface) ([]net.Addr, error) { return iface.Addrs() }
 
 var (
@@ -26,7 +28,7 @@ func advertisedListenAddr() string {
 func normalizeListen(raw string) string {
 	raw = strings.TrimSpace(raw)
 	if strings.HasPrefix(raw, ":") {
-		return "0.0.0.0" + raw
+		return listenAllIPv4 + raw
 	}
 	return raw
 }
@@ -36,11 +38,11 @@ func publicEndpoint(listenAddr string) string {
 	if err != nil {
 		return listenAddr
 	}
-	if host == "" || host == "0.0.0.0" || host == "::" || host == "[::]" {
+	if host == "" || host == listenAllIPv4 || host == "::" || host == "[::]" {
 		if ip := firstLANIPv4(); ip != "" {
 			return net.JoinHostPort(ip, port)
 		}
-		return net.JoinHostPort("0.0.0.0", port)
+		return net.JoinHostPort(listenAllIPv4, port)
 	}
 	return net.JoinHostPort(host, port)
 }
@@ -58,30 +60,47 @@ func firstLANIPv4() string {
 		return ""
 	}
 	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-		name := strings.ToLower(iface.Name)
-		if strings.HasPrefix(name, "docker") || strings.HasPrefix(name, "br-") || strings.HasPrefix(name, "veth") {
-			continue
-		}
-		addrs, err := hookIfaceAddrs(iface)
-		if err != nil {
-			continue
-		}
-		for _, addr := range addrs {
-			ipNet, ok := addr.(*net.IPNet)
-			if !ok || ipNet.IP == nil || ipNet.IP.IsLoopback() {
-				continue
-			}
-			ip4 := ipNet.IP.To4()
-			if ip4 == nil || ip4.IsLinkLocalUnicast() {
-				continue
-			}
-			return ip4.String()
+		if ip := lanIPv4OnInterface(iface); ip != "" {
+			return ip
 		}
 	}
 	return ""
+}
+
+func skipLANInterface(iface net.Interface) bool {
+	if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+		return true
+	}
+	name := strings.ToLower(iface.Name)
+	return strings.HasPrefix(name, "docker") || strings.HasPrefix(name, "br-") || strings.HasPrefix(name, "veth")
+}
+
+func lanIPv4OnInterface(iface net.Interface) string {
+	if skipLANInterface(iface) {
+		return ""
+	}
+	addrs, err := hookIfaceAddrs(iface)
+	if err != nil {
+		return ""
+	}
+	for _, addr := range addrs {
+		if ip := lanIPv4FromAddr(addr); ip != "" {
+			return ip
+		}
+	}
+	return ""
+}
+
+func lanIPv4FromAddr(addr net.Addr) string {
+	ipNet, ok := addr.(*net.IPNet)
+	if !ok || ipNet.IP == nil || ipNet.IP.IsLoopback() {
+		return ""
+	}
+	ip4 := ipNet.IP.To4()
+	if ip4 == nil || ip4.IsLinkLocalUnicast() {
+		return ""
+	}
+	return ip4.String()
 }
 
 func isLoopbackHost(host string) bool {
@@ -103,7 +122,7 @@ func chooseEndpoint(advertised, remote string) string {
 	}
 	advHost, advPort, advErr := net.SplitHostPort(advertised)
 	remHost, _, remErr := net.SplitHostPort(remote)
-	if advErr == nil && advHost != "" && advHost != "0.0.0.0" && advHost != "::" {
+	if advErr == nil && advHost != "" && advHost != listenAllIPv4 && advHost != "::" {
 		if isLoopbackHost(advHost) && remErr == nil && remHost != "" && !isLoopbackHost(remHost) {
 			return net.JoinHostPort(remHost, advPort)
 		}

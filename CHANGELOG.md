@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+## 1.5.0 - 2026-10-16
+
+### Share mesh dashboard
+
+- `share listen` serves an embedded dashboard (chat, mesh voice/video calls, live terminals, peer machines) on `OVERDRIVE_SHARE_UI` (default listen port + 1).
+- WebRTC mesh calls with signaling over `/api/call/signal` and `/api/call/events`; STUN by default, optional TURN via `OVERDRIVE_TURN_URLS` / `OVERDRIVE_TURN_USERNAME` / `OVERDRIVE_TURN_CREDENTIAL` (local coturn: `docker-compose.turn.yml`).
+- Circle chat with attachments, voice notes, YouTube/Vimeo embed previews, and encrypted transport over the circle key.
+- Shared terminal sessions: create, attach, control grants, context bundles, workspace artifacts, and remote viewers.
+- Core lifecycle API (`/api/core/ui`, mesh pause/resume) and tray helper under `runtime/tray/`.
+- Harness adapter manifests under `hooks/adapters/` for Cursor, Claude, Codex, and other agents.
+
+### Quality and CI
+
+- Node contract test for two-peer offer/answer/ICE (`tests/mesh_call_signaling.test.mjs`); Playwright smoke with fake media between two `share listen` instances (job `browser-media`).
+- Go coverage gate at **82%** on the runtime package excluding `terminal_host.go` (`scripts/go-coverage-gate.sh`); dashboard JavaScript lcov published to SonarCloud.
+- SonarCloud scan, gremlins mutation gate on security-sensitive paths, and expanded pytest/Go coverage for `share_call`, chat, terminal APIs, and dashboard modules.
+- Optional idle circle cleanup: `OVERDRIVE_CIRCLE_IDLE_DAYS` and `share circle prune` (`--dry-run`).
+
+### Runtime
+
+- MCP stdio server (`mcp` command) for recall, record, handoff, and terminal context tools.
+- Local continuity: handoffs, standing decisions, transcript span index, and `before-prompt` / `index-tail` hooks.
+- Experience Engine docs updated for TURN, mesh calls, and CI expectations.
+
+## 1.4.0 - 2026-10-11
+
+### Local continuity
+
+- Decisions and handoffs stay local across harnesses: standing versus run scope, pin, circle packets without vectors, and harness adapters.
+
+### SonarCloud
+
+- Open issues cleaned up, and Go coverage is published to SonarCloud.
+
 ## 1.3.0 - 2026-09-30
 
 ### Second brain recall

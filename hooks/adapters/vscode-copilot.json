@@ -1,0 +1,10 @@
+{
+  "id": "vscode-copilot",
+  "channel": "stdio-mcp",
+  "stdout": "mcp",
+  "events": {},
+  "transcript_glob": "",
+  "install": ".vscode",
+  "session_end": "none",
+  "optional": false
+}

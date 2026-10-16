@@ -4,6 +4,12 @@
     "sessionStart": [
       { "command": "./hooks/run-hook.sh session-start" }
     ],
+    "beforeSubmitPrompt": [
+      { "command": "./hooks/run-hook.sh before-prompt" }
+    ],
+    "stop": [
+      { "command": "./hooks/run-hook.sh stop" }
+    ],
     "sessionEnd": [
       { "command": "./hooks/run-hook.sh session-end" }
     ]

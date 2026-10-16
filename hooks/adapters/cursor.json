@@ -1,0 +1,15 @@
+{
+  "id": "cursor",
+  "channel": "session-stdout",
+  "stdout": "plain",
+  "events": {
+    "sessionStart": "session-start",
+    "beforeSubmitPrompt": "before-prompt",
+    "stop": "stop",
+    "sessionEnd": "session-end"
+  },
+  "transcript_glob": "~/.cursor/projects/**/agent-transcripts/**/*.jsonl",
+  "install": "~/.cursor",
+  "session_end": "native",
+  "optional": false
+}

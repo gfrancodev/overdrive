@@ -1,0 +1,10 @@
+{
+  "id": "muse",
+  "channel": "stdio-mcp",
+  "stdout": "mcp",
+  "events": {},
+  "transcript_glob": "",
+  "install": "~/.config/muse",
+  "session_end": "none",
+  "optional": true
+}

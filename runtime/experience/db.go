@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	// Register the modernc SQLite driver for database/sql.
 	_ "modernc.org/sqlite"
 )
 
@@ -150,7 +151,28 @@ func (e *Engine) initSchema() error {
 			reason TEXT NOT NULL DEFAULT '',
 			risk TEXT NOT NULL DEFAULT '',
 			reversibility TEXT NOT NULL DEFAULT '',
-			created_at TEXT NOT NULL
+			created_at TEXT NOT NULL,
+			lifetime TEXT NOT NULL DEFAULT 'run'
+		)`,
+		`CREATE TABLE IF NOT EXISTS handoffs (
+			id TEXT PRIMARY KEY,
+			repository TEXT NOT NULL,
+			summary TEXT NOT NULL,
+			state TEXT NOT NULL,
+			owner_device TEXT NOT NULL DEFAULT '',
+			claimed_by TEXT NOT NULL DEFAULT '',
+			updated_at TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS transcript_spans (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			repository TEXT NOT NULL,
+			harness TEXT NOT NULL,
+			path TEXT NOT NULL,
+			byte_start INTEGER NOT NULL,
+			byte_end INTEGER NOT NULL,
+			signature TEXT NOT NULL DEFAULT '',
+			title TEXT NOT NULL DEFAULT '',
+			confirmed INTEGER NOT NULL DEFAULT 0
 		)`,
 		`CREATE TABLE IF NOT EXISTS sessions (
 			session_id TEXT PRIMARY KEY,
@@ -168,42 +190,101 @@ func (e *Engine) initSchema() error {
 	return e.migrateSchema()
 }
 
-func (e *Engine) migrateSchema() error {
-	cols := map[string]string{
-		"origin":            "TEXT NOT NULL DEFAULT 'local'",
-		"peer_device_id":    "TEXT NOT NULL DEFAULT ''",
-		"circle_id":         "TEXT NOT NULL DEFAULT ''",
-		"layer":             "INTEGER NOT NULL DEFAULT 2",
-		"packet_content":    "TEXT NOT NULL DEFAULT ''",
-		"problem_signature": "TEXT NOT NULL DEFAULT ''",
-		"source_folder":     "TEXT NOT NULL DEFAULT ''",
-		"vector_space":      "TEXT NOT NULL DEFAULT ''",
-		"hot_index":         "INTEGER NOT NULL DEFAULT 1",
+const sqlTextNotNullEmpty = "TEXT NOT NULL DEFAULT ''"
+
+func memoryMigrationColumns() []string {
+	return []string{
+		"origin", "peer_device_id", "circle_id", "layer",
+		"packet_content", "problem_signature", "source_folder", "vector_space", "hot_index",
 	}
-	for col, def := range cols {
-		if columnExists(e.db, "memories", col) {
-			continue
-		}
-		var err error
-		if hookMigrateAddColumn != nil {
-			err = hookMigrateAddColumn(e.db, col, def)
-		} else {
-			_, err = e.db.Exec(`ALTER TABLE memories ADD COLUMN ` + col + ` ` + def)
-		}
-		if err != nil {
+}
+
+func memoryColumnDefinition(col string) (string, bool) {
+	switch col {
+	case "origin":
+		return "TEXT NOT NULL DEFAULT 'local'", true
+	case "peer_device_id", "circle_id", "packet_content", "problem_signature", "source_folder", "vector_space":
+		return sqlTextNotNullEmpty, true
+	case "layer":
+		return "INTEGER NOT NULL DEFAULT 2", true
+	case "hot_index":
+		return "INTEGER NOT NULL DEFAULT 1", true
+	default:
+		return "", false
+	}
+}
+
+func alterMemoryColumnSQL(col string) (string, bool) {
+	switch col {
+	case "origin":
+		return `ALTER TABLE memories ADD COLUMN origin TEXT NOT NULL DEFAULT 'local'`, true
+	case "peer_device_id":
+		return `ALTER TABLE memories ADD COLUMN peer_device_id TEXT NOT NULL DEFAULT ''`, true
+	case "circle_id":
+		return `ALTER TABLE memories ADD COLUMN circle_id TEXT NOT NULL DEFAULT ''`, true
+	case "layer":
+		return `ALTER TABLE memories ADD COLUMN layer INTEGER NOT NULL DEFAULT 2`, true
+	case "packet_content":
+		return `ALTER TABLE memories ADD COLUMN packet_content TEXT NOT NULL DEFAULT ''`, true
+	case "problem_signature":
+		return `ALTER TABLE memories ADD COLUMN problem_signature TEXT NOT NULL DEFAULT ''`, true
+	case "source_folder":
+		return `ALTER TABLE memories ADD COLUMN source_folder TEXT NOT NULL DEFAULT ''`, true
+	case "vector_space":
+		return `ALTER TABLE memories ADD COLUMN vector_space TEXT NOT NULL DEFAULT ''`, true
+	case "hot_index":
+		return `ALTER TABLE memories ADD COLUMN hot_index INTEGER NOT NULL DEFAULT 1`, true
+	default:
+		return "", false
+	}
+}
+
+func (e *Engine) migrateSchema() error {
+	for _, col := range memoryMigrationColumns() {
+		if err := e.ensureMemoryColumn(col); err != nil {
 			return err
 		}
+	}
+	if err := e.ensureLedgerLifetimeColumn(); err != nil {
+		return err
 	}
 	_, _ = e.db.Exec(`UPDATE meta SET value = ? WHERE key = 'schema'`, schemaVersion)
 	e.backfillGraph()
 	return nil
 }
 
+func (e *Engine) ensureMemoryColumn(col string) error {
+	if columnExists(e.db, "memories", col) {
+		return nil
+	}
+	def, ok := memoryColumnDefinition(col)
+	if !ok {
+		return fmt.Errorf("unknown memory column %s", col)
+	}
+	if hookMigrateAddColumn != nil {
+		return hookMigrateAddColumn(e.db, col, def)
+	}
+	stmt, ok := alterMemoryColumnSQL(col)
+	if !ok {
+		return fmt.Errorf("unknown memory column %s", col)
+	}
+	_, err := e.db.Exec(stmt)
+	return err
+}
+
+func (e *Engine) ensureLedgerLifetimeColumn() error {
+	if columnExists(e.db, "ledger_entries", "lifetime") {
+		return nil
+	}
+	_, err := e.db.Exec(`ALTER TABLE ledger_entries ADD COLUMN lifetime TEXT NOT NULL DEFAULT 'run'`)
+	return err
+}
+
 func columnExists(db *sql.DB, table, col string) bool {
 	if db == nil {
 		return false
 	}
-	rows, err := db.Query(`PRAGMA table_info(` + table + `)`)
+	rows, err := tableInfoQuery(db, table)
 	if err != nil {
 		return false
 	}
@@ -228,6 +309,17 @@ func columnExists(db *sql.DB, table, col string) bool {
 		}
 	}
 	return false
+}
+
+func tableInfoQuery(db *sql.DB, table string) (*sql.Rows, error) {
+	switch table {
+	case "memories":
+		return db.Query(`PRAGMA table_info(memories)`)
+	case "ledger_entries":
+		return db.Query(`PRAGMA table_info(ledger_entries)`)
+	default:
+		return nil, fmt.Errorf("unsupported table %s", table)
+	}
 }
 
 func (e *Engine) memoryCount() (int, error) {
@@ -261,18 +353,28 @@ type scanner interface {
 	Scan(dest ...any) error
 }
 
-const memorySelect = `SELECT id, vector_id, kind, scope, scope_id, subject, content, confidence, priority, status,
+const memorySelectByID = `SELECT id, vector_id, kind, scope, scope_id, subject, content, confidence, priority, status,
 	source, source_ref, evidence, success_count, failure_count, evidence_score, created_at, updated_at, last_validated_at,
 	origin, peer_device_id, circle_id, layer, packet_content, problem_signature, source_folder, vector_space, hot_index
-	FROM memories`
+	FROM memories WHERE id = ?`
+
+const memorySelectActive = `SELECT id, vector_id, kind, scope, scope_id, subject, content, confidence, priority, status,
+	source, source_ref, evidence, success_count, failure_count, evidence_score, created_at, updated_at, last_validated_at,
+	origin, peer_device_id, circle_id, layer, packet_content, problem_signature, source_folder, vector_space, hot_index
+	FROM memories WHERE status = 'active'`
+
+const memorySelectExportable = `SELECT id, vector_id, kind, scope, scope_id, subject, content, confidence, priority, status,
+	source, source_ref, evidence, success_count, failure_count, evidence_score, created_at, updated_at, last_validated_at,
+	origin, peer_device_id, circle_id, layer, packet_content, problem_signature, source_folder, vector_space, hot_index
+	FROM memories WHERE status = 'active' AND origin = 'local' AND scope = 'repository' AND scope_id = ?`
 
 func (e *Engine) getMemory(id string) (Memory, error) {
-	row := e.db.QueryRow(memorySelect+` WHERE id = ?`, id)
+	row := e.db.QueryRow(memorySelectByID, id)
 	return e.scanMemory(row)
 }
 
 func (e *Engine) listActiveMemories() ([]Memory, error) {
-	rows, err := e.db.Query(memorySelect + ` WHERE status = 'active'`)
+	rows, err := e.db.Query(memorySelectActive)
 	if err != nil {
 		return nil, err
 	}
@@ -340,23 +442,40 @@ func (e *Engine) persistMemory(m Memory, extra []GraphEdge) error {
 	if err := hookSQLCommit(tx); err != nil {
 		return err
 	}
-	indexText := m.PacketContent
-	if indexText == "" {
-		indexText = strings.Join([]string{m.Subject, m.Content, m.Evidence}, " ")
-	}
-	vec := embedText(indexText)
-	if m.Origin == "peer" {
-		if e.tvPeer != nil && e.tvPeer.Available() && m.Status == "active" && m.HotIndex {
-			e.tvPeer.Add(m.ID, vec)
-			e.tvPeer.Sync()
-		}
-		return nil
-	}
-	if e.tv != nil && e.tv.Available() && m.Status == "active" && m.HotIndex {
-		e.tv.Add(m.ID, vec)
-		e.tv.Sync()
-	}
+	e.indexPersistedMemory(m)
 	return nil
+}
+
+func memoryIndexText(m Memory) string {
+	if m.PacketContent != "" {
+		return m.PacketContent
+	}
+	return strings.Join([]string{m.Subject, m.Content, m.Evidence}, " ")
+}
+
+func (e *Engine) indexPersistedMemory(m Memory) {
+	vec := embedText(memoryIndexText(m))
+	if m.Origin == "peer" {
+		e.addPeerVector(m, vec)
+		return
+	}
+	e.addLocalVector(m, vec)
+}
+
+func (e *Engine) addPeerVector(m Memory, vec []float32) {
+	if e.tvPeer == nil || !e.tvPeer.Available() || m.Status != "active" || !m.HotIndex {
+		return
+	}
+	e.tvPeer.Add(m.ID, vec)
+	e.tvPeer.Sync()
+}
+
+func (e *Engine) addLocalVector(m Memory, vec []float32) {
+	if e.tv == nil || !e.tv.Available() || m.Status != "active" || !m.HotIndex {
+		return
+	}
+	e.tv.Add(m.ID, vec)
+	e.tv.Sync()
 }
 
 func (e *Engine) upsertMemory(m Memory) error {
@@ -385,19 +504,31 @@ func (e *Engine) deleteMemory(id string) error {
 	if err := hookSQLCommit(tx); err != nil {
 		return err
 	}
+	e.removeMemoryVector(id, m, getErr)
+	return nil
+}
+
+func (e *Engine) removeMemoryVector(id string, m Memory, getErr error) {
 	if getErr == nil {
-		if m.Origin == "peer" && e.tvPeer != nil && e.tvPeer.Available() {
-			e.tvPeer.Remove(id)
-			e.tvPeer.Sync()
-		} else if e.tv != nil && e.tv.Available() {
-			e.tv.Remove(id)
-			e.tv.Sync()
-		}
-	} else if e.tv != nil && e.tv.Available() {
+		e.removeLoadedMemoryVector(id, m)
+		return
+	}
+	if e.tv != nil && e.tv.Available() {
 		e.tv.Remove(id)
 		e.tv.Sync()
 	}
-	return nil
+}
+
+func (e *Engine) removeLoadedMemoryVector(id string, m Memory) {
+	if m.Origin == "peer" && e.tvPeer != nil && e.tvPeer.Available() {
+		e.tvPeer.Remove(id)
+		e.tvPeer.Sync()
+		return
+	}
+	if e.tv != nil && e.tv.Available() {
+		e.tv.Remove(id)
+		e.tv.Sync()
+	}
 }
 
 func (e *Engine) ftsCandidates(query string, project Project, limit int) ([]string, map[string]float64, error) {
@@ -405,63 +536,73 @@ func (e *Engine) ftsCandidates(query string, project Project, limit int) ([]stri
 		return nil, nil, nil
 	}
 	q := strings.TrimSpace(query)
-	rows, err := e.db.Query(`
+	rows, err := e.queryFTS(q, limit*4)
+	if err != nil {
+		rows, err = e.queryFTSFallback(q, limit*4)
+		if err != nil {
+			return nil, nil, nil
+		}
+	}
+	return e.collectFTSHits(rows, project)
+}
+
+func (e *Engine) queryFTS(match string, limit int) (*sql.Rows, error) {
+	return e.db.Query(`
 		SELECT m.id, bm25(memories_fts) AS rank
 		FROM memories_fts
 		JOIN memories m ON m.vector_id = memories_fts.rowid
 		WHERE memories_fts MATCH ? AND m.status = 'active'
 		ORDER BY rank
 		LIMIT ?
-	`, q, limit*4)
-	if err != nil {
-		// fallback token OR query
-		tokens := tokenize(q)
-		if len(tokens) == 0 {
-			return nil, nil, nil
-		}
-		parts := make([]string, 0, len(tokens))
-		for _, t := range tokens {
-			parts = append(parts, t+"*")
-		}
-		orQ := strings.Join(parts, " OR ")
-		rows, err = e.db.Query(`
-			SELECT m.id, bm25(memories_fts) AS rank
-			FROM memories_fts
-			JOIN memories m ON m.vector_id = memories_fts.rowid
-			WHERE memories_fts MATCH ? AND m.status = 'active'
-			ORDER BY rank
-			LIMIT ?
-		`, orQ, limit*4)
-		if err != nil {
-			return nil, nil, nil
-		}
+	`, match, limit)
+}
+
+func (e *Engine) queryFTSFallback(query string, limit int) (*sql.Rows, error) {
+	tokens := tokenize(query)
+	if len(tokens) == 0 {
+		return nil, fmt.Errorf("no fts tokens")
 	}
+	parts := make([]string, 0, len(tokens))
+	for _, t := range tokens {
+		parts = append(parts, t+"*")
+	}
+	return e.queryFTS(strings.Join(parts, " OR "), limit)
+}
+
+func (e *Engine) collectFTSHits(rows *sql.Rows, project Project) ([]string, map[string]float64, error) {
 	defer rows.Close()
 	ids := []string{}
 	ranks := map[string]float64{}
 	for rows.Next() {
-		var id string
-		var rank float64
-		var err error
-		if hookFTSScanErr != nil {
-			err = hookFTSScanErr
-		} else {
-			err = rows.Scan(&id, &rank)
-		}
+		id, rank, err := scanFTSHit(rows)
 		if err != nil {
 			return nil, nil, err
 		}
-		m, err := e.getMemory(id)
-		if err != nil {
-			continue
-		}
-		if scopeWeight(m, project) == 0 {
+		if !e.ftsHitInScope(id, project) {
 			continue
 		}
 		ids = append(ids, id)
 		ranks[id] = -rank
 	}
 	return ids, ranks, rows.Err()
+}
+
+func scanFTSHit(rows *sql.Rows) (string, float64, error) {
+	var id string
+	var rank float64
+	if hookFTSScanErr != nil {
+		return "", 0, hookFTSScanErr
+	}
+	err := rows.Scan(&id, &rank)
+	return id, rank, err
+}
+
+func (e *Engine) ftsHitInScope(id string, project Project) bool {
+	m, err := e.getMemory(id)
+	if err != nil {
+		return false
+	}
+	return scopeWeight(m, project) != 0
 }
 
 func migrateJSONIfNeeded(home string) error {
@@ -571,31 +712,35 @@ func (e *Engine) reindexActiveMemories() error {
 		return err
 	}
 	for _, m := range memories {
-		if !m.HotIndex {
-			continue
-		}
-		text := m.PacketContent
-		if text == "" {
-			text = strings.Join([]string{m.Subject, m.Content, m.Evidence}, " ")
-		}
-		vec := embedText(text)
-		if m.Origin == "peer" {
-			if e.tvPeer != nil && e.tvPeer.Available() {
-				e.tvPeer.Add(m.ID, vec)
-			}
-			continue
-		}
-		if e.tv != nil && e.tv.Available() {
-			e.tv.Add(m.ID, vec)
-		}
+		e.reindexOneMemory(m)
 	}
+	e.syncVectorIndexes()
+	return nil
+}
+
+func (e *Engine) reindexOneMemory(m Memory) {
+	if !m.HotIndex {
+		return
+	}
+	vec := embedText(memoryIndexText(m))
+	if m.Origin == "peer" {
+		if e.tvPeer != nil && e.tvPeer.Available() {
+			e.tvPeer.Add(m.ID, vec)
+		}
+		return
+	}
+	if e.tv != nil && e.tv.Available() {
+		e.tv.Add(m.ID, vec)
+	}
+}
+
+func (e *Engine) syncVectorIndexes() {
 	if e.tv != nil && e.tv.Available() {
 		e.tv.Sync()
 	}
 	if e.tvPeer != nil && e.tvPeer.Available() {
 		e.tvPeer.Sync()
 	}
-	return nil
 }
 
 func (e *Engine) runGC(previousSessionID string) error {
@@ -613,28 +758,37 @@ func (e *Engine) runGC(previousSessionID string) error {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var id, source, status, updatedAt string
-		var confidence float64
-		var err error
-		if hookRunGCScanErr != nil {
-			err = hookRunGCScanErr
-		} else {
-			err = rows.Scan(&id, &source, &status, &confidence, &updatedAt)
-		}
-		if err != nil {
+		if err := e.deleteScannedGCRow(rows, cutoffDeprecated, cutoffStale); err != nil {
 			return err
 		}
-		if status == "deprecated" && shouldDeleteDeprecatedMemory(updatedAt, cutoffDeprecated) {
-			if err := e.deleteMemory(id); err != nil {
-				return err
-			}
-			continue
-		}
-		if status == "stale" && shouldDeleteStaleMemory(source, updatedAt, cutoffStale, confidence) {
-			if err := e.deleteMemory(id); err != nil {
-				return err
-			}
-		}
+	}
+	return nil
+}
+
+func (e *Engine) deleteScannedGCRow(rows *sql.Rows, cutoffDeprecated, cutoffStale string) error {
+	id, source, status, updatedAt, confidence, err := scanGCRow(rows)
+	if err != nil {
+		return err
+	}
+	return e.deleteGCCandidate(id, source, status, updatedAt, confidence, cutoffDeprecated, cutoffStale)
+}
+
+func scanGCRow(rows *sql.Rows) (string, string, string, string, float64, error) {
+	var id, source, status, updatedAt string
+	var confidence float64
+	if hookRunGCScanErr != nil {
+		return "", "", "", "", 0, hookRunGCScanErr
+	}
+	err := rows.Scan(&id, &source, &status, &confidence, &updatedAt)
+	return id, source, status, updatedAt, confidence, err
+}
+
+func (e *Engine) deleteGCCandidate(id, source, status, updatedAt string, confidence float64, cutoffDeprecated, cutoffStale string) error {
+	if status == "deprecated" && shouldDeleteDeprecatedMemory(updatedAt, cutoffDeprecated) {
+		return e.deleteMemory(id)
+	}
+	if status == "stale" && shouldDeleteStaleMemory(source, updatedAt, cutoffStale, confidence) {
+		return e.deleteMemory(id)
 	}
 	return nil
 }
@@ -661,16 +815,30 @@ func (e *Engine) startSession(project Project) (string, error) {
 	}
 	_ = e.syncCirclePeers(project)
 	e.importPeerCatalogs(project)
+	if transcriptScanEnabled() {
+		if moved, err := e.indexHarnessTails(project); err == nil && moved {
+			_ = e.ensureHandoffFromHints(project)
+		}
+	}
 	e.sessionID = sessionID
 	return sessionID, nil
 }
 
 func (e *Engine) endSession(project Project) error {
+	if err := e.promoteStandingDecisions(project); err != nil {
+		return err
+	}
+	if err := e.captureSessionHandoff(project); err != nil {
+		return err
+	}
 	circle, ok := circleForProject(e.home, project.Root)
 	if ok && folderAllowed(circle, project.Root) {
 		if err := e.consolidateSession(project, circle); err != nil {
 			return err
 		}
+	}
+	if shareListenEnabled() {
+		_ = e.syncCirclePeers(project)
 	}
 	return nil
 }
@@ -712,64 +880,111 @@ func (e *Engine) listWorkingMemory(project Project) ([]Memory, error) {
 	return out, rows.Err()
 }
 
-func (e *Engine) recordMemory(project Project, kind, scope, subject, content string, confidence float64, priority int, source, sourceRef, evidence string) (Memory, error) {
-	if hookRecordMemory != nil {
-		return hookRecordMemory(e, project, kind, scope, subject, content, confidence, priority, source, sourceRef, evidence)
-	}
-	scopeID := scopeIDFor(scope, project)
+type memoryRecord struct {
+	Project    Project
+	Kind       string
+	Scope      string
+	Subject    string
+	Content    string
+	Confidence float64
+	Priority   int
+	Source     string
+	SourceRef  string
+	Evidence   string
+}
+
+type preparedMemoryRecord struct {
+	in          memoryRecord
+	scopeID     string
+	now         string
+	subject     string
+	content     string
+	evidence    string
+	confidence  float64
+	fingerprint string
+}
+
+func trustedRecordSource(source string) bool {
+	return source == "user_feedback" || source == "project_instruction" || source == "adr"
+}
+
+func prepareMemoryRecord(in memoryRecord) (preparedMemoryRecord, error) {
+	scopeID := scopeIDFor(in.Scope, in.Project)
 	if scopeID == "" {
-		return Memory{}, fmt.Errorf("cannot resolve scope %q for current project", scope)
+		return preparedMemoryRecord{}, fmt.Errorf("cannot resolve scope %q for current project", in.Scope)
 	}
-	now := nowRFC3339()
-	cleanContent := redact(strings.TrimSpace(content))
-	cleanEvidence := redact(strings.TrimSpace(evidence))
-	cleanSubject := redact(strings.TrimSpace(subject))
-	conf := clamp(confidence, 0, 1)
-	if source == "user_feedback" || source == "project_instruction" || source == "adr" {
+	conf := clamp(in.Confidence, 0, 1)
+	if trustedRecordSource(in.Source) {
 		conf = math.Max(conf, 0.95)
 	}
-	fp := memoryFingerprint(scope, scopeID, kind, cleanSubject, cleanContent)
+	subject := redact(strings.TrimSpace(in.Subject))
+	content := redact(strings.TrimSpace(in.Content))
+	return preparedMemoryRecord{
+		in: in, scopeID: scopeID, now: nowRFC3339(), subject: subject, content: content,
+		evidence: redact(strings.TrimSpace(in.Evidence)), confidence: conf,
+		fingerprint: memoryFingerprint(in.Scope, scopeID, in.Kind, subject, content),
+	}, nil
+}
 
-	existing, err := e.getMemory(fp)
+func (e *Engine) recordMemory(in memoryRecord) (Memory, error) {
+	if hookRecordMemory != nil {
+		return hookRecordMemory(e, in)
+	}
+	prepared, err := prepareMemoryRecord(in)
+	if err != nil {
+		return Memory{}, err
+	}
+	existing, err := e.getMemory(prepared.fingerprint)
 	if err == nil {
-		existing.Confidence = clamp(math.Max(existing.Confidence, conf)+(1-math.Max(existing.Confidence, conf))*0.02, 0, 1)
-		existing.Priority = maxInt(existing.Priority, clampInt(priority, 0, 100))
-		existing.UpdatedAt = now
-		existing.Status = "active"
-		existing.Source = strongestSource(existing.Source, source)
-		if cleanEvidence != "" {
-			existing.Evidence = cleanEvidence
-		}
-		if sourceRef != "" {
-			existing.SourceRef = redact(sourceRef)
-		}
-		if positiveSource(source) {
-			existing.SuccessCount++
-			existing.LastValidatedAt = now
-		}
-		applyDistillation(&existing, project)
-		existing.EvidenceScore = evidenceScore(existing)
-		if err := e.upsertMemory(existing); err != nil {
-			return Memory{}, err
-		}
-		return existing, nil
+		return e.mergeRecordedMemory(existing, prepared)
 	}
+	return e.insertRecordedMemory(prepared)
+}
 
+func (e *Engine) mergeRecordedMemory(existing Memory, prepared preparedMemoryRecord) (Memory, error) {
+	conf := prepared.confidence
+	existing.Confidence = clamp(math.Max(existing.Confidence, conf)+(1-math.Max(existing.Confidence, conf))*0.02, 0, 1)
+	existing.Priority = maxInt(existing.Priority, clampInt(prepared.in.Priority, 0, 100))
+	existing.UpdatedAt = prepared.now
+	existing.Status = "active"
+	existing.Source = strongestSource(existing.Source, prepared.in.Source)
+	if prepared.evidence != "" {
+		existing.Evidence = prepared.evidence
+	}
+	if prepared.in.SourceRef != "" {
+		existing.SourceRef = redact(prepared.in.SourceRef)
+	}
+	if positiveSource(prepared.in.Source) {
+		existing.SuccessCount++
+		existing.LastValidatedAt = prepared.now
+	}
+	applyDistillation(&existing, prepared.in.Project)
+	existing.EvidenceScore = evidenceScore(existing)
+	if err := e.upsertMemory(existing); err != nil {
+		return Memory{}, err
+	}
+	e.maybePush(prepared.in.Project, existing)
+	return existing, nil
+}
+
+func (e *Engine) insertRecordedMemory(prepared preparedMemoryRecord) (Memory, error) {
 	m := Memory{
-		ID: fp, Kind: kind, Scope: scope, ScopeID: scopeID, Subject: cleanSubject, Content: cleanContent,
-		Confidence: conf, Priority: clampInt(priority, 0, 100), Status: "active", Source: source,
-		SourceRef: redact(strings.TrimSpace(sourceRef)), Evidence: cleanEvidence,
-		CreatedAt: now, UpdatedAt: now, EvidenceScore: 0, Origin: "local", Layer: 2, HotIndex: true,
+		ID: prepared.fingerprint, Kind: prepared.in.Kind, Scope: prepared.in.Scope, ScopeID: prepared.scopeID,
+		Subject: prepared.subject, Content: prepared.content,
+		Confidence: prepared.confidence, Priority: clampInt(prepared.in.Priority, 0, 100), Status: "active",
+		Source: prepared.in.Source, SourceRef: redact(strings.TrimSpace(prepared.in.SourceRef)), Evidence: prepared.evidence,
+		CreatedAt: prepared.now, UpdatedAt: prepared.now, EvidenceScore: 0, Origin: "local", Layer: 2, HotIndex: true,
 	}
-	if positiveSource(source) {
+	if positiveSource(prepared.in.Source) {
 		m.SuccessCount = 1
-		m.LastValidatedAt = now
+		m.LastValidatedAt = prepared.now
 	}
-	applyDistillation(&m, project)
+	applyDistillation(&m, prepared.in.Project)
 	m.EvidenceScore = evidenceScore(m)
 	if err := e.upsertMemory(m); err != nil {
 		return Memory{}, err
 	}
+	e.maybePush(prepared.in.Project, m)
 	return m, nil
 }
 
@@ -782,78 +997,19 @@ func (e *Engine) recall(project Project, query string, limit int, layer string) 
 		return RecallResponse{}, err
 	}
 	q := recallQueryTrimmed(query)
-	querySig := extractProblemSignature(q)
 	ftsIDs, ftsRanks, _ := e.ftsCandidates(q, project, limit)
-
 	pools := partitionRecallMemories(memories, project, layer, func(m Memory) bool {
 		return e.peerEligible(m, project)
 	})
-	localAllow := recallLocalAllowIDs(ftsIDs, pools.local)
-
-	localVectorScores := map[string]float64{}
-	if e.tv != nil && e.tv.Available() && q != "" && len(localAllow) > 0 {
-		vec := embedText(q)
-		tvIDs, tvScores := e.tv.Search(vec, limit*2, localAllow)
-		localVectorScores = mapVectorScoresToIDs(tvIDs, tvScores, pools.local)
-	}
-
 	floor := vectorScoreFloor()
-	regular, critical := buildLocalRecallResults(pools.local, q, ftsRanks, localVectorScores, project, floor)
-
-	peerMemories := []Memory{}
-	if q != "" && len(pools.peer) > 0 && e.peerRecallEnabled(project) {
-		peerVectorScores := map[string]float64{}
-		tvPeerAvailable := e.tvPeer != nil && e.tvPeer.Available()
-		if tvPeerAvailable {
-			vec := embedText(q)
-			tvIDs, tvScores := e.tvPeer.Search(vec, maxPeerRecallItems*2, peerRecallVectorAllow(pools.peer))
-			peerVectorScores = mapVectorScoresToIDs(tvIDs, tvScores, pools.peer)
-		}
-		peerMemories = buildPeerRecallResults(pools.peer, q, querySig, peerVectorScores, floor, tvPeerAvailable, embedderName())
-	}
-
+	localScores := e.localRecallVectorScores(q, limit, recallLocalAllowIDs(ftsIDs, pools.local), pools.local)
+	regular, critical := buildLocalRecallResults(pools.local, q, ftsRanks, localScores, project, floor)
+	peerMemories := e.recallPeerMemories(pools, q, extractProblemSignature(q), project, floor)
 	regular, critical = capRecallResults(regular, critical, limit)
-	if e.sessionID != "" && q != "" {
-		for _, m := range recallSeedCandidates(critical, regular, 6) {
-			_ = e.addWorkingMemory(project, m.Kind, m.Subject, m.Content)
-		}
-	}
-	wm, _ := e.listWorkingMemory(project)
-	if wm == nil {
-		wm = []Memory{}
-	}
-	hitIDs := []string{}
-	seenHits := map[string]bool{}
-	for _, m := range append(append([]Memory{}, regular...), critical...) {
-		hitIDs = append(hitIDs, m.ID)
-		seenHits[m.ID] = true
-	}
-	for _, m := range peerMemories {
-		hitIDs = append(hitIDs, m.ID)
-		seenHits[m.ID] = true
-	}
-	var graphNeighbors []Memory
-	var pageIndex []PageIndexNode
-	var graphEdges []GraphEdge
-	if q != "" && len(hitIDs) > 0 {
-		neighborIDs := e.graphNeighborIDs(hitIDs)
-		graphNeighbors = e.loadGraphNeighborMemories(neighborIDs, seenHits, project)
-		branchIDs := append(append([]string{}, hitIDs...), neighborIDs...)
-		pageIndex, graphEdges = e.pageIndexBranch(branchIDs)
-		missing := e.unresolvedPageIndexIDs(pageIndex, q)
-		e.fetchMissingPeerPackets(project, missing)
-		graphNeighbors = append(graphNeighbors, e.loadGraphNeighborMemories(missing, seenHits, project)...)
-		pageIndex, graphEdges = e.pageIndexBranch(append(branchIDs, missing...))
-	}
-	if graphNeighbors == nil {
-		graphNeighbors = []Memory{}
-	}
-	if pageIndex == nil {
-		pageIndex = []PageIndexNode{}
-	}
-	if graphEdges == nil {
-		graphEdges = []GraphEdge{}
-	}
+	e.seedRecallWorkingMemory(project, q, critical, regular)
+	wm := e.recallWorkingMemory(project)
+	hitIDs, seenHits := recallHitIDs(regular, critical, peerMemories)
+	graphNeighbors, pageIndex, graphEdges := e.recallGraph(project, q, hitIDs, seenHits)
 	return RecallResponse{
 		Project:        project,
 		Memories:       regular,
@@ -863,8 +1019,110 @@ func (e *Engine) recall(project Project, query string, limit int, layer string) 
 		GraphNeighbors: graphNeighbors,
 		PageIndex:      pageIndex,
 		GraphEdges:     graphEdges,
+		Unconfirmed:    e.recallUnconfirmed(project, q),
 		Backend:        backendName,
 	}, nil
+}
+
+func (e *Engine) localRecallVectorScores(q string, limit int, localAllow []uint64, pool map[string]Memory) map[string]float64 {
+	if e.tv == nil || !e.tv.Available() || q == "" || len(localAllow) == 0 {
+		return map[string]float64{}
+	}
+	tvIDs, tvScores := e.tv.Search(embedText(q), limit*2, localAllow)
+	return mapVectorScoresToIDs(tvIDs, tvScores, pool)
+}
+
+func (e *Engine) recallPeerMemories(pools recallPools, q, querySig string, project Project, floor float64) []Memory {
+	if q == "" || len(pools.peer) == 0 || !e.peerRecallEnabled(project) {
+		return []Memory{}
+	}
+	peerVectorScores := map[string]float64{}
+	tvPeerAvailable := e.tvPeer != nil && e.tvPeer.Available()
+	if tvPeerAvailable {
+		tvIDs, tvScores := e.tvPeer.Search(embedText(q), maxPeerRecallItems*2, peerRecallVectorAllow(pools.peer))
+		peerVectorScores = mapVectorScoresToIDs(tvIDs, tvScores, pools.peer)
+	}
+	return buildPeerRecallResults(pools.peer, q, querySig, peerVectorScores, floor, tvPeerAvailable, embedderName())
+}
+
+func (e *Engine) seedRecallWorkingMemory(project Project, q string, critical, regular []Memory) {
+	if e.sessionID == "" || q == "" {
+		return
+	}
+	for _, m := range recallSeedCandidates(critical, regular, 6) {
+		_ = e.addWorkingMemory(project, m.Kind, m.Subject, m.Content)
+	}
+}
+
+func (e *Engine) recallWorkingMemory(project Project) []Memory {
+	wm, _ := e.listWorkingMemory(project)
+	if wm == nil {
+		return []Memory{}
+	}
+	return wm
+}
+
+func recallHitIDs(regular, critical, peer []Memory) ([]string, map[string]bool) {
+	hitIDs := []string{}
+	seenHits := map[string]bool{}
+	for _, group := range [][]Memory{regular, critical, peer} {
+		for _, m := range group {
+			hitIDs = append(hitIDs, m.ID)
+			seenHits[m.ID] = true
+		}
+	}
+	return hitIDs, seenHits
+}
+
+func (e *Engine) recallGraph(project Project, q string, hitIDs []string, seenHits map[string]bool) ([]Memory, []PageIndexNode, []GraphEdge) {
+	graphNeighbors := []Memory{}
+	pageIndex := []PageIndexNode{}
+	graphEdges := []GraphEdge{}
+	if q == "" || len(hitIDs) == 0 {
+		return graphNeighbors, pageIndex, graphEdges
+	}
+	neighborIDs := e.graphNeighborIDs(hitIDs)
+	graphNeighbors = e.loadGraphNeighborMemories(neighborIDs, seenHits, project)
+	branchIDs := append(append([]string{}, hitIDs...), neighborIDs...)
+	pageIndex, graphEdges = e.pageIndexBranch(branchIDs)
+	missing := e.unresolvedPageIndexIDs(pageIndex, q)
+	e.fetchMissingPeerPackets(project, missing)
+	graphNeighbors = append(graphNeighbors, e.loadGraphNeighborMemories(missing, seenHits, project)...)
+	pageIndex, graphEdges = e.pageIndexBranch(append(branchIDs, missing...))
+	return nonemptyMemories(graphNeighbors), nonemptyPageIndex(pageIndex), nonemptyGraphEdges(graphEdges)
+}
+
+func nonemptyMemories(in []Memory) []Memory {
+	if in == nil {
+		return []Memory{}
+	}
+	return in
+}
+
+func nonemptyPageIndex(in []PageIndexNode) []PageIndexNode {
+	if in == nil {
+		return []PageIndexNode{}
+	}
+	return in
+}
+
+func nonemptyGraphEdges(in []GraphEdge) []GraphEdge {
+	if in == nil {
+		return []GraphEdge{}
+	}
+	return in
+}
+
+func (e *Engine) recallUnconfirmed(project Project, q string) []string {
+	unconfirmed := []string{}
+	if !shouldOpenTranscript(e.listDecisionMemories(project), q) {
+		return unconfirmed
+	}
+	hints, err := e.matchingSpanHints(project, q)
+	if err != nil || len(hints) == 0 {
+		return unconfirmed
+	}
+	return hints
 }
 
 func (e *Engine) peerEligible(m Memory, project Project) bool {
@@ -987,15 +1245,22 @@ func (e *Engine) validateMemory(id, result, winnerNote, replacesID string) (Memo
 }
 
 func (e *Engine) ledgerAdd(project Project, runID, decision, evidence, reason, risk, reversibility string) (LedgerEntry, error) {
-	entry, err := insertLedgerEntry(e.db, project, runID, decision, evidence, reason, risk, reversibility)
+	return e.ledgerAddLifetime(ledgerWrite{
+		Project: project, RunID: runID, Decision: decision, Evidence: evidence,
+		Reason: reason, Risk: risk, Reversibility: reversibility, Lifetime: "run",
+	})
+}
+
+func (e *Engine) ledgerAddLifetime(in ledgerWrite) (LedgerEntry, error) {
+	entry, err := insertLedgerEntryLifetime(e.db, in)
 	if err != nil {
 		return LedgerEntry{}, err
 	}
-	entries, err := e.ledgerList(project, runID)
+	entries, err := e.ledgerList(in.Project, in.RunID)
 	if err != nil {
 		return entry, err
 	}
-	if err := writeLedgerMarkdown(e.home, project, runID, entries); err != nil {
+	if err := writeLedgerMarkdown(e.home, in.Project, in.RunID, entries); err != nil {
 		return entry, err
 	}
 	return entry, nil

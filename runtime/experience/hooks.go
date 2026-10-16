@@ -44,7 +44,7 @@ var (
 	hookRunGCScanErr          error
 	hookFetchPeerSync         func(string, string, Circle, DeviceIdentity, ed25519.PrivateKey, string, string) (SyncResponse, error)
 	hookShareListenWait       func(*shareListener)
-	hookRecordMemory          func(*Engine, Project, string, string, string, string, float64, int, string, string, string) (Memory, error)
+	hookRecordMemory          func(*Engine, memoryRecord) (Memory, error)
 	hookEngineRecall          func(*Engine, Project, string, int, string) (RecallResponse, error)
 	hookPeerMemoryCount       func(*Engine, string, string) (int, error)
 	hookHashedCosine          func(string, string) float64
@@ -57,6 +57,7 @@ var (
 	hookColumnInfoScanErr     error
 	hookMigrateAddColumn      func(*sql.DB, string, string) error
 	hookShareNewEngine        func(home string) (*Engine, error)
+	hookCheckpointLocalMemory = checkpointLocalMemory
 	hookOpenDynamicLib        func(path string) (uintptr, error)
 	hookRowsScanErr           error
 )
@@ -108,6 +109,7 @@ func resetHooksForTest() {
 	hookColumnInfoScanErr = nil
 	hookMigrateAddColumn = nil
 	hookShareNewEngine = nil
+	hookCheckpointLocalMemory = checkpointLocalMemory
 	hookOpenDynamicLib = nil
 	hookSQLCommit = defaultSQLCommit
 	hookHostname = os.Hostname

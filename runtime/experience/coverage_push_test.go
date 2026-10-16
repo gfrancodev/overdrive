@@ -257,7 +257,7 @@ func TestBuildSyncResponseSinceAndFolderFilter(t *testing.T) {
 	e, _ := newEngine(home)
 	defer e.Close()
 	project, _ := identifyProject(repo)
-	m, _ := e.recordMemory(project, "lesson", "repository", "", "Exportable lesson body.", 0.9, 50, "verified_execution", "", "")
+	m, _ := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "Exportable lesson body.", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 	m.SourceFolder = other
 	m.HotIndex = true
 	m.Layer = 2
@@ -662,7 +662,7 @@ func TestHandleConnValidSyncRoundTrip(t *testing.T) {
 	e, _ := newEngine(home)
 	defer e.Close()
 	project := identifyProjectMust(t, repo)
-	m, _ := e.recordMemory(project, "lesson", "repository", "", "Listener export lesson body.", 0.9, 50, "verified_execution", "", "")
+	m, _ := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "Listener export lesson body.", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 	m.HotIndex = true
 	m.Layer = 2
 	m.SourceFolder = repo

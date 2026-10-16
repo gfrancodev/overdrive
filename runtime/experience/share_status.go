@@ -32,6 +32,7 @@ type ShareStatus struct {
 	PeersContacted     int         `json:"last_peers_contacted"`
 	ListenerConfigured bool        `json:"listener_configured"`
 	DeviceID           string      `json:"device_id,omitempty"`
+	PeerLines          []string    `json:"peer_lines,omitempty"`
 }
 
 type shareSyncReport struct {
@@ -82,6 +83,7 @@ func (e *Engine) shareStatus(project Project) (ShareStatus, error) {
 		return out, err
 	}
 	out.PeerMemoryCount = count
+	out.PeerLines = e.loadPeerLines(circle.ID, project.Repository)
 	return out, nil
 }
 
@@ -149,8 +151,12 @@ func formatPeerEndpointSuffix(s ShareStatus) string {
 }
 
 func formatShareStatusText(s ShareStatus) string {
+	base := "share: " + s.Mode
 	if format, ok := shareStatusTextStrategies[s.Mode]; ok {
-		return format(s)
+		base = format(s)
 	}
-	return "share: " + s.Mode
+	if len(s.PeerLines) == 0 {
+		return base
+	}
+	return base + "\n" + strings.Join(s.PeerLines, "\n")
 }

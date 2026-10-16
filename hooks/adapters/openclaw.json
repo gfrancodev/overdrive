@@ -1,0 +1,13 @@
+{
+  "id": "openclaw",
+  "channel": "session-stdout",
+  "stdout": "plain",
+  "events": {
+    "SessionStart": "session-start",
+    "SessionEnd": "session-end"
+  },
+  "transcript_glob": "~/.openclaw/**/*.jsonl",
+  "install": "~/.openclaw",
+  "session_end": "native",
+  "optional": false
+}

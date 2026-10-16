@@ -49,13 +49,14 @@ Reversibility: <how to undo or contain it>
 ```
 
 Pass applicable rulings into subsequent tasks and subagents. Do not repeatedly reopen settled questions.
-The Decision Ledger remains run-local; it is not the persistent Experience Engine.
+The Decision Ledger remains run-local unless the ruling is marked `--lifetime standing`. Standing rulings are promoted to durable `decision` packets. `run` rulings stay on the ledger.
 
 When the runtime is available, persist ledger entries with:
 
 ```bash
 overdrive-runtime ledger-add --cwd "$PWD" --run "<run-id>" \
-  --decision "..." --evidence "..." --reason "..." --risk "..." --reversibility "..."
+  --decision "..." --evidence "..." --reason "..." --risk "..." --reversibility "..." \
+  --lifetime standing
 ```
 
 Use `ledger-list` to reload rulings for the current run. Automatic Forgetting and session GC never delete active ADR/project-instruction memories unless they were deprecated by contradiction.

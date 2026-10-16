@@ -35,7 +35,7 @@ func seedRecallBench(t *testing.T, n int) (*Engine, Project) {
 		if i%17 == 0 {
 			kind = "rule"
 		}
-		if _, err := e.recordMemory(project, kind, "repository", topic, content, 0.6+float64(i%40)/100, 40+i%60, "agent_observation", "", ""); err != nil {
+		if _, err := e.recordMemory(memoryRecord{Project: project, Kind: kind, Scope: "repository", Subject: topic, Content: content, Confidence: 0.6 + float64(i%40)/100, Priority: 40 + i%60, Source: "agent_observation", SourceRef: "", Evidence: ""}); err != nil {
 			t.Fatalf("seed %d: %v", i, err)
 		}
 	}

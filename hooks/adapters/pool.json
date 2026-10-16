@@ -1,0 +1,15 @@
+{
+  "id": "pool",
+  "channel": "deferred-event",
+  "stdout": "discarded",
+  "events": {
+    "SessionStart": "session-start",
+    "UserPromptSubmit": "before-prompt",
+    "Stop": "stop"
+  },
+  "transcript_glob": ".poolside/**/*.jsonl",
+  "install": ".poolside",
+  "session_end": "finalize-next-start",
+  "optional": false,
+  "delivery_event": "mcp"
+}

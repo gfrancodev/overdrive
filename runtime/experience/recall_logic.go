@@ -163,14 +163,14 @@ func capRecallResults(regular, critical []Memory, limit int) ([]Memory, []Memory
 	return regular, critical
 }
 
-func recallSeedCandidates(critical, regular []Memory, max int) []Memory {
-	if max <= 0 {
+func recallSeedCandidates(critical, regular []Memory, seedLimit int) []Memory {
+	if seedLimit <= 0 {
 		return nil
 	}
 	combined := append([]Memory{}, critical...)
 	combined = append(combined, regular...)
-	if len(combined) > max {
-		combined = combined[:max]
+	if len(combined) > seedLimit {
+		combined = combined[:seedLimit]
 	}
 	return combined
 }

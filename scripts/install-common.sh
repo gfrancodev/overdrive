@@ -29,9 +29,9 @@ turbovec_lib_name() {
 
 runtime_artifact_name() {
   local os="$1" arch="$2"
-  if [ "$os" = "windows" ]; then
+  if [[ "$os" = "windows" ]]; then
     echo "overdrive-runtime-${os}-${arch}.exe"
-  elif [ -n "$os" ] && [ -n "$arch" ]; then
+  elif [[ -n "$os" && -n "$arch" ]]; then
     echo "overdrive-runtime-${os}-${arch}"
   else
     echo ""
@@ -39,7 +39,7 @@ runtime_artifact_name() {
 }
 
 runtime_installed_name() {
-  if [ "$1" = "windows" ]; then
+  if [[ "$1" = "windows" ]]; then
     echo "overdrive-runtime.exe"
   else
     echo "overdrive-runtime"
@@ -50,7 +50,7 @@ install_skills_tree() {
   local root="$1" dest="$2"
   mkdir -p "$dest"
   for skill in "$root"/skills/*; do
-    [ -d "$skill" ] || continue
+    [[ -d "$skill" ]] || continue
     local name
     name="$(basename "$skill")"
     rm -rf "$dest/$name"
@@ -63,7 +63,7 @@ install_runtime_for_platform() {
   local artifact installed lib_name bundled_lib
   artifact="$(runtime_artifact_name "$os" "$arch")"
   installed="$(runtime_installed_name "$os")"
-  if [ -z "$artifact" ] || [ ! -f "$root/runtime/bin/$artifact" ]; then
+  if [[ -z "$artifact" || ! -f "$root/runtime/bin/$artifact" ]]; then
     return 1
   fi
   mkdir -p "$bin_dir" "$lib_dir"
@@ -72,7 +72,7 @@ install_runtime_for_platform() {
 
   lib_name="$(turbovec_lib_name "$os")"
   bundled_lib="$root/runtime/lib/${os}-${arch}/$lib_name"
-  if [ -f "$bundled_lib" ]; then
+  if [[ -f "$bundled_lib" ]]; then
     cp "$bundled_lib" "$lib_dir/$lib_name"
     cp "$bundled_lib" "$bin_dir/$lib_name"
     chmod +x "$lib_dir/$lib_name" 2>/dev/null || true
@@ -87,28 +87,29 @@ prune_foreign_runtime_artifacts() {
   keep_lib="$(turbovec_lib_name "$os")"
   keep_installed="$(runtime_installed_name "$os")"
 
-  if [ -d "$bin_dir" ]; then
+  if [[ -d "$bin_dir" ]]; then
     for f in "$bin_dir"/overdrive-runtime-*; do
-      [ -e "$f" ] || continue
+      [[ -e "$f" ]] || continue
       rm -f "$f"
     done
     for f in "$bin_dir"/*; do
-      [ -e "$f" ] || continue
+      [[ -e "$f" ]] || continue
       base="$(basename "$f")"
       case "$base" in
         "$keep_installed"|"$keep_lib") ;;
         overdrive-runtime*|liboverdrive_turbovec_ffi.*|overdrive_turbovec_ffi.dll)
           rm -f "$f"
           ;;
+        *) ;;
       esac
     done
   fi
 
-  if [ -d "$lib_dir" ]; then
+  if [[ -d "$lib_dir" ]]; then
     for f in "$lib_dir"/*; do
-      [ -e "$f" ] || continue
+      [[ -e "$f" ]] || continue
       base="$(basename "$f")"
-      if [ "$base" != "$keep_lib" ]; then
+      if [[ "$base" != "$keep_lib" ]]; then
         rm -f "$f"
       fi
     done
@@ -117,17 +118,70 @@ prune_foreign_runtime_artifacts() {
 
 install_tree_has_forbidden_payload() {
   local dir="$1"
-  if [ ! -d "$dir" ]; then
+  if [[ ! -d "$dir" ]]; then
     return 1
   fi
   if find "$dir" -type f \( -name '*.go' -o -name 'go.mod' -o -name 'go.sum' -o -name 'Cargo.toml' \) -print -quit | grep -q .; then
     return 0
   fi
-  if [ -d "$dir/runtime/experience" ] || [ -d "$dir/runtime/turbovec-ffi" ]; then
+  if [[ -d "$dir/runtime/experience" || -d "$dir/runtime/turbovec-ffi" ]]; then
     return 0
   fi
-  if [ -d "$dir/examples" ] || [ -d "$dir/tests" ]; then
+  if [[ -d "$dir/examples" || -d "$dir/tests" ]]; then
     return 0
   fi
+  return 1
+}
+
+tray_artifact_name() {
+  local os="$1" arch="$2"
+  if [[ "$os" == "windows" ]]; then
+    echo "overdrive-tray-${os}-${arch}.exe"
+  elif [[ -n "$os" && -n "$arch" ]]; then
+    echo "overdrive-tray-${os}-${arch}"
+  else
+    echo ""
+  fi
+}
+
+tray_installed_name() {
+  if [[ "$1" == "windows" ]]; then
+    echo "overdrive-tray.exe"
+  else
+    echo "overdrive-tray"
+  fi
+}
+
+# Installs the per-user tray binary. Does not start the Core.
+install_tray_for_platform() {
+  local root="$1" bin_dir="$2" os="$3" arch="$4"
+  local artifact installed src cgo
+  artifact="$(tray_artifact_name "$os" "$arch")"
+  installed="$(tray_installed_name "$os")"
+  if [[ -z "$installed" ]]; then
+    return 1
+  fi
+  mkdir -p "$bin_dir"
+  if [[ -n "$artifact" && -f "$root/runtime/bin/$artifact" ]]; then
+    cp "$root/runtime/bin/$artifact" "$bin_dir/$installed"
+    chmod +x "$bin_dir/$installed" 2>/dev/null || true
+    return 0
+  fi
+  src="$root/runtime/tray"
+  if [[ -f "$src/go.mod" ]] && command -v go >/dev/null 2>&1; then
+    cgo=0
+    if [[ "$os" == "darwin" ]]; then
+      cgo=1
+    fi
+    if (
+      cd "$src"
+      CGO_ENABLED="$cgo" GOOS="$os" GOARCH="$arch" \
+        go build -buildvcs=false -trimpath -ldflags='-s -w' -o "$bin_dir/$installed" ./cmd/overdrive-tray
+    ); then
+      chmod +x "$bin_dir/$installed" 2>/dev/null || true
+      return 0
+    fi
+  fi
+  echo "Warning: Overdrive tray was not installed. The Core still runs without a tray." >&2
   return 1
 }

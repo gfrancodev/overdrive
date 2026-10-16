@@ -1,0 +1,14 @@
+{
+  "id": "kimi-code",
+  "channel": "deferred-event",
+  "stdout": "discarded",
+  "events": {
+    "UserPromptSubmit": "before-prompt",
+    "Stop": "stop"
+  },
+  "transcript_glob": "~/.kimi-code/**/*.jsonl",
+  "install": "~/.kimi-code",
+  "session_end": "finalize-next-start",
+  "optional": false,
+  "delivery_event": "UserPromptSubmit"
+}

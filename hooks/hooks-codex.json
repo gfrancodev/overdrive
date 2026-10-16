@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "hooks": {
+    "SessionStart": [
+      { "command": "./hooks/run-hook.sh session-start" }
+    ],
+    "Stop": [
+      { "command": "./hooks/run-hook.sh stop" }
+    ],
+    "SessionEnd": [
+      { "command": "./hooks/run-hook.sh session-end" }
+    ]
+  }
+}

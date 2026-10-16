@@ -136,39 +136,43 @@ func defaultORTURLFor(platform string) string {
 	return ortReleaseURLs[platform]
 }
 
+func extractORTTarGz(archivePath, libDir string) error {
+	f, err := os.Open(archivePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return err
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		base := filepath.Base(hdr.Name)
+		if hdr.Typeflag != tar.TypeReg {
+			continue
+		}
+		if !strings.Contains(base, "onnxruntime") || !(strings.HasSuffix(base, ".so") || strings.HasSuffix(base, ".dylib")) {
+			continue
+		}
+		dest := filepath.Join(libDir, ortLibName())
+		return atomicWriteFile(dest, tr, 0o755)
+	}
+	return fmt.Errorf("onnxruntime library not found in archive")
+}
+
 func extractORTArchive(archivePath, libDir string) error {
 	switch {
 	case strings.HasSuffix(archivePath, ".tgz"), strings.HasSuffix(archivePath, ".tar.gz"):
-		f, err := os.Open(archivePath)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		gz, err := gzip.NewReader(f)
-		if err != nil {
-			return err
-		}
-		defer gz.Close()
-		tr := tar.NewReader(gz)
-		for {
-			hdr, err := tr.Next()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return err
-			}
-			base := filepath.Base(hdr.Name)
-			if hdr.Typeflag != tar.TypeReg {
-				continue
-			}
-			if !strings.Contains(base, "onnxruntime") || !(strings.HasSuffix(base, ".so") || strings.HasSuffix(base, ".dylib")) {
-				continue
-			}
-			dest := filepath.Join(libDir, ortLibName())
-			return atomicWriteFile(dest, tr, 0o755)
-		}
-		return fmt.Errorf("onnxruntime library not found in archive")
+		return extractORTTarGz(archivePath, libDir)
 	case strings.HasSuffix(archivePath, ".zip"):
 		return extractORTZip(archivePath, libDir)
 	default:

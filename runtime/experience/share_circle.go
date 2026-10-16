@@ -46,6 +46,7 @@ type CircleInvite struct {
 	ExpiresAt   string `json:"expires_at"`
 	CreatorPK   string `json:"creator_public_key"`
 	CreatorID   string `json:"creator_device_id"`
+	Endpoint    string `json:"endpoint,omitempty"`
 }
 
 func circlesDir(home string) string {
@@ -188,6 +189,7 @@ func createInvite(home string, circleID string, id DeviceIdentity) (CircleInvite
 		ExpiresAt:   time.Now().UTC().Add(inviteTTL()).Format(time.RFC3339),
 		CreatorPK:   id.PublicKey,
 		CreatorID:   id.DeviceID,
+		Endpoint:    advertisedListenAddr(),
 	}
 	if err := hookMkdirAll(invitesDir(home), 0o700); err != nil {
 		return CircleInvite{}, err

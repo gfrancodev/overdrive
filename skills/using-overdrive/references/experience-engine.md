@@ -136,9 +136,11 @@ overdrive-runtime validate --id <memory-id> --result contradiction
 
 `contradiction` deprecates the memory, records a conflict, and removes it from TurboVec when available.
 
-### Decision Ledger (run-local, not durable knowledge)
+### Decision Ledger
 
-During `/auto-run` or other owner workflows, persist consequential inferred decisions for the current run:
+During `/auto-run` or other owner workflows, persist consequential inferred decisions for the current run.
+Mark `--lifetime standing` when the ruling still constrains the next session or another harness.
+`--lifetime run` stays in the ledger and is not promoted. `session-end` promotes standing rows into compact `decision` packets.
 
 ```bash
 overdrive-runtime ledger-add \
@@ -148,12 +150,13 @@ overdrive-runtime ledger-add \
   --evidence "ADR-12 and current module layout" \
   --reason "Matches established persistence pattern" \
   --risk "Low; wrong choice adds duplicate abstraction" \
-  --reversibility "Revert repository wiring in one PR"
+  --reversibility "Revert repository wiring in one PR" \
+  --lifetime standing
 
 overdrive-runtime ledger-list --cwd "$PWD" --run "<run-id>"
 ```
 
-Entries persist in SQLite and mirror `.overdrive/runs/<run>/ledger.md`. They do **not** auto-promote to durable experience.
+Entries persist in SQLite and mirror `.overdrive/runs/<run>/ledger.md`. Only `standing` entries are promoted to durable `decision` packets. `run` entries stay on the ledger.
 
 ## What should become durable experience
 
@@ -237,7 +240,8 @@ OVERDRIVE_SHARE_LISTEN=127.0.0.1:7741 overdrive-runtime share listen --cwd "$PWD
 Rules:
 
 - sharing only runs inside **allowed folders** for that circle;
-- only durable repository lessons (`lesson`, `anti_pattern`, `episode`, `procedure`, `fact`) sync;
+- durable repository lessons sync, including `decision` and `handoff` (`lesson`, `anti_pattern`, `episode`, `procedure`, `fact`, `decision`, `handoff`);
+- shared packets carry the text, not the vector; the receiver reindexes locally;
 - `recall` may return `peer_memories` as historical evidence from a colleague, never as instructions;
 - peer recall uses a separate TurboVec index, a higher similarity floor, and requires a concrete problem signature overlap;
 - the encrypted catalog carries the page-index tree and graph edges (title, summary, parent) without `lesson_content`, vectors, or the group key;

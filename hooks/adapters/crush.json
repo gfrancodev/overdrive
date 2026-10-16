@@ -1,0 +1,10 @@
+{
+  "id": "crush",
+  "channel": "context-file",
+  "stdout": "file",
+  "events": {},
+  "transcript_glob": "",
+  "install": "",
+  "session_end": "none",
+  "optional": false
+}

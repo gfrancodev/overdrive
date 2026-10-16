@@ -1,0 +1,14 @@
+{
+  "id": "copilot-cli",
+  "channel": "session-stdout",
+  "stdout": "additionalContext",
+  "events": {
+    "SessionStart": "session-start",
+    "Stop": "stop",
+    "SessionEnd": "session-end"
+  },
+  "transcript_glob": "~/.copilot/**/*.jsonl",
+  "install": "~/.copilot",
+  "session_end": "native",
+  "optional": false
+}

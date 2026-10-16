@@ -276,7 +276,7 @@ func TestStartSessionRunGCFailWithPrevious(t *testing.T) {
 	if err != nil || s1 == "" {
 		t.Fatal(err)
 	}
-	m, err := e.recordMemory(project, "lesson", "repository", "", "gc candidate", 0.1, 1, "agent_observation", "", "")
+	m, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "gc candidate", Confidence: 0.1, Priority: 1, Source: "agent_observation", SourceRef: "", Evidence: ""})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,15 +302,15 @@ func TestRecordMemoryFailureBranches(t *testing.T) {
 	defer e.Close()
 	project, _ := identifyProject(repo)
 
-	if _, err := e.recordMemory(project, "lesson", "bogus_scope", "", "x", 0.5, 50, "agent_observation", "", ""); err == nil {
+	if _, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "bogus_scope", Subject: "", Content: "x", Confidence: 0.5, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""}); err == nil {
 		t.Fatal("invalid scope")
 	}
 
-	m1, err := e.recordMemory(project, "lesson", "repository", "subj", "content A", 0.5, 50, "user_feedback", "", "evidence")
+	m1, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "subj", Content: "content A", Confidence: 0.5, Priority: 50, Source: "user_feedback", SourceRef: "", Evidence: "evidence"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	m2, err := e.recordMemory(project, "lesson", "repository", "subj", "content A", 0.6, 60, "adr", "ref", "")
+	m2, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "subj", Content: "content A", Confidence: 0.6, Priority: 60, Source: "adr", SourceRef: "ref", Evidence: ""})
 	if err != nil || m2.ID != m1.ID {
 		t.Fatalf("dedup update: %v %s %s", err, m1.ID, m2.ID)
 	}
@@ -319,7 +319,7 @@ func TestRecordMemoryFailureBranches(t *testing.T) {
 	}
 
 	closed := engineWithClosedDB(t, home)
-	if _, err := closed.recordMemory(project, "lesson", "repository", "", "closed db", 0.5, 50, "agent_observation", "", ""); err == nil {
+	if _, err := closed.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "closed db", Confidence: 0.5, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""}); err == nil {
 		t.Fatal("upsert on closed db")
 	}
 }
@@ -334,7 +334,7 @@ func TestRecallFailureAndSessionSeed(t *testing.T) {
 	}
 	project, _ := identifyProject(repo)
 	_, _ = e.startSession(project)
-	_, _ = e.recordMemory(project, "rule", "repository", "", "always validate input", 0.9, 90, "project_instruction", "", "")
+	_, _ = e.recordMemory(memoryRecord{Project: project, Kind: "rule", Scope: "repository", Subject: "", Content: "always validate input", Confidence: 0.9, Priority: 90, Source: "project_instruction", SourceRef: "", Evidence: ""})
 
 	resetHooksForTest()
 	defer resetHooksForTest()
@@ -359,8 +359,8 @@ func TestRecallFailureAndSessionSeed(t *testing.T) {
 
 func TestSyncReconcilerHelpers(t *testing.T) {
 	circle := Circle{
-		ID: "c1",
-		Members: []CircleMember{{DeviceID: "d1", PublicKey: "pk", Revoked: false}},
+		ID:             "c1",
+		Members:        []CircleMember{{DeviceID: "d1", PublicKey: "pk", Revoked: false}},
 		AllowedFolders: []string{"/allowed"},
 	}
 	if err := validatePeerBatchCircle(circle, SyncResponse{CircleID: "c1", DeviceID: "d1"}); err != nil {

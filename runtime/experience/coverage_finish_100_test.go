@@ -47,6 +47,11 @@ func TestGraphStoresAndClassifiers(t *testing.T) {
 	if k, _ := classifySignatureToken("503"); k != "error" {
 		t.Fatal(k)
 	}
+	assertGraphStoreNilPaths(t)
+}
+
+func assertGraphStoreNilPaths(t *testing.T) {
+	t.Helper()
 	var nilEng *Engine
 	if nilEng.graphDB() != nil {
 		t.Fatal("nil graph db")
@@ -84,6 +89,11 @@ func TestGraphStoresAndClassifiers(t *testing.T) {
 	if err := syncMemoryGraphOn(&nthExecStore{}, Memory{ID: "x", Status: "stale"}, nil); err != nil {
 		t.Fatal(err)
 	}
+	assertNilEngineGraph(t)
+}
+
+func assertNilEngineGraph(t *testing.T) {
+	t.Helper()
 	if err := writeMemoryGraphOn(nil, richGraphMemory()); err == nil {
 		t.Fatal("nil write")
 	}
@@ -123,11 +133,11 @@ func TestGraphRecallBranches(t *testing.T) {
 	if _, err := e.recall(project, "", 4, "all"); err != nil {
 		t.Fatal(err)
 	}
-	first, err := e.recordMemory(project, "lesson", "repository", "WAL lock db.go", "body one", 0.9, 50, "verified_execution", "", "db.go SQLITE_BUSY")
+	first, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "WAL lock db.go", Content: "body one", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: "db.go SQLITE_BUSY"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := e.recordMemory(project, "lesson", "repository", "other db.go", "body two", 0.9, 50, "verified_execution", "", "db.go")
+	second, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "other db.go", Content: "body two", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: "db.go"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +215,11 @@ func TestFetchMissingAndCatalogTreeEdges(t *testing.T) {
 	e.importPeerCatalogs(project)
 	t.Setenv("OVERDRIVE_SHARE_LISTEN", "127.0.0.1:9")
 	e.fetchMissingPeerPackets(project, []string{"mem-x"})
+	assertCatalogProjection(t, e, id)
+}
 
+func assertCatalogProjection(t *testing.T, e *Engine, id DeviceIdentity) {
+	t.Helper()
 	tree := projectPageIndexTree([]PageIndexNode{
 		{ID: "f", Kind: "folder", Title: "", Summary: ""},
 		{ID: "f2", Kind: "folder", Title: "src", Summary: "/srv/src"},
@@ -246,6 +260,15 @@ func TestFetchMissingAndCatalogTreeEdges(t *testing.T) {
 func TestDashboardAndPeersBranches(t *testing.T) {
 	resetHooksForTest()
 	t.Cleanup(resetHooksForTest)
+	assertShareUIAddr(t)
+	assertEndpointHelpers(t)
+	assertLANInterfaceScan(t)
+	assertComputerNameHooks(t)
+	assertDashboardHTTPBranches(t)
+}
+
+func assertShareUIAddr(t *testing.T) {
+	t.Helper()
 	t.Setenv("OVERDRIVE_SHARE_UI", "off")
 	if _, ok := shareUIAddr(); ok {
 		t.Fatal("ui off")
@@ -267,6 +290,10 @@ func TestDashboardAndPeersBranches(t *testing.T) {
 	if addr, ok := shareUIAddr(); !ok || !strings.HasSuffix(addr, ":7742") {
 		t.Fatal(addr, ok)
 	}
+}
+
+func assertEndpointHelpers(t *testing.T) {
+	t.Helper()
 	if normalizeListen(":9") != "0.0.0.0:9" {
 		t.Fatal(normalizeListen(":9"))
 	}
@@ -279,6 +306,13 @@ func TestDashboardAndPeersBranches(t *testing.T) {
 	if chooseEndpoint("", "10.0.0.8:1") == "" || chooseEndpoint("", "nope") != "" {
 		t.Fatal("choose")
 	}
+	if publicEndpoint("0.0.0.0:7741") == "" || publicEndpoint("[::]:7741") == "" {
+		t.Fatal("public wildcard")
+	}
+}
+
+func assertLANInterfaceScan(t *testing.T) {
+	t.Helper()
 	hookNetInterfaces = func() ([]net.Interface, error) { return nil, errors.New("ifaces") }
 	if firstLANIPv4() != "" {
 		t.Fatal("iface err")
@@ -293,25 +327,28 @@ func TestDashboardAndPeersBranches(t *testing.T) {
 			{Name: "eth0", Flags: net.FlagUp},
 		}, nil
 	}
-	hookIfaceAddrs = func(iface net.Interface) ([]net.Addr, error) {
-		if iface.Name != "eth0" {
-			return nil, errors.New("addrs")
-		}
-		return []net.Addr{
-			ipOnly("not-ip"),
-			&net.IPNet{IP: nil},
-			&net.IPNet{IP: net.ParseIP("127.0.0.1")},
-			&net.IPNet{IP: net.ParseIP("2001:db8::1")},
-			&net.IPNet{IP: net.ParseIP("169.254.1.1")},
-			&net.IPNet{IP: net.ParseIP("10.9.8.7")},
-		}, nil
-	}
+	hookIfaceAddrs = lanIfaceAddrsForTest
 	if got := firstLANIPv4(); got != "10.9.8.7" {
 		t.Fatal(got)
 	}
-	if publicEndpoint("0.0.0.0:7741") == "" || publicEndpoint("[::]:7741") == "" {
-		t.Fatal("public wildcard")
+}
+
+func lanIfaceAddrsForTest(iface net.Interface) ([]net.Addr, error) {
+	if iface.Name != "eth0" {
+		return nil, errors.New("addrs")
 	}
+	return []net.Addr{
+		ipOnly("not-ip"),
+		&net.IPNet{IP: nil},
+		&net.IPNet{IP: net.ParseIP("127.0.0.1")},
+		&net.IPNet{IP: net.ParseIP("2001:db8::1")},
+		&net.IPNet{IP: net.ParseIP("169.254.1.1")},
+		&net.IPNet{IP: net.ParseIP("10.9.8.7")},
+	}, nil
+}
+
+func assertComputerNameHooks(t *testing.T) {
+	t.Helper()
 	hookReadFile = func(string) ([]byte, error) {
 		return []byte("OTHER=1\nPRETTY_HOSTNAME=\nPRETTY_HOSTNAME=\"station\"\n"), nil
 	}
@@ -326,7 +363,10 @@ func TestDashboardAndPeersBranches(t *testing.T) {
 	if peerDisplayName(CircleMember{Endpoint: "10.0.0.1:1"}, "") == "" {
 		t.Fatal("display")
 	}
+}
 
+func assertDashboardHTTPBranches(t *testing.T) {
+	t.Helper()
 	home := t.TempDir()
 	setupTestEnv(t, home)
 	rr := httptest.NewRecorder()
@@ -405,7 +445,11 @@ func TestClosedDBAndCommitHook(t *testing.T) {
 	if (&Engine{}).markPeerRevoked("c", "d") == nil {
 		t.Fatal("nil revoke")
 	}
+	assertCommitHookFailures(t)
+}
 
+func assertCommitHookFailures(t *testing.T) {
+	t.Helper()
 	e2, err := newEngine(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -416,7 +460,7 @@ func TestClosedDBAndCommitHook(t *testing.T) {
 	t.Cleanup(resetHooksForTest)
 	hookSQLCommit = func(*sql.Tx) error { return errors.New("commit") }
 	project := Project{Root: e2.home, Repository: "github.com/acme/r", Organization: "github.com/acme"}
-	if _, err := e2.recordMemory(project, "lesson", "repository", "s", "c", 0.5, 1, "agent_observation", "", ""); err == nil {
+	if _, err := e2.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "s", Content: "c", Confidence: 0.5, Priority: 1, Source: "agent_observation", SourceRef: "", Evidence: ""}); err == nil {
 		t.Fatal("commit record")
 	}
 	m := Memory{ID: "peer-1", Kind: "lesson", Status: "active", Origin: "peer", Scope: "repository", ScopeID: "github.com/acme/r", HotIndex: true, Layer: 2}

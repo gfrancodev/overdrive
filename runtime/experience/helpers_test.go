@@ -31,6 +31,7 @@ func resetRuntimeGlobals() {
 	tvSync = nil
 	shareListenerOnce = sync.Once{}
 	shareListenerInst = nil
+	resetCoreLifecycle()
 }
 
 func runCLICapture(t *testing.T, args []string) (stdout, stderr string, code int) {

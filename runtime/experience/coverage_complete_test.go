@@ -382,15 +382,15 @@ func TestShareCircleEdgeCases(t *testing.T) {
 	}
 
 	linkRoot := filepath.Join(t.TempDir(), "linkcase")
-	real := filepath.Join(linkRoot, "real")
-	if err := os.MkdirAll(real, 0o755); err != nil {
+	realDir := filepath.Join(linkRoot, "real")
+	if err := os.MkdirAll(realDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	link := filepath.Join(linkRoot, "link")
-	if err := os.Symlink(real, link); err != nil {
+	if err := os.Symlink(realDir, link); err != nil {
 		t.Skip("symlink not supported")
 	}
-	cLink := Circle{AllowedFolders: []string{real}}
+	cLink := Circle{AllowedFolders: []string{realDir}}
 	if !folderAllowed(cLink, link) {
 		t.Fatal("symlink project root should match allowed real path")
 	}
@@ -520,7 +520,7 @@ func TestDeleteMemoryWithTurboVec(t *testing.T) {
 	}
 	defer e.Close()
 	project, _ := identifyProject(repo)
-	local, _ := e.recordMemory(project, "lesson", "repository", "", "Local delete turbovec.", 0.9, 50, "verified_execution", "", "")
+	local, _ := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "Local delete turbovec.", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 	peer := Memory{
 		ID: "mem_peer_del", Kind: "lesson", Scope: "repository", ScopeID: project.Repository,
 		Status: "active", Origin: "peer", HotIndex: true, CircleID: "c1", PeerDeviceID: "dev_x",
@@ -618,7 +618,7 @@ func TestValidateMemoryAllHandlers(t *testing.T) {
 	e, _ := newEngine(home)
 	defer e.Close()
 	project, _ := identifyProject(repo)
-	m, _ := e.recordMemory(project, "lesson", "repository", "", "Validate handlers lesson.", 0.8, 50, "verified_execution", "", "")
+	m, _ := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "Validate handlers lesson.", Confidence: 0.8, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 
 	out, err := e.validateMemory(m.ID, "success", "", "")
 	if err != nil || out.SuccessCount < 1 {
@@ -650,8 +650,8 @@ func TestRecallVectorScoresWithTurboVec(t *testing.T) {
 	e, _ := newEngine(home)
 	defer e.Close()
 	project, _ := identifyProject(repo)
-	_, _ = e.recordMemory(project, "lesson", "repository", "", "Alpha vector marker for turbovec recall.", 0.95, 50, "verified_execution", "", "")
-	_, _ = e.recordMemory(project, "lesson", "repository", "", "Unrelated zebra taxonomy content.", 0.95, 50, "verified_execution", "", "")
+	_, _ = e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "Alpha vector marker for turbovec recall.", Confidence: 0.95, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
+	_, _ = e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "Unrelated zebra taxonomy content.", Confidence: 0.95, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 	resp, err := e.recall(project, "alpha vector marker", 5, "")
 	if err != nil {
 		t.Fatal(err)
@@ -838,7 +838,7 @@ func TestHandleConnValidSyncRoundtrip(t *testing.T) {
 	eA, _ := newEngine(homeA)
 	defer eA.Close()
 	project, _ := identifyProject(repo)
-	_, _ = eA.recordMemory(project, "lesson", "repository", "", "HandleConn sync lesson.", 0.95, 50, "verified_execution", "", "")
+	_, _ = eA.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "HandleConn sync lesson.", Confidence: 0.95, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 
 	resp, err := fetchPeerSync(homeB, endpoint, circleB, idB, privB, project.Repository, "")
 	if err != nil {
@@ -859,7 +859,7 @@ func TestHandleConnJSONMarshalFailure(t *testing.T) {
 	e, _ := newEngine(home)
 	defer e.Close()
 	project, _ := identifyProject(repo)
-	_, _ = e.recordMemory(project, "lesson", "repository", "", "Marshal fail path.", 0.9, 50, "verified_execution", "", "")
+	_, _ = e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "Marshal fail path.", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

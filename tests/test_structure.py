@@ -62,7 +62,9 @@ def test_plan_has_visual_reasoning_and_typeui_is_conditional():
     assert 'screenshot' in ref
     assert 'design system' in ref
     assert 'micro-detail-taxonomy' in ref
-    assert 'observed' in ref and 'inferred' in ref and 'unknown' in ref
+    assert 'observed' in ref
+    assert 'inferred' in ref
+    assert 'unknown' in ref
 
 
 def test_visual_spec_has_fidelity_classification_and_microdetails():
@@ -172,6 +174,9 @@ def test_installer_copies_all_skills(tmp_path):
     import os, subprocess
     env = dict(os.environ)
     env['OVERDRIVE_SKILLS_DIR'] = str(tmp_path / 'skills')
+    env['OVERDRIVE_BIN_DIR'] = str(tmp_path / 'bin')
+    env['OVERDRIVE_HOME'] = str(tmp_path / 'home')
+    env['OVERDRIVE_TRAY_ENABLE'] = '0'
     subprocess.run([str(ROOT / 'scripts/install.sh')], check=True, env=env, capture_output=True, text=True)
     installed = {p.parent.name for p in (tmp_path / 'skills').glob('*/SKILL.md')}
     assert REQUIRED_SKILLS <= installed
@@ -197,6 +202,7 @@ def test_installer_only_installs_current_platform_runtime(tmp_path):
     env['OVERDRIVE_BIN_DIR'] = str(bin_dir)
     env['OVERDRIVE_LIB_DIR'] = str(lib_dir)
     env['OVERDRIVE_HOME'] = str(home)
+    env['OVERDRIVE_TRAY_ENABLE'] = '0'
     subprocess.run([str(ROOT / 'scripts/install.sh')], check=True, env=env, capture_output=True, text=True)
 
     installed = bin_dir / ('overdrive-runtime.exe' if os.name == 'nt' else 'overdrive-runtime')
@@ -220,12 +226,59 @@ def test_installer_does_not_copy_go_source_or_examples(tmp_path):
     skills = tmp_path / 'skills'
     env = dict(os.environ)
     env['OVERDRIVE_SKILLS_DIR'] = str(skills)
+    env['OVERDRIVE_BIN_DIR'] = str(tmp_path / 'bin')
+    env['OVERDRIVE_HOME'] = str(tmp_path / 'home')
+    env['OVERDRIVE_TRAY_ENABLE'] = '0'
     subprocess.run([str(ROOT / 'scripts/install.sh')], check=True, env=env, capture_output=True, text=True)
 
     assert list(skills.rglob('*.go')) == []
     assert list(skills.rglob('go.mod')) == []
     assert not (skills / 'examples').exists()
     assert not (skills / 'runtime').exists()
+
+
+def test_installer_registers_user_tray_without_starting_core(tmp_path):
+    import os
+    import stat
+    import subprocess
+
+    home = tmp_path / 'home'
+    bin_dir = tmp_path / 'bin'
+    fakebin = tmp_path / 'fakebin'
+    skills = tmp_path / 'skills'
+    home.mkdir()
+    fakebin.mkdir()
+    log = tmp_path / 'systemctl.log'
+    systemctl = fakebin / 'systemctl'
+    systemctl.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$SYSTEMCTL_LOG"\nexit 0\n')
+    systemctl.chmod(systemctl.stat().st_mode | stat.S_IEXEC)
+
+    env = dict(os.environ)
+    env['HOME'] = str(home)
+    env['XDG_CONFIG_HOME'] = str(home / '.config')
+    env['OVERDRIVE_HOME'] = str(home / 'overdrive')
+    env['OVERDRIVE_BIN_DIR'] = str(bin_dir)
+    env['OVERDRIVE_SKILLS_DIR'] = str(skills)
+    env['OVERDRIVE_TRAY_ENABLE'] = '1'
+    env['SYSTEMCTL_LOG'] = str(log)
+    env['PATH'] = str(fakebin) + os.pathsep + env.get('PATH', '')
+
+    proc = subprocess.run([str(ROOT / 'scripts/install.sh')], check=True, env=env, capture_output=True, text=True)
+    tray = bin_dir / 'overdrive-tray'
+    assert tray.exists() and os.access(tray, os.X_OK)
+    unit = home / '.config' / 'systemd' / 'user' / 'overdrive-tray.service'
+    text = unit.read_text()
+    assert f'ExecStart={tray}' in text
+    assert 'share listen' not in text
+    assert 'overdrive-runtime' not in text
+    assert not (home / 'Library').exists()
+    calls = log.read_text()
+    assert 'enable overdrive-tray.service' in calls
+    assert 'restart overdrive-tray.service' in calls
+    assert 'share listen' not in calls
+    assert 'share listen' not in (ROOT / 'scripts/install.sh').read_text()
+    assert 'share listen' not in (ROOT / 'scripts/install.ps1').read_text()
+    assert 'Installed Overdrive tray' in proc.stdout
 
 
 def test_package_platform_tree_is_slim(tmp_path):
@@ -257,7 +310,8 @@ def test_session_hook_routes_to_using_overdrive():
     import subprocess
     out = subprocess.run([str(ROOT / 'hooks/run-hook.sh'), 'session-start'], check=True, capture_output=True, text=True).stdout
     assert 'using-overdrive' in out
-    assert 'plan' in out and 'execute-plan' in out
+    assert 'plan' in out
+    assert 'execute-plan' in out
 
 
 def test_session_end_hook_is_defined():

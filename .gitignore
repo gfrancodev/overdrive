@@ -10,5 +10,13 @@ runtime/turbovec-ffi/target/
 
 # Go build cache (if building outside scripts/)
 runtime/experience/*.exe
+runtime/bin/overdrive-tray*
 runtime/experience/experience
 runtime/experience/experience.test
+coverage.out
+runtime/experience/dashboard-js-coverage.lcov
+bin/
+.zanker/
+
+# Local SonarQube (docker-compose.sonar.yml stack)
+.env.sonar

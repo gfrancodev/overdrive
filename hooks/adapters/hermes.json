@@ -1,0 +1,14 @@
+{
+  "id": "hermes",
+  "channel": "deferred-event",
+  "stdout": "discarded",
+  "events": {
+    "pre_tool_call": "before-prompt",
+    "post_tool_call": "stop"
+  },
+  "transcript_glob": "~/.hermes/**/*.jsonl",
+  "install": "~/.hermes",
+  "session_end": "none",
+  "optional": false,
+  "delivery_event": "mcp"
+}

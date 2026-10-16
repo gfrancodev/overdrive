@@ -8,14 +8,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT/scripts/install-common.sh"
 
 REQUEST="${1:-}"
-if [ -n "$REQUEST" ]; then
+if [[ -n "$REQUEST" ]]; then
   TARGET_OS="${REQUEST%-*}"
   TARGET_ARCH="${REQUEST#*-}"
 else
   detect_platform
 fi
 
-if [ -z "$TARGET_OS" ] || [ -z "$TARGET_ARCH" ]; then
+if [[ -z "$TARGET_OS" || -z "$TARGET_ARCH" ]]; then
   echo "Unsupported platform" >&2
   exit 1
 fi

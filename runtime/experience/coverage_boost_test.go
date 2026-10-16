@@ -26,7 +26,7 @@ func TestEmbedderDimChangeRebuildsIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = e.recordMemory(project, "lesson", "repository", "", "Index rebuild marker lesson.", 0.9, 50, "verified_execution", "", "")
+	_, err = e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "Index rebuild marker lesson.", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,10 +66,20 @@ func TestImportPeerBatchEdgeCases(t *testing.T) {
 		}},
 	}
 	n, err := e.importPeerBatch(circle, resp)
-	if err != nil || n != 0 {
-		t.Fatalf("vector space filter imported=%d err=%v", n, err)
+	if err != nil || n != 1 {
+		t.Fatalf("empty vector reindex imported=%d err=%v", n, err)
 	}
+	resp.Packets[0].Vector = []float32{0.2}
+	resp.Packets[0].ID = "mem_peer_vec"
+	resp.Packets[0].Fingerprint = "mem_peer_vec"
+	n, err = e.importPeerBatch(circle, resp)
+	if err != nil || n != 0 {
+		t.Fatalf("foreign vector imported=%d err=%v", n, err)
+	}
+	resp.Packets[0].Vector = nil
 	resp.Packets[0].VectorSpace = "stub"
+	resp.Packets[0].ID = "mem_peer_stub"
+	resp.Packets[0].Fingerprint = "mem_peer_stub"
 	n, err = e.importPeerBatch(circle, resp)
 	if err != nil || n != 1 {
 		t.Fatalf("imported=%d err=%v", n, err)
@@ -131,7 +141,7 @@ func TestConsolidateSessionDemotesWeakMemory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := e.recordMemory(project, "lesson", "repository", "", "Weak lesson to demote.", 0.3, 50, "agent_observation", "", "")
+	m, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "Weak lesson to demote.", Confidence: 0.3, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -39,7 +39,7 @@ func TestRemainingStoreBranches(t *testing.T) {
 	}
 	defer e2.Close()
 	project := Project{Root: home, Repository: "github.com/acme/r", Organization: "github.com/acme"}
-	m, err := e2.recordMemory(project, "lesson", "repository", "subject", "content", 0.8, 10, "agent_observation", "", "")
+	m, err := e2.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "subject", Content: "content", Confidence: 0.8, Priority: 10, Source: "agent_observation", SourceRef: "", Evidence: ""})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestGraphCapsAndPeerImport(t *testing.T) {
 	project := Project{Root: home, Repository: "github.com/acme/r", Organization: "github.com/acme"}
 	var ids []string
 	for i := 0; i < 10; i++ {
-		m, err := e.recordMemory(project, "lesson", "repository", "db.go token "+string(rune('a'+i)), "body", 0.9, 10, "verified_execution", "", "db.go")
+		m, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "db.go token " + string(rune('a'+i)), Content: "body", Confidence: 0.9, Priority: 10, Source: "verified_execution", SourceRef: "", Evidence: "db.go"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -384,7 +384,7 @@ func TestCatalogRoundTripAndDBEdges(t *testing.T) {
 		t.Fatal(err)
 	}
 	project := Project{Root: repo, Repository: "github.com/acme/r", Organization: "github.com/acme"}
-	if _, err := e.recordMemory(project, "lesson", "repository", "catalog lesson", "secret body", 0.9, 10, "verified_execution", "", "db.go"); err != nil {
+	if _, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "catalog lesson", Content: "secret body", Confidence: 0.9, Priority: 10, Source: "verified_execution", SourceRef: "", Evidence: "db.go"}); err != nil {
 		t.Fatal(err)
 	}
 	e.Close()
@@ -431,7 +431,7 @@ func TestCatalogRoundTripAndDBEdges(t *testing.T) {
 	}
 	hookFTSScanErr = nil
 	hookSQLCommit = func(*sql.Tx) error { return errors.New("commit") }
-	if _, err := e2.recordMemory(project, "lesson", "repository", "catalog lesson", "secret body", 0.9, 10, "verified_execution", "", "db.go"); err == nil {
+	if _, err := e2.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "catalog lesson", Content: "secret body", Confidence: 0.9, Priority: 10, Source: "verified_execution", SourceRef: "", Evidence: "db.go"}); err == nil {
 		t.Fatal("second record")
 	}
 	hookSQLCommit = defaultSQLCommit

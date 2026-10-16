@@ -50,6 +50,13 @@ func memorySyncFolder(m Memory, projectRoot string) string {
 	return projectRoot
 }
 
+func exportFolderAllowed(circle Circle, folder string) bool {
+	if strings.TrimSpace(folder) == "" {
+		return false
+	}
+	return folderAllowed(circle, folder)
+}
+
 func memoryEligibleForSync(m Memory, since, projectRoot string, circle Circle) bool {
 	if since != "" && m.UpdatedAt <= since {
 		return false
@@ -57,7 +64,7 @@ func memoryEligibleForSync(m Memory, since, projectRoot string, circle Circle) b
 	if !m.HotIndex || m.Layer != 2 {
 		return false
 	}
-	return folderAllowed(circle, memorySyncFolder(m, projectRoot))
+	return exportFolderAllowed(circle, memorySyncFolder(m, projectRoot))
 }
 
 func buildSyncPackets(memories []Memory, since string, circle Circle, project Project) []SharedPacket {
@@ -89,7 +96,7 @@ func buildSyncPacketsForIDs(memories []Memory, since string, ids []string, circl
 			if !m.HotIndex || m.Layer != 2 {
 				continue
 			}
-			if !folderAllowed(circle, memorySyncFolder(m, project.Root)) {
+			if !exportFolderAllowed(circle, memorySyncFolder(m, project.Root)) {
 				continue
 			}
 		} else if !memoryEligibleForSync(m, since, project.Root, circle) {
@@ -104,6 +111,9 @@ func buildSyncPacketsForIDs(memories []Memory, since string, ids []string, circl
 func peerPacketImportable(p SharedPacket, embedder string) bool {
 	if !p.HotIndex {
 		return false
+	}
+	if len(p.Vector) == 0 {
+		return true
 	}
 	if p.VectorSpace != "" && p.VectorSpace != embedder {
 		return false

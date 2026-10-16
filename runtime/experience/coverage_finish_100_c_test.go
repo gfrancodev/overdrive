@@ -222,7 +222,7 @@ func TestScanHooksAndUIPort(t *testing.T) {
 	}
 	defer e.Close()
 	project := Project{Root: home, Repository: "github.com/acme/r", Organization: "github.com/acme"}
-	if _, err := e.recordMemory(project, "lesson", "repository", "scan", "body", 0.5, 1, "agent_observation", "", ""); err != nil {
+	if _, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "scan", Content: "body", Confidence: 0.5, Priority: 1, Source: "agent_observation", SourceRef: "", Evidence: ""}); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.addWorkingMemory(project, "note", "s", "c"); err != nil && e.sessionID == "" {

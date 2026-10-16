@@ -77,7 +77,7 @@ func TestRunGCStaleMemory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := e.recordMemory(project, "fact", "repository", "", "Stale low-confidence fact.", 0.2, 10, "repository_observation", "", "")
+	m, err := e.recordMemory(memoryRecord{Project: project, Kind: "fact", Scope: "repository", Subject: "", Content: "Stale low-confidence fact.", Confidence: 0.2, Priority: 10, Source: "repository_observation", SourceRef: "", Evidence: ""})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,11 +106,11 @@ func TestRecordMemoryMergePath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	first, err := e.recordMemory(project, "lesson", "repository", "subj", "Merge path lesson.", 0.5, 40, "verified_execution", "", "evidence one")
+	first, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "subj", Content: "Merge path lesson.", Confidence: 0.5, Priority: 40, Source: "verified_execution", SourceRef: "", Evidence: "evidence one"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := e.recordMemory(project, "lesson", "repository", "subj", "Merge path lesson.", 0.9, 80, "adr", "ref-1", "evidence two")
+	second, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "subj", Content: "Merge path lesson.", Confidence: 0.9, Priority: 80, Source: "adr", SourceRef: "ref-1", Evidence: "evidence two"})
 	if err != nil || second.ID != first.ID || second.SuccessCount < 1 {
 		t.Fatalf("merge id=%s count=%d err=%v", second.ID, second.SuccessCount, err)
 	}
@@ -220,7 +220,7 @@ func TestStartSessionConsolidatesPrevious(t *testing.T) {
 	if err != nil || s1 == "" {
 		t.Fatal(err)
 	}
-	_, _ = e.recordMemory(project, "lesson", "repository", "", "Session two consolidation.", 0.9, 50, "verified_execution", "", "")
+	_, _ = e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "Session two consolidation.", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 	s2, err := e.startSession(project)
 	if err != nil || s2 == s1 {
 		t.Fatalf("sessions %q %q err=%v", s1, s2, err)
@@ -238,7 +238,7 @@ func TestEndSessionWithAllowedCircle(t *testing.T) {
 	defer e.Close()
 	project, _ := identifyProject(repo)
 	_, _ = e.startSession(project)
-	_, _ = e.recordMemory(project, "lesson", "repository", "", "End session export.", 0.9, 50, "verified_execution", "", "")
+	_, _ = e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "End session export.", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 	if err := e.endSession(project); err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +254,7 @@ func TestBuildSyncResponseSinceFilter(t *testing.T) {
 	e, _ := newEngine(home)
 	defer e.Close()
 	project, _ := identifyProject(repo)
-	_, _ = e.recordMemory(project, "lesson", "repository", "sig", "Sync since filter lesson.", 0.9, 50, "verified_execution", "", "evidence")
+	_, _ = e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "sig", Content: "Sync since filter lesson.", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: "evidence"})
 	resp, err := e.buildSyncResponse(home, circle, id, priv, SyncRequest{
 		DeviceID: id.DeviceID, CircleID: circle.ID, Repository: project.Repository, Since: "2099-01-01T00:00:00Z",
 	})
@@ -276,7 +276,7 @@ func TestListExportableMemoriesResolvesFolder(t *testing.T) {
 	e, _ := newEngine(home)
 	defer e.Close()
 	project := Project{Repository: "github.com/acme/r"}
-	_, _ = e.recordMemory(Project{Root: repo, Repository: project.Repository}, "lesson", "repository", "", "Exportable lesson.", 0.9, 50, "verified_execution", "", "")
+	_, _ = e.recordMemory(memoryRecord{Project: Project{Root: repo, Repository: project.Repository}, Kind: "lesson", Scope: "repository", Subject: "", Content: "Exportable lesson.", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 	out, err := e.listExportableMemories(project, circle)
 	if err != nil || len(out) == 0 {
 		t.Fatalf("exportable len=%d err=%v", len(out), err)
@@ -286,37 +286,21 @@ func TestListExportableMemoriesResolvesFolder(t *testing.T) {
 func TestShareCircleErrorPaths(t *testing.T) {
 	home := t.TempDir()
 	setupTestEnv(t, home)
-	_, stderr, code := runCLICapture(t, []string{"share"})
-	if code != 2 || !strings.Contains(stderr, "usage") {
-		t.Fatalf("share usage: %d %q", code, stderr)
-	}
-	_, stderr, code = runCLICapture(t, []string{"share", "circle"})
-	if code != 2 || !strings.Contains(stderr, "usage") {
-		t.Fatalf("circle usage: %d %q", code, stderr)
-	}
-	_, stderr, code = runCLICapture(t, []string{"share", "circle", "create"})
-	if code != 2 || !strings.Contains(stderr, "--name") {
-		t.Fatalf("create: %d %q", code, stderr)
-	}
-	_, stderr, code = runCLICapture(t, []string{"share", "circle", "invite"})
-	if code != 2 || !strings.Contains(stderr, "--circle") {
-		t.Fatalf("invite: %d %q", code, stderr)
-	}
-	_, stderr, code = runCLICapture(t, []string{"share", "circle", "accept"})
-	if code != 2 || !strings.Contains(stderr, "--code") {
-		t.Fatalf("accept: %d %q", code, stderr)
-	}
-	_, stderr, code = runCLICapture(t, []string{"share", "circle", "revoke"})
-	if code != 2 || !strings.Contains(stderr, "--circle") {
-		t.Fatalf("revoke: %d %q", code, stderr)
-	}
-	_, stderr, code = runCLICapture(t, []string{"share", "circle", "folder-add"})
-	if code != 2 || !strings.Contains(stderr, "--circle") {
-		t.Fatalf("folder-add: %d %q", code, stderr)
-	}
-	_, stderr, code = runCLICapture(t, []string{"share", "circle", "folder-list"})
-	if code != 2 || !strings.Contains(stderr, "--circle") {
-		t.Fatalf("folder-list: %d %q", code, stderr)
+	assertCLIRejects(t, []string{"share"}, "usage")
+	assertCLIRejects(t, []string{"share", "circle"}, "usage")
+	assertCLIRejects(t, []string{"share", "circle", "create"}, "--name")
+	assertCLIRejects(t, []string{"share", "circle", "invite"}, "--circle")
+	assertCLIRejects(t, []string{"share", "circle", "accept"}, "--code")
+	assertCLIRejects(t, []string{"share", "circle", "revoke"}, "--circle")
+	assertCLIRejects(t, []string{"share", "circle", "folder-add"}, "--circle")
+	assertCLIRejects(t, []string{"share", "circle", "folder-list"}, "--circle")
+}
+
+func assertCLIRejects(t *testing.T, args []string, needle string) {
+	t.Helper()
+	_, stderr, code := runCLICapture(t, args)
+	if code != 2 || !strings.Contains(stderr, needle) {
+		t.Fatalf("%v: %d %q", args, code, stderr)
 	}
 }
 
@@ -525,7 +509,7 @@ func TestCircleForAnyAndDeleteMemory(t *testing.T) {
 	e, _ := newEngine(home)
 	defer e.Close()
 	project, _ := identifyProject(repo)
-	m, _ := e.recordMemory(project, "fact", "repository", "", "Delete me.", 0.5, 10, "agent_observation", "", "")
+	m, _ := e.recordMemory(memoryRecord{Project: project, Kind: "fact", Scope: "repository", Subject: "", Content: "Delete me.", Confidence: 0.5, Priority: 10, Source: "agent_observation", SourceRef: "", Evidence: ""})
 	if err := e.deleteMemory(m.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -605,8 +589,11 @@ func TestSharedPacketRoundtrip(t *testing.T) {
 		UpdatedAt: nowRFC3339(), VectorSpace: "stub", Layer: 2, HotIndex: true,
 	}
 	pkt := memoryToSharedPacket(m, "/tmp/repo", true)
-	if len(pkt.Vector) == 0 {
-		t.Fatal("packet vector")
+	if len(pkt.Vector) != 0 {
+		t.Fatal("packet must not carry a vector")
+	}
+	if pkt.PacketContent == "" {
+		t.Fatal("packet content")
 	}
 	out := sharedPacketToMemory(pkt, "circle_x", "dev_peer")
 	if out.Origin != "peer" || out.CircleID != "circle_x" {
@@ -640,7 +627,7 @@ func TestFTSFallbackQuery(t *testing.T) {
 	e, _ := newEngine(home)
 	defer e.Close()
 	project, _ := identifyProject(repo)
-	_, _ = e.recordMemory(project, "lesson", "repository", "", "Fallback OR token marker alpha.", 0.9, 50, "verified_execution", "", "")
+	_, _ = e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "Fallback OR token marker alpha.", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 	ids, ranks, err := e.ftsCandidates(`:"fallback"`, project, 5)
 	if err != nil {
 		t.Fatal(err)
@@ -658,11 +645,11 @@ func TestOrganizationAndModuleRecord(t *testing.T) {
 	e, _ := newEngine(home)
 	defer e.Close()
 	project, _ := identifyProject(repo)
-	_, err := e.recordMemory(project, "rule", "organization", "", "Organization-wide rule marker.", 0.95, 50, "adr", "", "")
+	_, err := e.recordMemory(memoryRecord{Project: project, Kind: "rule", Scope: "organization", Subject: "", Content: "Organization-wide rule marker.", Confidence: 0.95, Priority: 50, Source: "adr", SourceRef: "", Evidence: ""})
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = e.recordMemory(project, "procedure", "module", "", "Module scoped procedure marker.", 0.9, 50, "verified_execution", "", "")
+	_, err = e.recordMemory(memoryRecord{Project: project, Kind: "procedure", Scope: "module", Subject: "", Content: "Module scoped procedure marker.", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -997,7 +984,7 @@ func TestWorkingMemoryOnRecall(t *testing.T) {
 	defer e.Close()
 	project, _ := identifyProject(repo)
 	_, _ = e.startSession(project)
-	_, _ = e.recordMemory(project, "lesson", "repository", "", "Working memory seed lesson.", 0.9, 50, "verified_execution", "", "")
+	_, _ = e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "Working memory seed lesson.", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 	resp, err := e.recall(project, "working memory seed", 5, "")
 	if err != nil {
 		t.Fatal(err)

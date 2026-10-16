@@ -1,0 +1,10 @@
+{
+  "id": "claude-desktop",
+  "channel": "stdio-mcp",
+  "stdout": "mcp",
+  "events": {},
+  "transcript_glob": "",
+  "install": "~/.config/Claude",
+  "session_end": "none",
+  "optional": false
+}

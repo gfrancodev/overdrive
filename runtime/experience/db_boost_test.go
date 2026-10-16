@@ -18,7 +18,7 @@ func TestRecallEmptyQueryAndLimitClamp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = e.recordMemory(project, "lesson", "repository", "", "Empty query recall marker.", 0.9, 50, "verified_execution", "", "")
+	_, err = e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "Empty query recall marker.", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 	if err != nil {
 		t.Fatal(err)
 	}

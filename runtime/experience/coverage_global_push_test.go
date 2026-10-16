@@ -28,8 +28,8 @@ func TestReindexActiveMemoriesFailuresAndColdSkip(t *testing.T) {
 	}
 	defer e.Close()
 	project, _ := identifyProject(repo)
-	m, _ := e.recordMemory(project, "lesson", "repository", "", "hot lesson", 0.8, 50, "agent_observation", "", "")
-	cold, _ := e.recordMemory(project, "lesson", "repository", "", "cold lesson", 0.8, 50, "agent_observation", "", "")
+	m, _ := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "hot lesson", Confidence: 0.8, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""})
+	cold, _ := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "cold lesson", Confidence: 0.8, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""})
 	_, _ = e.db.Exec(`UPDATE memories SET hot_index = 0 WHERE id = ?`, cold.ID)
 	if err := e.reindexActiveMemories(); err != nil {
 		t.Fatal(err)
@@ -54,8 +54,8 @@ func TestListExportableMemoriesBranches(t *testing.T) {
 	}
 	defer e.Close()
 	project := identifyProjectMust(t, repo)
-	_, _ = e.recordMemory(project, "preference", "repository", "", "not exported", 0.9, 50, "user_feedback", "", "")
-	exported, _ := e.recordMemory(project, "lesson", "repository", "", "exported lesson", 0.9, 50, "verified_execution", "", "")
+	_, _ = e.recordMemory(memoryRecord{Project: project, Kind: "preference", Scope: "repository", Subject: "", Content: "not exported", Confidence: 0.9, Priority: 50, Source: "user_feedback", SourceRef: "", Evidence: ""})
+	exported, _ := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "exported lesson", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 	exported.HotIndex = true
 	exported.Layer = 2
 	exported.SourceFolder = repo
@@ -208,7 +208,7 @@ func TestEngineHelperErrorBranches(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer e3.Close()
-	m, _ := e3.recordMemory(project, "lesson", "repository", "", "validate me", 0.8, 50, "agent_observation", "", "")
+	m, _ := e3.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "validate me", Confidence: 0.8, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""})
 	_ = e3.db.Close()
 	if _, err := e3.validateMemory(m.ID, "success", "", ""); err == nil {
 		t.Fatal("validate upsert fail")

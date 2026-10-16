@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#00B4FF">
+  <title>Overdrive · Circle</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
+  </script>
+  <style>
+/*{{xterm.css}}*/
+/*{{dashboard.css}}*/
+/*{{chat.css}}*/
+</style>
+</head>
+<body>
+
+  <div id="stage"></div>
+  <div id="labels"></div>
+  <header class="menubar" id="menubar">
+    <a class="brand" href="https://github.com/gfrancodev/overdrive/releases" target="_blank" rel="noopener noreferrer">
+      <img class="mark" src="/logo.png" width="18" height="18" alt="">
+      <span id="barTitle">Overdrive</span>
+    </a>
+    <span class="item" id="barCircle"></span>
+    <span class="item" id="barMachines"></span>
+    <span class="item" id="barLinks"></span>
+    <span class="spacer"></span>
+    <div class="status">
+      <span class="pulse"><i class="led live"></i><span id="barPulse"></span></span>
+      <div class="menubar-field menubar-field--listen" id="barListenField" hidden>
+        <button type="button" class="menubar-btn menubar-btn--listen" id="barListen" aria-haspopup="dialog" aria-expanded="false" aria-controls="barListenPopover" title="Network listen">
+          <svg class="icon-listen" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+            <path fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" d="M1.5 4.6a7.5 7.5 0 0 1 9 0"></path>
+            <path fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" d="M3.3 6.8a4.2 4.2 0 0 1 5.4 0"></path>
+            <path fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" d="M5.2 8.9a1.3 1.3 0 0 1 1.6 0"></path>
+            <circle cx="6" cy="10.1" r="0.75" fill="currentColor" stroke="none"></circle>
+          </svg>
+        </button>
+        <dialog class="menubar-popover menubar-popover--info" id="barListenPopover" aria-labelledby="barListenPopTitle" hidden>
+          <p class="menubar-popover__title" id="barListenPopTitle">Listening</p>
+          <p class="menubar-popover__mono" id="barListenPopAddr"></p>
+          <p class="menubar-popover__hint" id="barListenPopUi" hidden></p>
+        </dialog>
+      </div>
+      <div class="menubar-field menubar-field--datetime" id="barDateTimeField">
+        <button type="button" class="menubar-chip menubar-chip--datetime" id="barDateTimeBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="barDateTimePopover" title="Date and time">
+          <time class="menubar-chip__text menubar-datetime__summary" id="barDateTimeSummary" datetime=""></time>
+        </button>
+        <dialog class="menubar-popover menubar-popover--datetime" id="barDateTimePopover" aria-label="Date, time, and time zone" hidden>
+          <p class="menubar-popover__mono menubar-datetime__clock" id="barDateTimeClock" aria-live="off"></p>
+          <div class="menubar-cal" id="barDateTimeCal"></div>
+          <p class="menubar-popover__title menubar-datetime__tz-title">Time zone</p>
+          <div class="menubar-datetime__tz-combobox" id="barDateTimeTzCombobox">
+            <button type="button" class="menubar-datetime__tz-trigger" id="barDateTimeTzTrigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="barDateTimeTzPanel">
+              <span class="menubar-datetime__tz-value" id="barDateTimeTzValue"></span>
+            </button>
+            <div class="menubar-datetime__tz-panel" id="barDateTimeTzPanel" hidden>
+              <label class="menubar-datetime__search">
+                <span class="visually-hidden">Search time zone</span>
+                <input type="search" id="barDateTimeTzSearch" placeholder="Search time zone…" autocomplete="off" spellcheck="false" aria-controls="barDateTimeTzList" role="combobox" aria-autocomplete="list" aria-expanded="true">
+              </label>
+              <ul class="menubar-listbox menubar-listbox--tz" id="barDateTimeTzList" aria-label="IANA time zones" tabindex="-1"></ul>
+            </div>
+          </div>
+        </dialog>
+      </div>
+      <button type="button" class="menubar-btn" id="barFullscreen" aria-label="Enter fullscreen" title="Fullscreen">
+        <svg class="icon-enter-fs" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+          <path fill="currentColor" d="M1 4.5V1h3.5M7.5 1H11v3.5M11 7.5V11H7.5M4.5 11H1V7.5" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+        <svg class="icon-exit-fs" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+          <path fill="currentColor" d="M4.5 1v3.5H1M11 4.5H7.5V1M7.5 11V7.5H11M1 7.5h3.5V11" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </button>
+      <span class="paused" id="barPaused" hidden>Paused</span>
+    </div>
+  </header>
+  <output class="toast" id="toast" aria-live="polite">
+    <i class="led live"></i>
+    <span id="dockPulse"></span>
+  </output>
+  <template id="iconComputer">
+    <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <rect x="6" y="5" width="20" height="14" rx="2"></rect>
+      <path class="dim" d="M11 10h10M11 13.5h6"></path>
+      <path class="fill" d="M3 22h26l-2 3.5H5z"></path>
+    </svg>
+  </template>
+  <template id="iconMacBook">
+    <svg class="mac" viewBox="0 0 64 44" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="mbLid" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#d7dbe2"></stop>
+          <stop offset="1" stop-color="#8e949d"></stop>
+        </linearGradient>
+        <linearGradient id="mbGloss" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#fff" stop-opacity="0.34"></stop>
+          <stop offset="0.5" stop-color="#fff" stop-opacity="0.04"></stop>
+          <stop offset="1" stop-color="#fff" stop-opacity="0"></stop>
+        </linearGradient>
+        <linearGradient id="mbBase" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#e6e9ee"></stop>
+          <stop offset="1" stop-color="#9aa1ab"></stop>
+        </linearGradient>
+      </defs>
+      <rect x="8" y="2" width="48" height="33" rx="3.2" fill="url(#mbLid)"></rect>
+      <rect class="screen" x="10.4" y="4.2" width="43.2" height="28.4" rx="1.6"></rect>
+      <rect x="10.4" y="4.2" width="43.2" height="28.4" rx="1.6" fill="url(#mbGloss)"></rect>
+      <circle cx="32" cy="5.9" r="0.7" fill="#0b0d12" opacity="0.7"></circle>
+      <path d="M2 35.5h60a2 2 0 0 1 2 2v0.5a3 3 0 0 1-3 3H3a3 3 0 0 1-3-3v-0.5a2 2 0 0 1 2-2z" fill="url(#mbBase)"></path>
+      <rect x="26" y="35.5" width="12" height="1.6" rx="0.8" fill="#5f6670" opacity="0.65"></rect>
+      <rect x="3" y="39.6" width="58" height="1.2" rx="0.6" fill="#5f6670" opacity="0.55"></rect>
+    </svg>
+  </template>
+  <template id="iconLegend">
+    <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <path class="page" d="M3.5 8c3.6-1.7 7.6-1.7 12 0v16.5c-4.4-1.7-8.4-1.7-12 0z"></path>
+      <path class="page" d="M28.5 8c-3.6-1.7-7.6-1.7-12 0v16.5c4.4-1.7 8.4-1.7 12 0z"></path>
+      <path class="sync" d="M6.5 12.2h6"></path>
+      <path class="decision" d="M6.5 15.6h6"></path>
+      <path class="handoff" d="M6.5 19h6"></path>
+      <path class="text" d="M19.5 12.2h6M19.5 15.6h6M19.5 19h6"></path>
+    </svg>
+  </template>
+  <template id="iconStack">
+    <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <rect class="c1" x="5" y="5" width="6" height="6" rx="1.6"></rect>
+      <rect class="c2" x="13" y="5" width="6" height="6" rx="1.6"></rect>
+      <rect class="c3" x="21" y="5" width="6" height="6" rx="1.6"></rect>
+      <rect class="c4" x="5" y="13" width="6" height="6" rx="1.6"></rect>
+      <rect class="c5" x="13" y="13" width="6" height="6" rx="1.6"></rect>
+      <rect class="c6" x="21" y="13" width="6" height="6" rx="1.6"></rect>
+      <rect class="c7" x="5" y="21" width="6" height="6" rx="1.6"></rect>
+      <rect class="c8" x="13" y="21" width="6" height="6" rx="1.6"></rect>
+      <rect class="c9" x="21" y="21" width="6" height="6" rx="1.6"></rect>
+    </svg>
+  </template>
+  <template id="iconContexts">
+    <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <path d="M16 5l11 6-11 6-11-6z"></path>
+      <path class="dim" d="M5 16l11 6 11-6"></path>
+      <path class="dim" d="M5 21l11 6 11-6"></path>
+    </svg>
+  </template>
+  <template id="iconActivity">
+    <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <path d="M3 17h6l3-8 5 15 3-9 2 2h7"></path>
+    </svg>
+  </template>
+  <template id="iconCircle">
+    <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <circle cx="16" cy="16" r="11"></circle>
+      <path class="dim" d="M5 16h22M16 5c4 3.6 4 18.4 0 22M16 5c-4 3.6-4 18.4 0 22"></path>
+    </svg>
+  </template>
+  <template id="iconFolder">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M3.5 7.5A2 2 0 0 1 5.5 5.5h4l2 2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path>
+      <path d="M3.5 10h17"></path>
+    </svg>
+  </template>
+  <template id="iconSearch">
+    <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <circle cx="14" cy="14" r="7"></circle>
+      <path d="M19.2 19.2L26 26"></path>
+    </svg>
+  </template>
+  <template id="iconTray">
+    <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <path d="M5 18l3.2-9.5A2 2 0 0 1 10.1 7h11.8a2 2 0 0 1 1.9 1.5L27 18v5a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"></path>
+      <path d="M5 18h6.5l1.5 3h6l1.5-3H27"></path>
+    </svg>
+  </template>
+  <template id="iconMessages">
+    <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <path d="M6 8h20v12H16l-6 5v-5H6z"></path>
+    </svg>
+  </template>
+  <template id="iconTerminal">
+    <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <rect x="4" y="6" width="24" height="18" rx="2.5"></rect>
+      <path class="dim" d="M8 12h6M8 16h10M8 20h8"></path>
+      <path d="M22 12l2 2-2 2"></path>
+    </svg>
+  </template>
+  <template id="iconNearby">
+    <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <circle cx="16" cy="16" r="3" class="fill"></circle>
+      <path class="dim" d="M8 16a8 8 0 0 1 16 0"></path>
+      <path class="dim" d="M4 16a12 12 0 0 1 24 0"></path>
+    </svg>
+  </template>
+  <template id="iconSettings">
+    <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <circle cx="16" cy="16" r="4"></circle>
+      <path d="M16 5v3.5M16 23.5V27M5 16h3.5M23.5 16H27M8.2 8.2l2.4 2.4M21.4 21.4l2.4 2.4M8.2 23.8l2.4-2.4M21.4 10.6l2.4-2.4"></path>
+    </svg>
+  </template>
+  <section class="drawer" id="drawer" aria-labelledby="drawerTitle" inert>
+    <div class="sheet-head">
+      <div>
+        <h2 id="drawerTitle">Contexts</h2>
+        <p class="sheet-sub" id="drawerMeta"></p>
+      </div>
+      <button type="button" class="close" id="drawerClose" aria-label="Close"></button>
+    </div>
+    <div class="sheet-body" id="ctxBody">
+      <div class="machine-picker" id="chipsPick">
+        <span class="peer-pick-label">Machine</span>
+        <div class="peer-pick-field">
+          <button type="button" class="peer-pick-trigger" id="chipsButton" aria-haspopup="listbox" aria-expanded="false" aria-controls="chipsList" aria-label="Filter by machine">
+            <span class="peer-pick-value" id="chipsLabel">All</span>
+          </button>
+          <input type="hidden" id="chips" value="">
+          <ul class="peer-pick-menu" id="chipsList" tabindex="-1" hidden aria-label="Filter by machine"></ul>
+        </div>
+      </div>
+      <div id="tree"></div>
+    </div>
+    <div class="sheet-body" id="actBody" hidden>
+      <div id="feed"></div>
+    </div>
+    <div class="sheet-body" id="legendBody" hidden>
+      <div class="group">
+        <div class="group-title">Links</div>
+        <div class="card">
+          <div class="row"><div class="row-lead sample-box"><span class="sample"></span></div><div class="row-body"><div class="row-text"><b>Sync</b><small class="wrap">A solid cyan line joins two machines that reached each other. Cyan dots are experience pages moving between them.</small></div></div></div>
+          <div class="row"><div class="row-lead sample-box"><span class="sample decision"></span></div><div class="row-body"><div class="row-text"><b>Decision</b><small class="wrap">An amber dot carries a decision recorded on this station to the circle.</small></div></div></div>
+          <div class="row"><div class="row-lead sample-box"><span class="sample handoff"></span></div><div class="row-body"><div class="row-text"><b>Handoff</b><small class="wrap">A green dot carries a session handoff, so the next agent can resume where this one stopped.</small></div></div></div>
+          <div class="row"><div class="row-lead sample-box"><span class="sample probe"></span></div><div class="row-body"><div class="row-text"><b>Unreachable</b><small class="wrap">A dashed red line means the last probe timed out. The red dot stops short of the station.</small></div></div></div>
+          <div class="row"><div class="row-lead sample-box"><span class="sample offline"></span></div><div class="row-body"><div class="row-text"><b>Offline</b><small class="wrap">A faint dashed line is a machine that has not answered recently. Nothing travels on it.</small></div></div></div>
+        </div>
+      </div>
+      <div class="group">
+        <div class="group-title">Stations</div>
+        <div class="card">
+          <div class="row"><div class="row-lead sample-box"><span class="sample dot"></span></div><div class="row-body"><div class="row-text"><b>This station</b><small class="wrap">The machine running this dashboard. Its screen is blue in the dock.</small></div></div></div>
+          <div class="row"><div class="row-lead sample-box"><span class="sample dot live"></span></div><div class="row-body"><div class="row-text"><b>Online</b><small class="wrap">A machine that answered the last probe. Its dot in the dock is green.</small></div></div></div>
+          <div class="row"><div class="row-lead sample-box"><span class="sample dot off"></span></div><div class="row-body"><div class="row-text"><b>Offline</b><small class="wrap">No answer yet. The icon in the dock is dimmed.</small></div></div></div>
+          <div class="row"><div class="row-lead sample-box"><span class="sample dot bad"></span></div><div class="row-body"><div class="row-text"><b>Revoked</b><small class="wrap">Removed from the circle. It keeps its place in the dock but draws no link.</small></div></div></div>
+        </div>
+      </div>
+      <p class="legend-note">Each moving dot is one packet. Its caption says what it carries. Click a machine in the dock or on the map to follow only its link.</p>
+    </div>
+  </section>
+  <nav class="dock" id="dock" aria-label="Circle dock">
+    <button type="button" class="app circle offline" id="circleApp" aria-label="Circle overview">
+      <img class="mark" src="/logo.png" width="36" height="36" alt="">
+      <span class="tip" id="circleName">LAN</span>
+    </button>
+    <span class="dock-sep"></span>
+    <fieldset class="dock-devices" id="devices" aria-label="Machines"><legend class="visually-hidden">Machines</legend></fieldset>
+    <span class="dock-sep"></span>
+    <button type="button" class="app find" id="findApp" aria-pressed="false" aria-label="Search subjects">
+      <span class="tip">Search</span>
+    </button>
+    <button type="button" class="app contexts" id="ctxToggle" aria-pressed="false" aria-label="Contexts">
+      <span class="count" id="ctxCount"></span>
+      <span class="tip">Contexts</span>
+    </button>
+    <button type="button" class="app activity" id="actToggle" aria-pressed="false" aria-label="Activity">
+      <span class="count" id="actCount"></span>
+      <span class="tip">Activity</span>
+    </button>
+    <button type="button" class="app legend" id="legendApp" aria-pressed="false" aria-label="Legend">
+      <span class="tip">Legend</span>
+    </button>
+    <button type="button" class="app messages" id="msgApp" aria-pressed="false" aria-label="Messages">
+      <span class="count" id="msgCount"></span>
+      <span class="tip">Messages</span>
+    </button>
+    <button type="button" class="app terminal" id="termApp" aria-pressed="false" aria-label="Terminal" title="Terminal · live sessions">
+      <span class="count" id="termCount"></span>
+      <span class="tip">Terminal</span>
+    </button>
+    <button type="button" class="app nearby" id="nearbyApp" aria-pressed="false" aria-label="Nearby devices">
+      <span class="count" id="nearbyCount"></span>
+      <span class="tip">Nearby</span>
+    </button>
+    <button type="button" class="app settings" id="settingsApp" aria-pressed="false" aria-label="Circle settings">
+      <span class="tip">Settings</span>
+    </button>
+  </nav>
+  <dialog class="stack-panel find-panel" id="find" aria-label="Search summarized subjects" hidden>
+    <label class="search">
+      <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="6.8" cy="6.8" r="4.6"></circle><path d="M10.3 10.3L14 14"></path></svg>
+      <input type="search" id="findSearch" placeholder="Search subjects" autocomplete="off" spellcheck="false" aria-label="Search summarized subjects">
+    </label>
+    <div class="find-results scroll-thin" id="findResults"></div>
+  </dialog>
+  <dialog class="stack-panel" id="stack" aria-label="Machines" hidden>
+    <div class="sheet-head">
+      <div>
+        <h2>Machines</h2>
+        <p class="sheet-sub">Machines on your network and in this circle.</p>
+      </div>
+      <button type="button" class="close" id="stackClose" aria-label="Close"></button>
+    </div>
+    <div class="sheet-body">
+      <p class="hint stack-intro" id="stackDiscoveryHint">Nearby stations on your local network appear below. Choosing one switches the globe view; discovery does not add them to the circle.</p>
+      <label class="search">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="6.8" cy="6.8" r="4.6"></circle><path d="M10.3 10.3L14 14"></path></svg>
+        <input type="search" id="stackSearch" placeholder="Search machines" autocomplete="off" spellcheck="false" aria-label="Search machines">
+      </label>
+      <div id="stackGrid"></div>
+      <details class="fold manual-connection" id="connectionManual">
+        <summary>
+          <div class="row plain">
+            <div class="row-body">
+              <div class="row-text">
+                <b>Can't see a device?</b>
+                <small class="wrap">Add manually with a short-lived connection code</small>
+              </div>
+              <div class="row-aside"><span class="chev" aria-hidden="true"></span></div>
+            </div>
+          </div>
+        </summary>
+        <div class="manual-body" id="connection">
+          <p class="hint manual-explainer">Use a connection when a device is on another network, behind a firewall, or not visible on the LAN.</p>
+          <p class="hint" id="inviteRule">A connection expires after a short time. An expired connection is refused.</p>
+          <div class="card">
+            <button type="button" class="action-row" id="copyInvite">Copy connection</button>
+          </div>
+          <label class="connection-field">
+            <span>Paste a connection</span>
+            <textarea id="joinJSON" rows="4" placeholder="Paste the connection JSON" autocomplete="off" spellcheck="false" aria-label="Connection JSON to join"></textarea>
+          </label>
+          <button type="button" class="action-fill" id="joinDevice">Add device</button>
+          <output class="hint" id="joinStatus"></output>
+        </div>
+      </details>
+    </div>
+  </dialog>
+  <dialog id="popover" aria-labelledby="popName" hidden>
+    <div class="pop-scroll" id="popBody">
+      <div class="pop-head">
+        <div class="app pop-tile" id="popTile" aria-hidden="true"></div>
+        <div>
+          <h3 id="popName">Station</h3>
+          <div class="pop-status" id="popStatus"></div>
+        </div>
+      </div>
+      <div class="card" id="popFacts"></div>
+      <div class="group" id="popFolders"></div>
+    </div>
+    <div class="pop-foot">
+      <button type="button" class="pop-action" id="popContexts">Show contexts</button>
+    </div>
+  </dialog>
+
+<!--{{chat.html}}-->
+  <aside class="live-sessions" id="liveSessions" hidden aria-hidden="true" aria-label="Live Sessions">
+    <header class="term-titlebar" id="termTitlebar">
+      <div class="term-titlebar-leading">
+        <fieldset class="term-traffic" aria-label="Window controls"><legend class="visually-hidden">Window controls</legend>
+          <button type="button" class="term-traffic-close" id="termTrafficClose" aria-label="Close"></button>
+          <button type="button" class="term-traffic-min" id="termTrafficMin" aria-label="Minimize"></button>
+          <button type="button" class="term-traffic-max" id="termTrafficMax" aria-label="Zoom"></button>
+        </fieldset>
+        <button type="button" class="term-toolbar-btn term-toolbar-btn--sidebar" id="termToggleList" aria-pressed="false" title="Session list" aria-label="Session list"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h7" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/><path d="M13.5 10.5v4h-4" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" class="term-share-chat" id="termShareChatBar" title="Send the live terminal to this chat">Send to chat</button>
+        <span class="term-status-pill" id="termStatusPill" hidden></span>
+      </div>
+      <div class="term-titlebar-center" aria-hidden="true"></div>
+      <div class="term-titlebar-trailing">
+        <span class="term-badges term-badges--inline">
+          <span class="term-badge term-badge--rec" id="termBadgeRec" hidden>Rec paused</span>
+          <span class="term-badge term-badge--private" id="termBadgePrivate" hidden>Private</span>
+          <button type="button" class="term-badge term-badge--control" id="termBadgeControl" hidden>Control pending</button>
+        </span>
+        <div class="term-toolbar-segment" aria-label="Terminal layout">
+          <button type="button" class="term-toolbar-btn" id="termSplitV" title="Split vertically" aria-label="Split vertically"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.5h4.2v9H3zM8.8 3.5H13v9H8.8z" fill="none" stroke="currentColor" stroke-width="1.35"/></svg></button>
+          <button type="button" class="term-toolbar-btn" id="termSplitH" title="Split horizontally" aria-label="Split horizontally"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3h10v4.2H3zM3 8.8h10V13H3z" fill="none" stroke="currentColor" stroke-width="1.35"/></svg></button>
+        </div>
+        <div class="term-toolbar-segment" aria-label="Window">
+          <button type="button" class="term-toolbar-btn" id="termPinFront" aria-pressed="false" title="Keep on top" aria-label="Keep on top"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 2.5h4l-.6 3.2H11L8 9.2V13.5V9.2 5 5.7h1.6z" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/></svg></button>
+          <button type="button" class="term-toolbar-btn" id="termDockTop" aria-pressed="false" title="Dock to top" aria-label="Dock to top"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.5h10M8 6.5v6.5M5.5 8.5 8 6l2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button type="button" class="term-toolbar-btn" id="termDockBottom" aria-pressed="false" title="Dock to bottom" aria-label="Dock to bottom"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 12.5h10M8 9.5V3M5.5 7.5 8 10l2.5-2.5" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button type="button" class="term-toolbar-btn" id="termTabsEdge" aria-pressed="false" title="Tabs on bottom" aria-label="Move tabs to bottom"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 5.5h9M3.5 10.5h9M8 3v3.2M6.4 4.6 8 6.2 9.6 4.6M8 13v-3.2M6.4 11.4 8 9.8l1.6 1.6" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button type="button" class="term-toolbar-btn" id="termToggleInspector" aria-pressed="false" title="Inspector" aria-label="Inspector"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.25" fill="none" stroke="currentColor" stroke-width="1.35"/><path d="M8 7.1v3.4M8 5.6h.01" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+          <button type="button" class="term-toolbar-btn" id="termExpand" aria-pressed="false" title="Expand" aria-label="Expand"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5H3.5V6M10 3.5h2.5V6M6 12.5H3.5V10M10 12.5h2.5V10" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </div>
+        <button type="button" class="close term-close" id="termClose" aria-label="Close Live Sessions"></button>
+      </div>
+    </header>
+    <div class="term-layout" id="termLayout">
+      <aside class="term-sidebar term-sidebar--list" id="termSidebarList" hidden aria-label="Sessions">
+        <header class="term-sidebar-head">
+          <h2 class="term-sidebar-section-title">On this machine</h2>
+          <button type="button" class="term-sidebar-btn" id="termNewSession">New</button>
+        </header>
+        <div class="term-session-list scroll-thin" id="termSessionList"></div>
+        <footer class="term-sidebar-foot">
+          <button type="button" class="term-sidebar-action" id="termShareChat" title="Send the live terminal to this chat">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11v7H9.2L6 14.5V10.5H2.5z" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/></svg>
+            <span>Send to chat</span>
+          </button>
+        </footer>
+      </aside>
+      <section class="term-main" aria-label="Terminal output">
+        <nav class="term-tabs" id="termTabBar" aria-label="Open terminals">
+          <div class="term-tabs-scroll scroll-thin" id="termTabsScroll"></div>
+          <button type="button" class="term-tab-add" id="termTabAdd" aria-label="New tab" title="New tab"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+        </nav>
+        <div class="term-views" id="termViews"></div>
+      </section>
+      <aside class="term-sidebar term-sidebar--side term-inspector" id="termSidebarInspector" hidden aria-label="Session inspector">
+        <section class="term-inspector-block">
+          <h3 class="term-inspector-heading">Session</h3>
+          <div class="term-inspector-group">
+            <p class="term-side-meta" id="termSideMeta"></p>
+          </div>
+        </section>
+        <section class="term-inspector-block">
+          <h3 class="term-inspector-heading">Participants</h3>
+          <div class="term-inspector-group term-inspector-group--list">
+            <ul class="term-side-list" id="termSideParticipants"></ul>
+          </div>
+        </section>
+        <section class="term-inspector-block">
+          <h3 class="term-inspector-heading">Appearance</h3>
+          <div class="term-inspector-group">
+            <div class="term-opacity-control">
+              <div class="term-opacity-head">
+                <label class="term-opacity-label" for="termBgOpacity">Background opacity</label>
+                <span class="term-opacity-value" id="termBgOpacityValue" aria-live="polite">100%</span>
+              </div>
+              <input type="range" class="term-opacity-slider" id="termBgOpacity" min="20" max="100" step="5" value="100" aria-valuemin="20" aria-valuemax="100" aria-valuenow="100" />
+            </div>
+          </div>
+        </section>
+        <section class="term-inspector-block term-inspector-block--last">
+          <h3 class="term-inspector-heading">Control</h3>
+          <div class="term-inspector-group term-inspector-group--stack">
+            <div class="term-side-control" id="termSideControl"></div>
+          </div>
+        </section>
+      </aside>
+    </div>
+    <div class="term-resize term-resize-n" data-edge="n"></div>
+    <div class="term-resize term-resize-s" data-edge="s"></div>
+    <div class="term-resize term-resize-e" data-edge="e"></div>
+    <div class="term-resize term-resize-w" data-edge="w"></div>
+    <div class="term-resize term-resize-ne" data-edge="ne"></div>
+    <div class="term-resize term-resize-nw" data-edge="nw"></div>
+    <div class="term-resize term-resize-se" data-edge="se"></div>
+    <div class="term-resize term-resize-sw" data-edge="sw"></div>
+  </aside>
+  <dialog class="stack-panel" id="nearby" aria-label="Nearby devices" hidden>
+    <div class="sheet-head">
+      <div>
+        <h2>Nearby</h2>
+        <p class="sheet-sub">Seen on the local network. Not in the circle.</p>
+      </div>
+      <button type="button" class="close" id="nearbyClose" aria-label="Close"></button>
+    </div>
+    <div class="sheet-body">
+      <p class="hint">Seen via mDNS on your LAN. To join the circle, use a connection code from the device that invited you.</p>
+      <div class="card" id="discoveredPeers"></div>
+      <button type="button" class="action-fill" id="nearbyConnection">Add with a connection</button>
+    </div>
+  </dialog>
+  <dialog class="stack-panel" id="settings" aria-label="Circle settings" hidden>
+    <div class="sheet-head">
+      <div>
+        <h2>Circle</h2>
+        <p class="sheet-sub" id="meshState"></p>
+      </div>
+      <button type="button" class="close" id="settingsClose" aria-label="Close"></button>
+    </div>
+    <div class="sheet-body" id="settingsBody">
+      <div class="settings-actions">
+        <button type="button" id="meshPause">Pause mesh</button>
+        <button type="button" id="meshResume">Resume mesh</button>
+      </div>
+      <h2>Listen</h2>
+      <p id="shareListen"></p>
+      <h2>Shared folders</h2>
+      <ul id="shareFolders"></ul>
+    </div>
+  </dialog>
+<main id="enterprise" hidden>
+    <div class="ent-top">
+      <strong id="entCircle">Circle</strong>
+      <span id="entHost">this station</span>
+      <span id="entClock"></span>
+    </div>
+    <section class="ent-main" id="entRows" aria-label="Machines"></section>
+    <aside class="ent-side" id="entInspect" aria-label="Station detail">
+      <h2 id="entName">Station</h2>
+      <p id="entState"></p>
+      <p id="entDecision"></p>
+      <p id="entHandoff"></p>
+    </aside>
+    <footer class="ent-pulses" id="entPulses" aria-label="Activity"></footer>
+  </main>
+  <script>
+/*{{xterm.js}}*/
+</script>
+  <script>
+/*{{highlight.js}}*/
+</script>
+  <script>
+/*{{mermaid.js}}*/
+</script>
+  <script>
+/*{{xterm-fit.js}}*/
+</script>
+  <script type="module">
+/*{{app.mjs}}*/
+</script>
+</body>
+</html>

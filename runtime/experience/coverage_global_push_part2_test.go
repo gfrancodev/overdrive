@@ -124,7 +124,7 @@ func TestValidateMemoryHandlerAndFailureStale(t *testing.T) {
 	}
 	defer e.Close()
 	project, _ := identifyProject(repo)
-	m, _ := e.recordMemory(project, "lesson", "repository", "", "fail path", 0.36, 50, "agent_observation", "", "")
+	m, _ := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "fail path", Confidence: 0.36, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""})
 
 	resetHooksForTest()
 	defer resetHooksForTest()
@@ -136,7 +136,7 @@ func TestValidateMemoryHandlerAndFailureStale(t *testing.T) {
 	}
 	hookValidateMemoryHandler = nil
 
-	peer, _ := e.recordMemory(project, "lesson", "repository", "", "peer fail", 0.36, 50, "agent_observation", "", "")
+	peer, _ := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "peer fail", Confidence: 0.36, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""})
 	peer.Origin = "peer"
 	peer.PeerDeviceID = "dev_peer"
 	peer.CircleID = "circle_x"
@@ -168,7 +168,7 @@ func TestExportPeerIndexAndConsolidate(t *testing.T) {
 	}
 	defer e.Close()
 	project := identifyProjectMust(t, repo)
-	m, _ := e.recordMemory(project, "lesson", "repository", "", "export body", 0.9, 50, "verified_execution", "", "")
+	m, _ := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "export body", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 	m.HotIndex = true
 	m.Layer = 2
 	m.SourceFolder = repo
@@ -210,7 +210,7 @@ func TestUpsertMemoryPeerAndDBError(t *testing.T) {
 	}
 	defer e.Close()
 	project, _ := identifyProject(repo)
-	m, _ := e.recordMemory(project, "lesson", "repository", "", "peer vec", 0.8, 50, "agent_observation", "", "")
+	m, _ := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "peer vec", Confidence: 0.8, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""})
 	m.Origin = "peer"
 	m.HotIndex = true
 	m.Status = "active"
@@ -332,7 +332,7 @@ func TestFTSCandidatesScanAndEmptyTokens(t *testing.T) {
 	if _, _, err := e.ftsCandidates("!!!", project, 5); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.recordMemory(project, "lesson", "repository", "", "factory pattern wiring", 0.5, 50, "agent_observation", "", ""); err != nil {
+	if _, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "factory pattern wiring", Confidence: 0.5, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""}); err != nil {
 		t.Fatal(err)
 	}
 	resetHooksForTest()

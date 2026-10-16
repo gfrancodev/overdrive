@@ -14,16 +14,16 @@ type Embedder interface {
 
 type hashedEmbedder struct{}
 
-func (hashedEmbedder) Dim() int      { return hashedDims }
-func (hashedEmbedder) Name() string  { return "hashed" }
+func (hashedEmbedder) Dim() int     { return hashedDims }
+func (hashedEmbedder) Name() string { return "hashed" }
 func (hashedEmbedder) Embed(text string) []float32 {
 	return hashedVectorFloat32(text)
 }
 
 type stubEmbedder struct{}
 
-func (stubEmbedder) Dim() int      { return hashedDims }
-func (stubEmbedder) Name() string  { return "stub" }
+func (stubEmbedder) Dim() int     { return hashedDims }
+func (stubEmbedder) Name() string { return "stub" }
 func (stubEmbedder) Embed(text string) []float32 {
 	v := hashedVectorFloat32(text)
 	for i := range v {
@@ -126,7 +126,10 @@ func currentEmbedder() (Embedder, string) {
 	return globalEmbedder, globalEmbedderName
 }
 
+var embedTextCalls int
+
 func embedText(text string) []float32 {
+	embedTextCalls++
 	emb, _ := currentEmbedder()
 	return emb.Embed(text)
 }

@@ -91,6 +91,7 @@ func tokenSet(parts []string) map[string]bool {
 
 var shareableKinds = map[string]bool{
 	"lesson": true, "anti_pattern": true, "episode": true, "procedure": true, "fact": true,
+	"decision": true, "handoff": true,
 }
 
 func shareableKind(kind string) bool {
@@ -116,6 +117,20 @@ func applyDistillation(m *Memory, project Project) {
 	m.HotIndex = true
 }
 
+func (e *Engine) demoteHotIndexIfUnreliable(id string) {
+	m, err := e.getMemory(id)
+	if err != nil {
+		return
+	}
+	if m.FailureCount <= m.SuccessCount || m.Confidence >= 0.4 {
+		return
+	}
+	if e.tv != nil && e.tv.Available() {
+		e.tv.Remove(id)
+	}
+	_, _ = e.db.Exec(`UPDATE memories SET hot_index = 0 WHERE id = ?`, id)
+}
+
 func (e *Engine) consolidateSession(project Project, circle Circle) error {
 	rows, err := e.db.Query(`SELECT id FROM memories WHERE origin = 'local' AND status = 'active' AND hot_index = 1`)
 	if err != nil {
@@ -134,17 +149,7 @@ func (e *Engine) consolidateSession(project Project, circle Circle) error {
 		ids = append(ids, id)
 	}
 	for _, id := range ids {
-		m, err := e.getMemory(id)
-		if err != nil {
-			continue
-		}
-		if m.FailureCount > m.SuccessCount && m.Confidence < 0.4 {
-			m.HotIndex = false
-			if e.tv != nil && e.tv.Available() {
-				e.tv.Remove(id)
-			}
-			_, _ = e.db.Exec(`UPDATE memories SET hot_index = 0 WHERE id = ?`, id)
-		}
+		e.demoteHotIndexIfUnreliable(id)
 	}
 	if circle.ID != "" && folderAllowed(circle, project.Root) {
 		_ = e.exportPeerIndex(circle, project)
@@ -181,7 +186,7 @@ func (e *Engine) listExportableMemories(project Project, circle Circle) ([]Memor
 	if !ok {
 		return nil, nil
 	}
-	rows, err := e.db.Query(memorySelect+` WHERE status = 'active' AND origin = 'local' AND scope = 'repository' AND scope_id = ?`, project.Repository)
+	rows, err := e.db.Query(memorySelectExportable, project.Repository)
 	if err != nil {
 		return nil, err
 	}

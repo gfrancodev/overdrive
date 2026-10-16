@@ -152,7 +152,10 @@ func TestLedgerLogicHelpers(t *testing.T) {
 	e, _ := newEngine(home)
 	defer e.Close()
 	project, _ := identifyProject(repo)
-	entry, err := insertLedgerEntry(e.db, project, "run-a", "decide", "ev", "reason", "risk", "easy")
+	entry, err := insertLedgerEntry(e.db, ledgerWrite{
+		Project: project, RunID: "run-a", Decision: "decide", Evidence: "ev",
+		Reason: "reason", Risk: "risk", Reversibility: "easy",
+	})
 	if err != nil || entry.Decision != "decide" {
 		t.Fatalf("insert err=%v", err)
 	}
@@ -195,6 +198,11 @@ func TestORTLibLogicHelpers(t *testing.T) {
 	if !ok || path == "" {
 		t.Fatal("bundled present")
 	}
+	assertORTDownloadNames(t)
+}
+
+func assertORTDownloadNames(t *testing.T) {
+	t.Helper()
 	t.Setenv("OVERDRIVE_SKIP_EMBED_DOWNLOAD", "1")
 	if _, err := ortReleaseURL(); err == nil {
 		t.Fatal("download disabled")
@@ -257,7 +265,7 @@ func TestBuildMiniLMEmbedderErrors(t *testing.T) {
 func TestInsertLedgerEntryDBError(t *testing.T) {
 	db, _ := sql.Open("sqlite", ":memory:")
 	_ = db.Close()
-	if _, err := insertLedgerEntry(db, Project{Repository: "r"}, "run", "d", "", "", "", ""); err == nil {
+	if _, err := insertLedgerEntry(db, ledgerWrite{Project: Project{Repository: "r"}, RunID: "run", Decision: "d"}); err == nil {
 		t.Fatal("closed db")
 	}
 }
@@ -332,28 +340,37 @@ func TestRecallLogicHelpers(t *testing.T) {
 		t.Fatalf("critical %v", critical)
 	}
 
-	if shouldIncludeLocalRecall(regular[0], "totally unrelated xyz", map[string]float64{}, 0.01, floor) {
+	assertLocalRecallInclusion(t, regular[0], ftsRanks, floor)
+	assertPeerRecallFilters(t, floor)
+}
+
+func assertLocalRecallInclusion(t *testing.T, memory Memory, ftsRanks map[string]float64, floor float64) {
+	t.Helper()
+	if shouldIncludeLocalRecall(memory, "totally unrelated xyz", map[string]float64{}, 0.01, floor) {
 		t.Fatal("low relevance should exclude")
 	}
-	if !shouldIncludeLocalRecall(regular[0], "totally unrelated xyz", ftsRanks, 0.01, floor) {
+	if !shouldIncludeLocalRecall(memory, "totally unrelated xyz", ftsRanks, 0.01, floor) {
 		t.Fatal("fts rank should rescue low relevance")
 	}
-	if !shouldIncludeLocalRecall(regular[0], "query", ftsRanks, 0, floor) {
+	if !shouldIncludeLocalRecall(memory, "query", ftsRanks, 0, floor) {
 		t.Fatal("fts boost should include")
 	}
-	if !shouldIncludeLocalRecall(regular[0], "query", ftsRanks, 0.01, floor) {
+	if !shouldIncludeLocalRecall(memory, "query", ftsRanks, 0.01, floor) {
 		t.Fatal("fts rank should rescue low vector score")
 	}
-	if shouldIncludeLocalRecall(regular[0], "query", map[string]float64{}, 0.05, floor) {
+	if shouldIncludeLocalRecall(memory, "query", map[string]float64{}, 0.05, floor) {
 		t.Fatal("low vector without fts should exclude")
 	}
-	if shouldIncludeLocalRecall(regular[0], "", map[string]float64{}, 0.05, floor) {
+	if shouldIncludeLocalRecall(memory, "", map[string]float64{}, 0.05, floor) {
 		t.Fatal("empty query low vector without fts should exclude")
 	}
 	if ftsBoostedVectorScore("local1", 0, ftsRanks) != 0.5 {
 		t.Fatal("fts boost value")
 	}
+}
 
+func assertPeerRecallFilters(t *testing.T, floor float64) {
+	t.Helper()
 	peer := Memory{ID: "peer1", ProblemSignature: "ERR_TIMEOUT", VectorSpace: "stub", PacketContent: "packet body"}
 	peerPool := map[string]Memory{"peer1": peer}
 	if !shouldIncludePeerRecall(peer, "ERR_TIMEOUT", "q", 0.5, floor, true, "stub") {
@@ -392,9 +409,14 @@ func TestRecallLogicHelpers(t *testing.T) {
 		t.Fatalf("cap %d", len(capped))
 	}
 
+	assertRecallCaps(t, peerPool)
+}
+
+func assertRecallCaps(t *testing.T, peerPool map[string]Memory) {
+	t.Helper()
 	bulk := []Memory{{ID: "a", Score: 1}, {ID: "b", Score: 2}, {ID: "c", Score: 3}}
 	critBulk := []Memory{{ID: "c1", Score: 9}, {ID: "c2", Score: 8}, {ID: "c3", Score: 7}, {ID: "c4", Score: 6}, {ID: "c5", Score: 5}, {ID: "c6", Score: 4}, {ID: "c7", Score: 3}, {ID: "c8", Score: 2}, {ID: "c9", Score: 1}}
-	regular, critical = capRecallResults(bulk, critBulk, 2)
+	regular, critical := capRecallResults(bulk, critBulk, 2)
 	if len(regular) != 2 || regular[0].ID != "c" {
 		t.Fatalf("regular cap/sort %v", regular)
 	}
@@ -455,6 +477,11 @@ func TestSyncLogicHelpers(t *testing.T) {
 		t.Fatal("root not allowed")
 	}
 
+	assertExportEligibility(t, circle, project)
+}
+
+func assertExportEligibility(t *testing.T, circle Circle, project Project) {
+	t.Helper()
 	m := Memory{Kind: "lesson", Scope: "repository", HotIndex: true, Layer: 2, UpdatedAt: "2025-01-02T00:00:00Z", SourceFolder: "/tmp/repo"}
 	if !shouldExportMemory(m) {
 		t.Fatal("exportable")
@@ -506,10 +533,18 @@ func TestSyncLogicHelpers(t *testing.T) {
 	if filtered[0].SourceFolder != "/tmp/repo" || filtered[0].Fingerprint != "keep" {
 		t.Fatalf("unexpected packet %+v", filtered[0])
 	}
+	assertPeerPacketImport(t, circle)
+}
+
+func assertPeerPacketImport(t *testing.T, circle Circle) {
+	t.Helper()
 	if !peerPacketImportable(SharedPacket{HotIndex: true, VectorSpace: "stub"}, "stub") {
 		t.Fatal("importable")
 	}
-	if peerPacketImportable(SharedPacket{HotIndex: true, VectorSpace: "other"}, "stub") {
+	if !peerPacketImportable(SharedPacket{HotIndex: true, VectorSpace: "other"}, "stub") {
+		t.Fatal("empty vector should be reindexed locally")
+	}
+	if peerPacketImportable(SharedPacket{HotIndex: true, VectorSpace: "other", Vector: []float32{1}}, "stub") {
 		t.Fatal("vector space mismatch")
 	}
 	if peerPacketImportable(SharedPacket{HotIndex: false}, "stub") {
@@ -525,6 +560,11 @@ func TestSyncLogicHelpers(t *testing.T) {
 		t.Fatal("higher evidence updates")
 	}
 
+	assertPeerBatchAndReport(t, circle)
+}
+
+func assertPeerBatchAndReport(t *testing.T, circle Circle) {
+	t.Helper()
 	resp := SyncResponse{CircleID: "c1", DeviceID: "dev1"}
 	if err := validatePeerBatchCircle(circle, resp); err != nil {
 		t.Fatal(err)

@@ -59,7 +59,7 @@ build_turbovec() {
   lib_dir="$LIB_OUT/$goos-$goarch"
   mkdir -p "$lib_dir"
 
-  if [ -z "$target" ]; then
+  if [[ -z "$target" ]]; then
     echo "Skipping TurboVec FFI: unknown target $goos/$goarch" >&2
     return 0
   fi
@@ -73,7 +73,7 @@ build_turbovec() {
     cd "$FFI"
     if command -v cargo-zigbuild >/dev/null 2>&1 && command -v zig >/dev/null 2>&1; then
       cargo zigbuild --release --target "$target"
-    elif [ "$target" = "x86_64-unknown-linux-gnu" ]; then
+    elif [[ "$target" = "x86_64-unknown-linux-gnu" ]]; then
       cargo build --release
     else
       cargo build --release --target "$target" || cargo zigbuild --release --target "$target"
@@ -83,12 +83,12 @@ build_turbovec() {
     return 0
   }
 
-  if [ "$target" = "x86_64-unknown-linux-gnu" ]; then
+  if [[ "$target" = "x86_64-unknown-linux-gnu" ]]; then
     artifact="$FFI/target/release/$lib_name"
   else
     artifact="$FFI/target/$target/release/$lib_name"
   fi
-  if [ -f "$artifact" ]; then
+  if [[ -f "$artifact" ]]; then
     cp "$artifact" "$lib_dir/$lib_name"
   else
     echo "Warning: TurboVec artifact missing at $artifact" >&2
@@ -118,13 +118,13 @@ targets=(
 
 should_build() {
   local goos="$1" goarch="$2" name="$3"
-  if [ "$#" -le 3 ] || [ "${4:-}" = "" ]; then
+  if [[ "$#" -le 3 || "${4:-}" = "" ]]; then
     return 0
   fi
   local key="$goos-$goarch"
   local req
   for req in "${@:4}"; do
-    if [ "$req" = "$key" ] || [ "$req" = "$name" ]; then
+    if [[ "$req" = "$key" || "$req" = "$name" ]]; then
       return 0
     fi
   done

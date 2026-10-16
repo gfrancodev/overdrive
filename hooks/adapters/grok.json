@@ -1,0 +1,14 @@
+{
+  "id": "grok",
+  "channel": "deferred-event",
+  "stdout": "discarded",
+  "events": {
+    "PostToolUse": "before-prompt",
+    "Stop": "stop"
+  },
+  "transcript_glob": "~/.grok/**/*.jsonl",
+  "install": "~/.grok",
+  "session_end": "finalize-next-start",
+  "optional": false,
+  "delivery_event": "PostToolUse"
+}

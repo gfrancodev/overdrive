@@ -10,6 +10,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_DIR = ROOT / "runtime" / "experience"
+PLUGIN_VERSION = json.loads((ROOT / ".cursor-plugin" / "plugin.json").read_text())["version"]
 
 
 def run(*args: str, cwd: Path | None = None, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -55,7 +56,7 @@ def test_status_reports_sqlite_turbovec_backend(runtime_bin: Path, tmp_path: Pat
     home = tmp_path / "home"
     env = runtime_env(home)
     data = json.loads(run(str(runtime_bin), "status", env=env).stdout)
-    assert data["version"] == "1.3.0"
+    assert data["version"] == PLUGIN_VERSION
     assert data["backend"] == "sqlite-fts5-turbovec-v1"
     assert data["store"].endswith("experience-v2.db")
     assert data["embedder"] == "stub"
@@ -360,12 +361,13 @@ def test_installer_installs_matching_runtime_binary(runtime_bin: Path, tmp_path:
     env["OVERDRIVE_SKILLS_DIR"] = str(skills)
     env["OVERDRIVE_BIN_DIR"] = str(bin_dir)
     env["OVERDRIVE_HOME"] = str(home)
+    env["OVERDRIVE_TRAY_ENABLE"] = "0"
     run(str(ROOT / "scripts" / "install.sh"), env=env)
     installed = bin_dir / ("overdrive-runtime.exe" if os.name == "nt" else "overdrive-runtime")
     assert installed.exists()
     assert os.access(installed, os.X_OK)
     result = json.loads(run(str(installed), "status", env=env).stdout)
-    assert result["version"] == "1.3.0"
+    assert result["version"] == PLUGIN_VERSION
     assert result["backend"] == "sqlite-fts5-turbovec-v1"
 
 
@@ -381,7 +383,8 @@ def test_skills_treat_experience_as_advisory_and_automatic():
     assert "no user memory-management" in using
     assert "current repository reality" in using
     assert "experience recall" in plan
-    assert "reconcile" in plan and "memory" in plan
+    assert "reconcile" in plan
+    assert "memory" in plan
     assert "task-scoped experience" in execute
     assert "persistent experience" in auto
     assert "similar incidents" in debug
@@ -673,3 +676,32 @@ def test_recall_filters_irrelevant_repository_memory(runtime_bin: Path, tmp_path
         ).stdout
     )
     assert data["memories"] == []
+
+
+def test_terminal_dashboard_mounts_xterm_after_pane_attach():
+    js = (RUNTIME_DIR / "dashboard" / "terminal.mjs").read_text(encoding="utf-8")
+    shell = (RUNTIME_DIR / "dashboard" / "shell.html").read_text(encoding="utf-8")
+    css = (RUNTIME_DIR / "dashboard" / "dashboard.css").read_text(encoding="utf-8")
+    assert "ensureMounted" in js
+    assert 'getElementById("termTabsScroll")' in js
+    assert "|| tabBar" not in js
+    assert 'id="termTabsScroll"' in shell
+    assert "term-inspector" in shell
+    assert "term-inspector-group" in shell
+    assert 'setOption("theme"' in js
+    assert "--term-bg-opacity" in css
+    assert "term-opacity-slider" in css
+    assert "term-inspector-group" in css and "SF Pro Text" in css
+    assert "term-layout--inspector" in css
+    assert 'id="termBgOpacity"' in shell
+    assert "termBgOpacityValue" in shell
+
+
+def test_terminal_split_panes_attach_stream_on_render():
+    js = (RUNTIME_DIR / "dashboard" / "terminal.mjs").read_text(encoding="utf-8")
+    assert "function attachVisibleLeaves()" in js
+    assert "attachVisibleLeaves();" in js
+    assert "preserveSplitRoot" in js
+    assert "createSession({ forSplit: true })" in js
+    assert "queueTabStreamConnect(tab" in js
+    assert "tab.connect().then" in js

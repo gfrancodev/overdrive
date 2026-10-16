@@ -1,0 +1,13 @@
+{
+  "id": "command-code",
+  "channel": "session-stdout",
+  "stdout": "plain",
+  "events": {
+    "SessionStart": "session-start",
+    "Stop": "stop"
+  },
+  "transcript_glob": "~/.commandcode/**/*.jsonl",
+  "install": "~/.commandcode",
+  "session_end": "finalize-next-start",
+  "optional": false
+}

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "SessionStart": [
+      { "command": "./hooks/run-hook.sh session-start" }
+    ],
+    "UserPromptSubmit": [
+      { "command": "./hooks/run-hook.sh before-prompt" }
+    ],
+    "Stop": [
+      { "command": "./hooks/run-hook.sh stop" }
+    ],
+    "SessionEnd": [
+      { "command": "./hooks/run-hook.sh session-end" }
+    ]
+  }
+}

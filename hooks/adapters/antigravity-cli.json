@@ -1,0 +1,14 @@
+{
+  "id": "antigravity-cli",
+  "channel": "deferred-event",
+  "stdout": "discarded",
+  "events": {
+    "PreInvocation": "session-start",
+    "Stop": "stop"
+  },
+  "transcript_glob": "~/.gemini/antigravity/**/*.jsonl",
+  "install": "~/.gemini",
+  "session_end": "finalize-next-start",
+  "optional": false,
+  "delivery_event": "PreInvocation"
+}

@@ -43,9 +43,9 @@ func TestRunGCFailureBranches(t *testing.T) {
 	project, _ := identifyProject(repo)
 
 	oldDeprecated := "2000-01-01T00:00:00Z"
-	mDep, _ := e.recordMemory(project, "episode", "repository", "", "deprecated body", 0.5, 50, "agent_observation", "", "")
+	mDep, _ := e.recordMemory(memoryRecord{Project: project, Kind: "episode", Scope: "repository", Subject: "", Content: "deprecated body", Confidence: 0.5, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""})
 	_, _ = e.db.Exec(`UPDATE memories SET status = 'deprecated', updated_at = ? WHERE id = ?`, oldDeprecated, mDep.ID)
-	mStale, _ := e.recordMemory(project, "episode", "repository", "", "stale body", 0.1, 50, "agent_observation", "", "")
+	mStale, _ := e.recordMemory(memoryRecord{Project: project, Kind: "episode", Scope: "repository", Subject: "", Content: "stale body", Confidence: 0.1, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""})
 	_, _ = e.db.Exec(`UPDATE memories SET status = 'stale', updated_at = ? WHERE id = ?`, oldDeprecated, mStale.ID)
 
 	resetHooksForTest()
@@ -78,7 +78,7 @@ func TestRunGCStaleDeleteFailure(t *testing.T) {
 	}
 	defer e.Close()
 	project, _ := identifyProject(repo)
-	mStale, _ := e.recordMemory(project, "episode", "repository", "", "stale only", 0.1, 50, "agent_observation", "", "")
+	mStale, _ := e.recordMemory(memoryRecord{Project: project, Kind: "episode", Scope: "repository", Subject: "", Content: "stale only", Confidence: 0.1, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""})
 	_, _ = e.db.Exec(`UPDATE memories SET status = 'stale', updated_at = ? WHERE id = ?`, "2000-01-01T00:00:00Z", mStale.ID)
 
 	resetHooksForTest()
@@ -252,7 +252,7 @@ func TestCLIInnerErrorBranches(t *testing.T) {
 	}
 	defer e.Close()
 	hookOpenEngine = func() (*Engine, error) { return e, nil }
-	hookRecordMemory = func(*Engine, Project, string, string, string, string, float64, int, string, string, string) (Memory, error) {
+	hookRecordMemory = func(*Engine, memoryRecord) (Memory, error) {
 		return Memory{}, errors.New("record fail")
 	}
 	if err := cmdRecord([]string{"--cwd", repo, "--content", "body"}); err == nil {

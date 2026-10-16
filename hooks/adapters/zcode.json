@@ -1,0 +1,14 @@
+{
+  "id": "zcode",
+  "channel": "session-stdout",
+  "stdout": "additionalContext",
+  "events": {
+    "SessionStart": "session-start",
+    "UserPromptSubmit": "before-prompt",
+    "Stop": "stop"
+  },
+  "transcript_glob": "~/.zcode/**/*.jsonl",
+  "install": "~/.zcode",
+  "session_end": "finalize-next-start",
+  "optional": false
+}

@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+const circleIDFlagHelp = "circle id"
+
 var shareCommands = map[string]func([]string) error{
 	"identity": cmdShareIdentity,
 	"circle":   cmdShareCircle,
@@ -27,7 +29,7 @@ func cmdShare(args []string) error {
 
 func cmdShareListen(args []string) error {
 	fs := flag.NewFlagSet("share listen", flag.ContinueOnError)
-	cwd := fs.String("cwd", ".", "working directory")
+	cwd := fs.String("cwd", ".", cwdFlagHelp)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -42,12 +44,15 @@ func cmdShareListen(args []string) error {
 	if err != nil {
 		return err
 	}
+	loadMeshState(home)
+	maybePruneIdleCirclesOnListen(home)
 	sl, err := startShareListener(home, id, priv)
 	if err != nil {
 		return err
 	}
 	startShareDashboard(home)
-	_, _ = identifyProject(*cwd)
+	startMeshServices(home)
+	_ = writeShareListenProjectRoot(home, *cwd)
 	shareListenWait(sl)
 	return nil
 }
@@ -65,7 +70,7 @@ var shareListenWait = func(sl *shareListener) {
 
 func cmdShareStatus(args []string) error {
 	fs := flag.NewFlagSet("share status", flag.ContinueOnError)
-	cwd := fs.String("cwd", ".", "working directory")
+	cwd := fs.String("cwd", ".", cwdFlagHelp)
 	format := fs.String("format", "json", "json|text")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -77,6 +82,14 @@ func cmdShareStatus(args []string) error {
 	return withEngine(func(e *Engine) error {
 		status, err := e.shareStatus(project)
 		if err != nil {
+			return err
+		}
+		circle, ok := circleForProject(e.home, project.Root)
+		groupKey := ""
+		if ok {
+			groupKey = circle.GroupKey
+		}
+		if err := rejectStatusGroupKey(status, groupKey); err != nil {
 			return err
 		}
 		if strings.EqualFold(*format, "text") {
@@ -113,11 +126,12 @@ var circleCommands = map[string]func([]string) error{
 	"list":        cmdCircleList,
 	"folder-add":  cmdCircleFolderAdd,
 	"folder-list": cmdCircleFolderList,
+	"prune":       cmdCirclePrune,
 }
 
 func cmdShareCircle(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("usage: share circle <create|invite|accept|revoke|list|folder-add|folder-list>")
+		return fmt.Errorf("usage: share circle <create|invite|accept|revoke|list|folder-add|folder-list|prune>")
 	}
 	handler, ok := circleCommands[args[0]]
 	if !ok {
@@ -150,7 +164,7 @@ func cmdCircleCreate(args []string) error {
 
 func cmdCircleInvite(args []string) error {
 	fs := flag.NewFlagSet("share circle invite", flag.ContinueOnError)
-	circleID := fs.String("circle", "", "circle id")
+	circleID := fs.String("circle", "", circleIDFlagHelp)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -196,7 +210,7 @@ func cmdCircleAccept(args []string) error {
 
 func cmdCircleRevoke(args []string) error {
 	fs := flag.NewFlagSet("share circle revoke", flag.ContinueOnError)
-	circleID := fs.String("circle", "", "circle id")
+	circleID := fs.String("circle", "", circleIDFlagHelp)
 	deviceID := fs.String("device", "", "device id to revoke")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -234,7 +248,7 @@ func cmdCircleList(args []string) error {
 
 func cmdCircleFolderAdd(args []string) error {
 	fs := flag.NewFlagSet("share circle folder-add", flag.ContinueOnError)
-	circleID := fs.String("circle", "", "circle id")
+	circleID := fs.String("circle", "", circleIDFlagHelp)
 	folder := fs.String("folder", "", "allowed folder path")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -257,7 +271,7 @@ func cmdCircleFolderAdd(args []string) error {
 
 func cmdCircleFolderList(args []string) error {
 	fs := flag.NewFlagSet("share circle folder-list", flag.ContinueOnError)
-	circleID := fs.String("circle", "", "circle id")
+	circleID := fs.String("circle", "", circleIDFlagHelp)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -270,5 +284,20 @@ func cmdCircleFolderList(args []string) error {
 			return err
 		}
 		return writeJSON(map[string]any{"circle_id": c.ID, "allowed_folders": c.AllowedFolders})
+	})
+}
+
+func cmdCirclePrune(args []string) error {
+	fs := flag.NewFlagSet("share circle prune", flag.ContinueOnError)
+	dryRun := fs.Bool("dry-run", false, "list circles that would be removed without deleting")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	return withEngine(func(e *Engine) error {
+		report, err := pruneIdleCircles(e.home, *dryRun)
+		if err != nil {
+			return err
+		}
+		return writeJSON(report)
 	})
 }

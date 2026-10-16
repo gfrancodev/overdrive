@@ -206,6 +206,27 @@ Joining a circle sends this machine's listen address. The other side stores it a
 | `OVERDRIVE_TURBOVEC_LIB` | bundled / `~/.overdrive/lib` | TurboVec FFI path |
 | `OVERDRIVE_SHARE_LISTEN` | unset | TCP bind for circle sync, for example `0.0.0.0:7741` |
 | `OVERDRIVE_SHARE_UI` | listen port + 1 on wildcard binds | Peer page bind, or `off` |
+| `OVERDRIVE_TURN_URLS` | unset | Comma-separated TURN/TURNS URLs. Without them, mesh calls use STUN only and fail across NAT |
+| `OVERDRIVE_TURN_USERNAME` | unset | TURN username when `OVERDRIVE_TURN_URLS` is set |
+| `OVERDRIVE_TURN_CREDENTIAL` | unset | TURN credential |
+
+Mesh calls stay peer-to-peer. The dashboard states that STUN-only mode does not cross NAT, and that screen mini-player Picture-in-Picture is Chrome/Edge; Safari and Firefox fall back to the draggable overlay. CI runs a Node signaling contract test, a Playwright smoke with fake microphone/camera between two `share listen` instances, and enforces Go statement coverage of at least 82% on the runtime package excluding `terminal_host.go` (PTY supervisor).
+
+### Local TURN (coturn)
+
+For development across NAT, run the bundled coturn compose (credentials only via environment, never committed):
+
+```bash
+export TURN_USERNAME=overdrive
+export TURN_PASSWORD="$(openssl rand -hex 16)"
+docker compose -f docker-compose.turn.yml up -d
+export OVERDRIVE_TURN_URLS="turn:127.0.0.1:3478"
+export OVERDRIVE_TURN_USERNAME="$TURN_USERNAME"
+export OVERDRIVE_TURN_CREDENTIAL="$TURN_PASSWORD"
+overdrive-runtime share listen --cwd /path/to/repo
+```
+
+When `OVERDRIVE_TURN_URLS` is set, the dashboard hides `#callNatHint`. Without TURN, mesh calls still work on the same LAN; STUN alone does not traverse restrictive NAT between different networks.
 
 `status` JSON includes `embedder` (`stub|hashed|minilm`) and `embedder_dim` (256 or 384). When embedding dimension changes, the runtime rebuilds `experience-v2.tvim` from active memories.
 

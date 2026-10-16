@@ -56,7 +56,55 @@ if ($forbidden) {
     throw "Install destination contains forbidden dev payload"
 }
 
-try { & $DestRuntime session-start --cwd (Get-Location).Path --quiet | Out-Null } catch { }
+try {
+    & $DestRuntime session-start --cwd (Get-Location).Path --quiet | Out-Null
+} catch {
+    Write-Warning "session-start failed and was skipped: $_"
+}
+
+$TrayDest = Join-Path $BinDir "overdrive-tray.exe"
+$TrayPrebuilt = Join-Path $Root "runtime\bin\overdrive-tray-windows-$Target.exe"
+$TraySrc = Join-Path $Root "runtime\tray"
+$TrayOK = $false
+if (Test-Path $TrayPrebuilt) {
+    Copy-Item -Force $TrayPrebuilt $TrayDest
+    $TrayOK = $true
+} elseif ((Test-Path (Join-Path $TraySrc "go.mod")) -and (Get-Command go -ErrorAction SilentlyContinue)) {
+    $savedCgo = $env:CGO_ENABLED
+    $savedGoos = $env:GOOS
+    $savedGoarch = $env:GOARCH
+    $pushed = $false
+    try {
+        $env:CGO_ENABLED = "0"
+        $env:GOOS = "windows"
+        $env:GOARCH = $Target
+        Push-Location $TraySrc
+        $pushed = $true
+        & go build -buildvcs=false -trimpath "-ldflags=-s -w" -o $TrayDest .\cmd\overdrive-tray
+        if ($LASTEXITCODE -eq 0 -and (Test-Path $TrayDest)) {
+            $TrayOK = $true
+        }
+    } catch {
+        Write-Warning "Overdrive tray build failed: $_"
+    } finally {
+        if ($pushed) { Pop-Location }
+        $env:CGO_ENABLED = $savedCgo
+        $env:GOOS = $savedGoos
+        $env:GOARCH = $savedGoarch
+    }
+}
+if (-not $TrayOK) {
+    Write-Warning "Overdrive tray was not installed. The Core still runs without a tray."
+} elseif ($env:OVERDRIVE_TRAY_ENABLE -ne "0") {
+    & $TrayDest register
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Overdrive tray autostart was not registered. The Core still runs."
+    } else {
+        Write-Host "Installed Overdrive tray to $TrayDest"
+    }
+} else {
+    Write-Host "Installed Overdrive tray to $TrayDest"
+}
 
 Write-Host "Installed Overdrive skills to $SkillsDir"
 Write-Host "Installed Overdrive runtime to $DestRuntime (windows-$Target only)"

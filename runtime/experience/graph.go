@@ -14,10 +14,12 @@ type graphStore interface {
 
 const maxGraphNeighbors = 8
 
+const memoryGraphPrefix = "memory:"
+
 var errGraphStoreUnavailable = errors.New("graph store unavailable")
 
 func graphMemoryNodeID(id string) string {
-	return "memory:" + strings.TrimSpace(id)
+	return memoryGraphPrefix + strings.TrimSpace(id)
 }
 
 func graphNodeID(kind, key string) string {
@@ -187,15 +189,18 @@ func syncMemoryGraphOn(store graphStore, m Memory, extra []GraphEdge) error {
 	return nil
 }
 
-func writeMemoryGraphOn(store graphStore, m Memory) error {
-	if store == nil {
-		return errGraphStoreUnavailable
-	}
-	memID := graphMemoryNodeID(m.ID)
-	if _, err := store.Exec(`DELETE FROM graph_edges WHERE src = ? OR (dst = ? AND kind IN ('same_folder', 'mentions', 'from_device'))`, memID, memID); err != nil {
-		return err
-	}
+type memoryGraphKeys struct {
+	memID     string
+	repoKey   string
+	folderKey string
+	kindKey   string
+	repoID    string
+	folderID  string
+	kindID    string
+	updated   string
+}
 
+func keysForMemoryGraph(m Memory) memoryGraphKeys {
 	repoKey := strings.TrimSpace(m.ScopeID)
 	if repoKey == "" {
 		repoKey = "unknown"
@@ -208,59 +213,88 @@ func writeMemoryGraphOn(store graphStore, m Memory) error {
 	if kindKey == "" {
 		kindKey = "note"
 	}
-	repoID := graphNodeID("repository", repoKey)
-	folderID := graphNodeID("folder", repoKey+"|"+folderKey)
-	kindID := graphNodeID("kind", repoKey+"|"+folderKey+"|"+kindKey)
 	updated := m.UpdatedAt
 	if updated == "" {
 		updated = nowRFC3339()
 	}
-	if err := upsertGraphNodeOn(store, PageIndexNode{ID: repoID, Kind: "repository", Title: repoKey, UpdatedAt: updated}); err != nil {
-		return err
+	return memoryGraphKeys{
+		memID: graphMemoryNodeID(m.ID), repoKey: repoKey, folderKey: folderKey, kindKey: kindKey,
+		repoID:   graphNodeID("repository", repoKey),
+		folderID: graphNodeID("folder", repoKey+"|"+folderKey),
+		kindID:   graphNodeID("kind", repoKey+"|"+folderKey+"|"+kindKey),
+		updated:  updated,
 	}
-	if err := upsertGraphNodeOn(store, PageIndexNode{
-		ID: folderID, Kind: "folder", Title: folderBaseName(folderKey), Summary: folderKey,
-		ParentID: repoID, UpdatedAt: updated,
-	}); err != nil {
-		return err
-	}
-	if err := upsertGraphNodeOn(store, PageIndexNode{
-		ID: kindID, Kind: "kind", Title: kindKey, ParentID: folderID, UpdatedAt: updated,
-	}); err != nil {
-		return err
-	}
-	if err := upsertGraphNodeOn(store, PageIndexNode{
-		ID: memID, Kind: "memory", Title: strings.TrimSpace(m.Subject), Summary: memoryGraphSummary(m),
-		ParentID: kindID, MemoryID: m.ID, UpdatedAt: updated,
-	}); err != nil {
-		return err
-	}
+}
 
+func writeMemoryGraphOn(store graphStore, m Memory) error {
+	if store == nil {
+		return errGraphStoreUnavailable
+	}
+	keys := keysForMemoryGraph(m)
+	if _, err := store.Exec(`DELETE FROM graph_edges WHERE src = ? OR (dst = ? AND kind IN ('same_folder', 'mentions', 'from_device'))`, keys.memID, keys.memID); err != nil {
+		return err
+	}
+	if err := writeMemoryHierarchy(store, m, keys); err != nil {
+		return err
+	}
+	if err := writeMemoryMentions(store, m, keys); err != nil {
+		return err
+	}
+	return writePeerDeviceEdge(store, m, keys)
+}
+
+func writeMemoryHierarchy(store graphStore, m Memory, keys memoryGraphKeys) error {
+	if err := upsertGraphNodeOn(store, PageIndexNode{ID: keys.repoID, Kind: "repository", Title: keys.repoKey, UpdatedAt: keys.updated}); err != nil {
+		return err
+	}
+	if err := upsertGraphNodeOn(store, PageIndexNode{
+		ID: keys.folderID, Kind: "folder", Title: folderBaseName(keys.folderKey), Summary: keys.folderKey,
+		ParentID: keys.repoID, UpdatedAt: keys.updated,
+	}); err != nil {
+		return err
+	}
+	if err := upsertGraphNodeOn(store, PageIndexNode{
+		ID: keys.kindID, Kind: "kind", Title: keys.kindKey, ParentID: keys.folderID, UpdatedAt: keys.updated,
+	}); err != nil {
+		return err
+	}
+	return upsertGraphNodeOn(store, PageIndexNode{
+		ID: keys.memID, Kind: "memory", Title: strings.TrimSpace(m.Subject), Summary: memoryGraphSummary(m),
+		ParentID: keys.kindID, MemoryID: m.ID, UpdatedAt: keys.updated,
+	})
+}
+
+func writeMemoryMentions(store graphStore, m Memory, keys memoryGraphKeys) error {
 	blob := strings.Join([]string{m.Subject, m.Evidence}, " ")
 	for tok := range collectSignatureTokens(blob) {
-		kind, key := classifySignatureToken(tok)
-		if kind == "" {
-			continue
-		}
-		dst := graphNodeID(kind, key)
-		if err := upsertGraphNodeOn(store, PageIndexNode{ID: dst, Kind: kind, Title: key, UpdatedAt: updated}); err != nil {
-			return err
-		}
-		if err := upsertGraphEdgeOn(store, memID, dst, "mentions"); err != nil {
-			return err
-		}
-	}
-
-	if m.Origin == "peer" && m.PeerDeviceID != "" {
-		devID := graphNodeID("device", m.PeerDeviceID)
-		if err := upsertGraphNodeOn(store, PageIndexNode{ID: devID, Kind: "device", Title: m.PeerDeviceID, UpdatedAt: updated}); err != nil {
-			return err
-		}
-		if err := upsertGraphEdgeOn(store, memID, devID, "from_device"); err != nil {
+		if err := writeMemoryMention(store, keys, tok); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func writeMemoryMention(store graphStore, keys memoryGraphKeys, tok string) error {
+	kind, key := classifySignatureToken(tok)
+	if kind == "" {
+		return nil
+	}
+	dst := graphNodeID(kind, key)
+	if err := upsertGraphNodeOn(store, PageIndexNode{ID: dst, Kind: kind, Title: key, UpdatedAt: keys.updated}); err != nil {
+		return err
+	}
+	return upsertGraphEdgeOn(store, keys.memID, dst, "mentions")
+}
+
+func writePeerDeviceEdge(store graphStore, m Memory, keys memoryGraphKeys) error {
+	if m.Origin != "peer" || m.PeerDeviceID == "" {
+		return nil
+	}
+	devID := graphNodeID("device", m.PeerDeviceID)
+	if err := upsertGraphNodeOn(store, PageIndexNode{ID: devID, Kind: "device", Title: m.PeerDeviceID, UpdatedAt: keys.updated}); err != nil {
+		return err
+	}
+	return upsertGraphEdgeOn(store, keys.memID, devID, "from_device")
 }
 
 func (e *Engine) backfillGraph() {
@@ -280,6 +314,10 @@ func (e *Engine) backfillGraph() {
 	}
 }
 
+type graphHop struct {
+	dst, kind string
+}
+
 func (e *Engine) graphNeighborIDs(seedIDs []string) []string {
 	if e == nil || e.db == nil || len(seedIDs) == 0 {
 		return nil
@@ -289,63 +327,82 @@ func (e *Engine) graphNeighborIDs(seedIDs []string) []string {
 		seen[id] = true
 	}
 	out := []string{}
-	add := func(id string) {
-		id = strings.TrimSpace(strings.TrimPrefix(id, "memory:"))
-		if id == "" || seen[id] || len(out) >= maxGraphNeighbors {
-			return
-		}
-		seen[id] = true
-		out = append(out, id)
-	}
 	for _, id := range seedIDs {
 		if len(out) >= maxGraphNeighbors {
 			break
 		}
-		src := graphMemoryNodeID(id)
-		rows, err := e.db.Query(`SELECT dst, kind FROM graph_edges WHERE src = ?`, src)
-		if err != nil {
+		out = e.expandGraphSeed(graphMemoryNodeID(id), out, seen)
+	}
+	return out
+}
+
+func appendGraphNeighbor(out []string, seen map[string]bool, id string) []string {
+	id = strings.TrimSpace(strings.TrimPrefix(id, memoryGraphPrefix))
+	if id == "" || seen[id] || len(out) >= maxGraphNeighbors {
+		return out
+	}
+	seen[id] = true
+	return append(out, id)
+}
+
+func (e *Engine) expandGraphSeed(src string, out []string, seen map[string]bool) []string {
+	for _, hop := range e.loadGraphHops(src) {
+		out = e.applyGraphHop(src, hop, out, seen)
+	}
+	return out
+}
+
+func (e *Engine) loadGraphHops(src string) []graphHop {
+	rows, err := e.db.Query(`SELECT dst, kind FROM graph_edges WHERE src = ?`, src)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	hops := []graphHop{}
+	for rows.Next() {
+		dst, kind, scanErr := scanGraphHop(rows)
+		if scanErr != nil {
 			continue
 		}
-		type hop struct {
-			dst, kind string
+		hops = append(hops, graphHop{dst: dst, kind: kind})
+	}
+	return hops
+}
+
+func scanGraphHop(rows *sql.Rows) (string, string, error) {
+	var dst, kind string
+	if hookRowsScanErr != nil {
+		return "", "", hookRowsScanErr
+	}
+	err := rows.Scan(&dst, &kind)
+	return dst, kind, err
+}
+
+func (e *Engine) applyGraphHop(src string, hop graphHop, out []string, seen map[string]bool) []string {
+	switch hop.kind {
+	case "supersedes":
+		if strings.HasPrefix(hop.dst, memoryGraphPrefix) {
+			return appendGraphNeighbor(out, seen, hop.dst)
 		}
-		hops := []hop{}
-		for rows.Next() {
-			var dst, kind string
-			if hookRowsScanErr != nil {
-				err = hookRowsScanErr
-			} else {
-				err = rows.Scan(&dst, &kind)
-			}
-			if err != nil {
-				continue
-			}
-			hops = append(hops, hop{dst: dst, kind: kind})
-		}
-		rows.Close()
-		for _, h := range hops {
-			switch h.kind {
-			case "supersedes":
-				if strings.HasPrefix(h.dst, "memory:") {
-					add(h.dst)
-				}
-			case "mentions":
-				if strings.HasPrefix(h.dst, "memory:") {
-					add(h.dst)
-					continue
-				}
-				others, err := e.db.Query(`SELECT src FROM graph_edges WHERE dst = ? AND kind = 'mentions' AND src != ?`, h.dst, src)
-				if err != nil {
-					continue
-				}
-				for others.Next() {
-					var other string
-					if others.Scan(&other) == nil {
-						add(other)
-					}
-				}
-				others.Close()
-			}
+	case "mentions":
+		return e.expandMentionHop(src, hop.dst, out, seen)
+	}
+	return out
+}
+
+func (e *Engine) expandMentionHop(src, dst string, out []string, seen map[string]bool) []string {
+	if strings.HasPrefix(dst, memoryGraphPrefix) {
+		return appendGraphNeighbor(out, seen, dst)
+	}
+	others, err := e.db.Query(`SELECT src FROM graph_edges WHERE dst = ? AND kind = 'mentions' AND src != ?`, dst, src)
+	if err != nil {
+		return out
+	}
+	defer others.Close()
+	for others.Next() {
+		var other string
+		if others.Scan(&other) == nil {
+			out = appendGraphNeighbor(out, seen, other)
 		}
 	}
 	return out
@@ -362,86 +419,125 @@ func (e *Engine) loadGraphNode(id string) (PageIndexNode, bool) {
 }
 
 func (e *Engine) pageIndexBranch(memoryIDs []string) ([]PageIndexNode, []GraphEdge) {
-	nodes := []PageIndexNode{}
-	seen := map[string]bool{}
-	addNode := func(n PageIndexNode) {
-		if n.ID == "" || seen[n.ID] {
-			return
-		}
-		seen[n.ID] = true
-		nodes = append(nodes, n)
-	}
-	walkParents := func(id string) {
-		for i := 0; i < 6 && id != ""; i++ {
-			n, ok := e.loadGraphNode(id)
-			if !ok {
-				return
-			}
-			addNode(n)
-			id = n.ParentID
-		}
-	}
-	for _, id := range uniqueStrings(memoryIDs) {
-		mem := graphMemoryNodeID(id)
-		walkParents(mem)
-		if n, ok := e.loadGraphNode(mem); ok && n.ParentID != "" {
-			rows, err := e.db.Query(`SELECT id, kind, title, summary, parent_id, memory_id, updated_at FROM graph_nodes WHERE parent_id = ? LIMIT 12`, n.ParentID)
-			if err == nil {
-				for rows.Next() {
-					var sib PageIndexNode
-					if rows.Scan(&sib.ID, &sib.Kind, &sib.Title, &sib.Summary, &sib.ParentID, &sib.MemoryID, &sib.UpdatedAt) == nil {
-						addNode(sib)
-					}
-				}
-				rows.Close()
-			}
-		}
-		edgeRows, err := e.db.Query(`SELECT dst FROM graph_edges WHERE src = ? AND kind = 'mentions'`, mem)
-		if err == nil {
-			for edgeRows.Next() {
-				var dst string
-				if edgeRows.Scan(&dst) == nil {
-					if n, ok := e.loadGraphNode(dst); ok {
-						addNode(n)
-					}
-				}
-			}
-			edgeRows.Close()
-		}
-	}
+	nodes := e.collectPageIndexNodes(memoryIDs)
 	sort.SliceStable(nodes, func(i, j int) bool {
 		if nodes[i].Kind != nodes[j].Kind {
 			return nodes[i].Kind < nodes[j].Kind
 		}
 		return nodes[i].Title < nodes[j].Title
 	})
+	return nodes, e.pageIndexEdges(nodes)
+}
+
+func (e *Engine) collectPageIndexNodes(memoryIDs []string) []PageIndexNode {
+	nodes := []PageIndexNode{}
+	seen := map[string]bool{}
+	for _, id := range uniqueStrings(memoryIDs) {
+		nodes = e.collectMemoryPageNodes(graphMemoryNodeID(id), nodes, seen)
+	}
+	return nodes
+}
+
+func appendPageNode(nodes []PageIndexNode, seen map[string]bool, n PageIndexNode) []PageIndexNode {
+	if n.ID == "" || seen[n.ID] {
+		return nodes
+	}
+	seen[n.ID] = true
+	return append(nodes, n)
+}
+
+func (e *Engine) walkPageParents(id string, nodes []PageIndexNode, seen map[string]bool) []PageIndexNode {
+	for i := 0; i < 6 && id != ""; i++ {
+		n, ok := e.loadGraphNode(id)
+		if !ok {
+			return nodes
+		}
+		nodes = appendPageNode(nodes, seen, n)
+		id = n.ParentID
+	}
+	return nodes
+}
+
+func (e *Engine) collectMemoryPageNodes(mem string, nodes []PageIndexNode, seen map[string]bool) []PageIndexNode {
+	nodes = e.walkPageParents(mem, nodes, seen)
+	nodes = e.appendSiblingPageNodes(mem, nodes, seen)
+	return e.appendMentionPageNodes(mem, nodes, seen)
+}
+
+func (e *Engine) appendSiblingPageNodes(mem string, nodes []PageIndexNode, seen map[string]bool) []PageIndexNode {
+	n, ok := e.loadGraphNode(mem)
+	if !ok || n.ParentID == "" {
+		return nodes
+	}
+	rows, err := e.db.Query(`SELECT id, kind, title, summary, parent_id, memory_id, updated_at FROM graph_nodes WHERE parent_id = ? LIMIT 12`, n.ParentID)
+	if err != nil {
+		return nodes
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var sib PageIndexNode
+		if rows.Scan(&sib.ID, &sib.Kind, &sib.Title, &sib.Summary, &sib.ParentID, &sib.MemoryID, &sib.UpdatedAt) == nil {
+			nodes = appendPageNode(nodes, seen, sib)
+		}
+	}
+	return nodes
+}
+
+func (e *Engine) appendMentionPageNodes(mem string, nodes []PageIndexNode, seen map[string]bool) []PageIndexNode {
+	edgeRows, err := e.db.Query(`SELECT dst FROM graph_edges WHERE src = ? AND kind = 'mentions'`, mem)
+	if err != nil {
+		return nodes
+	}
+	defer edgeRows.Close()
+	for edgeRows.Next() {
+		var dst string
+		if edgeRows.Scan(&dst) != nil {
+			continue
+		}
+		n, ok := e.loadGraphNode(dst)
+		if ok {
+			nodes = appendPageNode(nodes, seen, n)
+		}
+	}
+	return nodes
+}
+
+func (e *Engine) pageIndexEdges(nodes []PageIndexNode) []GraphEdge {
 	idSet := map[string]bool{}
 	for _, n := range nodes {
 		idSet[n.ID] = true
 	}
 	edges := []GraphEdge{}
 	for _, n := range nodes {
-		rows, err := e.db.Query(`SELECT src, dst, kind FROM graph_edges WHERE src = ?`, n.ID)
-		if err != nil {
+		edges = append(edges, e.pageEdgesFrom(n.ID, idSet)...)
+	}
+	return edges
+}
+
+func (e *Engine) pageEdgesFrom(id string, idSet map[string]bool) []GraphEdge {
+	rows, err := e.db.Query(`SELECT src, dst, kind FROM graph_edges WHERE src = ?`, id)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	edges := []GraphEdge{}
+	for rows.Next() {
+		edge, scanErr := scanGraphEdge(rows)
+		if scanErr != nil || !idSet[edge.Dst] {
 			continue
 		}
-		for rows.Next() {
-			var edge GraphEdge
-			if hookRowsScanErr != nil {
-				err = hookRowsScanErr
-			} else {
-				err = rows.Scan(&edge.Src, &edge.Dst, &edge.Kind)
-			}
-			if err != nil {
-				continue
-			}
-			if idSet[edge.Dst] {
-				edges = append(edges, edge)
-			}
-		}
-		rows.Close()
+		edges = append(edges, edge)
 	}
-	return nodes, edges
+	return edges
+}
+
+func scanGraphEdge(rows *sql.Rows) (GraphEdge, error) {
+	var edge GraphEdge
+	if hookRowsScanErr != nil {
+		return edge, hookRowsScanErr
+	}
+	err := rows.Scan(&edge.Src, &edge.Dst, &edge.Kind)
+	return edge, err
 }
 
 func (e *Engine) catalogGraphExport(selfID string) ([]PageIndexNode, []GraphEdge) {
@@ -493,24 +589,8 @@ func (e *Engine) unresolvedPageIndexIDs(nodes []PageIndexNode, query string) []s
 	out := []string{}
 	seen := map[string]bool{}
 	for _, n := range nodes {
-		if n.Kind != "memory" || n.MemoryID == "" || seen[n.MemoryID] {
+		if !e.unresolvedPageNode(n, q, seen) {
 			continue
-		}
-		if _, err := e.getMemory(n.MemoryID); err == nil {
-			continue
-		}
-		blob := strings.ToLower(n.Title + " " + n.Summary)
-		if q != "" && !strings.Contains(blob, q) {
-			matched := false
-			for _, tok := range tokenize(q) {
-				if strings.Contains(blob, strings.ToLower(tok)) {
-					matched = true
-					break
-				}
-			}
-			if !matched {
-				continue
-			}
 		}
 		seen[n.MemoryID] = true
 		out = append(out, n.MemoryID)
@@ -519,6 +599,32 @@ func (e *Engine) unresolvedPageIndexIDs(nodes []PageIndexNode, query string) []s
 		}
 	}
 	return out
+}
+
+func (e *Engine) unresolvedPageNode(n PageIndexNode, q string, seen map[string]bool) bool {
+	if n.Kind != "memory" || n.MemoryID == "" || seen[n.MemoryID] {
+		return false
+	}
+	if _, err := e.getMemory(n.MemoryID); err == nil {
+		return false
+	}
+	return pageNodeMatchesQuery(n, q)
+}
+
+func pageNodeMatchesQuery(n PageIndexNode, q string) bool {
+	if q == "" {
+		return true
+	}
+	blob := strings.ToLower(n.Title + " " + n.Summary)
+	if strings.Contains(blob, q) {
+		return true
+	}
+	for _, tok := range tokenize(q) {
+		if strings.Contains(blob, strings.ToLower(tok)) {
+			return true
+		}
+	}
+	return false
 }
 
 func uniqueStrings(in []string) []string {

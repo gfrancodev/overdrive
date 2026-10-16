@@ -1,0 +1,249 @@
+<div id="meshLive" class="mesh-live" data-focus="chat">
+<aside class="chat-widget" id="messages" hidden aria-hidden="true" aria-label="Messages">
+  <header class="chat-head" id="msgDragHandle" title="Drag to move">
+    <button type="button" class="chat-compose-back" id="composeBack" hidden aria-label="Back">
+      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <span class="chat-drag-grip" aria-hidden="true"></span>
+    <div class="chat-id">
+      <h2 id="msgTitle">Messages</h2>
+      <p class="chat-sub" id="msgMeta"></p>
+    </div>
+    <div class="chat-actions">
+      <span class="chat-unread" id="msgQuiet"></span>
+      <button type="button" class="chat-icon-btn" id="msgCall" aria-label="Start voice call" title="Voice call">
+        <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8c1.5 3 3.9 5.4 6.9 6.9l2.3-2.3c.3-.3.7-.4 1.1-.3 1.2.4 2.5.6 3.8.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.3 21 3 13.7 3 4c0-.6.4-1 1-1h3.6c.6 0 1 .4 1 1 0 1.3.2 2.6.6 3.8.1.4 0 .8-.3 1.1L6.6 10.8z" fill="currentColor"/></svg>
+      </button>
+      <button type="button" class="chat-icon-btn" id="msgVideo" aria-label="Start video call" title="Video call">
+        <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.5" width="13.5" height="11" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.85"/><path d="M15.5 10.2 20.5 7.5v9L15.5 13.8" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button type="button" class="chat-icon-btn" id="msgNew" aria-label="New message" title="New message">
+        <svg class="icon-new" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14l4-4h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linejoin="round"/><path d="M20 7v10a2 2 0 0 1-2 2h-7.5L9 21v-2H6a2 2 0 0 1-2-2V7" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linejoin="round"/></svg>
+        <svg class="icon-cancel" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l8 8M16 8l-8 8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+      </button>
+      <button type="button" class="chat-icon-btn" id="msgExpand" aria-pressed="false" aria-label="Expand conversation" title="Expand">
+        <svg class="icon-expand" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H3v6M15 3h6v6M21 15v6h-6M9 21H3v-6" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg class="icon-collapse" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9H3V3M15 9h6V3M21 15h-6v6M9 15H3v6" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button type="button" class="close chat-close" id="msgClose" aria-label="Close messages"></button>
+    </div>
+  </header>
+  <div class="chat-body" id="chatBody">
+    <div class="chat-pane" id="chatPane">
+      <div id="conversationList" aria-label="Conversations" hidden></div>
+      <div class="chat-thread" id="threadPane" aria-live="polite"></div>
+    </div>
+    <div class="compose-sheet" id="composeSheet" hidden aria-hidden="true">
+      <div class="compose-seg" role="tablist" aria-label="Compose mode">
+        <button type="button" class="compose-tab active" id="composeTabDirect" role="tab" aria-selected="true">Direct</button>
+        <button type="button" class="compose-tab" id="composeTabGroup" role="tab" aria-selected="false">Group</button>
+      </div>
+      <div class="compose-fields">
+        <label class="compose-field">
+          <span class="sr-only">Search devices</span>
+          <input type="search" class="compose-input" id="composeSearch" placeholder="Search devices" autocomplete="off" enterkeyhint="search">
+        </label>
+        <label class="compose-field" id="composeGroupNameWrap" hidden>
+          <span class="sr-only">Group name</span>
+          <input type="text" class="compose-input" id="composeGroupName" maxlength="120" placeholder="Group name" autocomplete="off">
+        </label>
+      </div>
+      <p class="compose-section-label">Channels</p>
+      <ul class="compose-contacts compose-channels" id="composeChannels" aria-label="Channels"></ul>
+      <p class="compose-section-label">Circle devices</p>
+      <ul class="compose-contacts" id="composeContacts" aria-label="Devices" tabindex="-1"></ul>
+      <footer class="compose-footer" id="composeFooter" hidden>
+        <button type="button" class="compose-create-group" id="composeCreateGroup">Create group</button>
+      </footer>
+      <span class="sr-only" id="messagePeerLabel"></span>
+      <input type="hidden" id="messagePeer" value="">
+    </div>
+  </div>
+  <form id="messageForm" class="chat-form">
+    <output id="composerStatus" class="composer-status" aria-live="polite" hidden></output>
+    <div class="composer-attachments" id="composerAttachments" hidden></div>
+    <div class="composer-wa">
+      <div class="composer-pill">
+        <button type="button" class="composer-edge" id="messageAttach" aria-label="Attach file" title="Attach">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 12.5 14.8 6.2a3.2 3.2 0 1 1 4.5 4.5l-7.8 7.8a4.8 4.8 0 0 1-6.8-6.8l8.2-8.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button type="button" class="composer-edge" id="messageTerminal" data-mode="open" aria-label="Open live terminal" title="Open live terminal, then Send to chat">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 9.5 9.5 12 7 14.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 14.5h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+        <div class="composer-rec" id="composerRec" hidden>
+          <span class="composer-rec-dot" aria-hidden="true"></span>
+          <span class="composer-rec-time" id="composerRecTime" aria-label="Recording time">0:00</span>
+          <canvas class="composer-audio-viz" id="composerAudioViz"></canvas>
+        </div>
+        <textarea id="messageText" rows="1" maxlength="8192" placeholder="Write a message…" aria-label="Message"></textarea>
+        <button type="button" class="composer-inline" id="messageEmoji" aria-label="Insert emoji" aria-expanded="false" aria-controls="emojiPanel" title="Emoji">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8.5 10.5h.01M15.5 10.5h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8.8 14.2c.9 1.1 2.1 1.7 3.2 1.7s2.3-.6 3.2-1.7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+        <button type="button" class="composer-edge composer-mic" id="messageAudio" aria-label="Record or attach audio" aria-pressed="false" title="Voice message">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 11a7 7 0 0 0 14 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 18v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+        <button type="submit" class="composer-edge composer-send" id="messageSend" hidden aria-label="Send message" title="Send">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5 18.5 6 14 12.5 18.5 19 5 12.5z" fill="currentColor"/></svg>
+        </button>
+        <dialog class="emoji-panel" id="emojiPanel" aria-label="Emoji picker" aria-modal="false" hidden>
+          <div class="emoji-picker" id="emojiPicker">
+            <input type="search" class="emoji-search" id="emojiSearch" placeholder="Search" autocomplete="off" enterkeyhint="search" aria-label="Search emoji">
+            <div class="emoji-grid-wrap" id="emojiGridWrap" aria-label="Emojis" tabindex="-1"></div>
+            <nav class="emoji-tabs" id="emojiTabs" aria-label="Emoji categories"></nav>
+          </div>
+        </dialog>
+        <script type="application/json" id="emojiCatalog"><!--{{emojis.json}}--></script>
+        <input type="file" id="messageFile" hidden>
+        <input type="file" id="messageAudioFile" accept="audio/*" hidden>
+      </div>
+    </div>
+    <p class="chat-privacy" id="chatPrivacy" role="note">
+      <svg class="chat-privacy-icon" width="10" height="10" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="5" y="10" width="14" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      Encrypted with the circle key
+    </p>
+  </form>
+  <hr class="chat-resize" id="msgResize" role="separator" aria-orientation="vertical" aria-label="Resize messages panel" tabindex="-1">
+</aside>
+<aside class="call-panel" id="callPanel" data-phase="idle" hidden aria-hidden="true" aria-label="Mesh call">
+  <header class="call-head">
+    <div class="call-avatar" id="callAvatar" aria-hidden="true">?</div>
+    <div class="call-who">
+      <h2 class="call-peer" id="callPeerName">Peer</h2>
+      <output class="call-status" id="callStatus" aria-live="polite">Overdrive Mesh</output>
+    </div>
+    <div class="call-meta">
+      <span class="call-timer tabular" id="callTimer">00:00</span>
+      <button type="button" class="call-close" id="callClose" aria-label="Close call panel">
+        <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </header>
+  <p class="call-error" id="callError" role="alert" hidden>
+    <span class="call-error-icon" aria-hidden="true"></span>
+    <span class="call-error-text" id="callErrorText"></span>
+  </p>
+  <output class="call-mod-banner" id="callModBanner" hidden>
+    <p id="callModText">The host asked you to turn your camera on.</p>
+    <div class="call-mod-actions">
+      <button type="button" id="callModDismiss">Not now</button>
+      <button type="button" id="callModConfirm">Allow</button>
+    </div>
+  </output>
+  <div class="call-setup" id="callSetup" hidden>
+    <label class="call-field" id="callMicField">
+      <span>Microphone</span>
+      <div class="call-device-select">
+        <button type="button" class="call-device-select__trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="callMicSelectPanel" aria-label="Microphone">
+          <span class="call-device-select__label">System microphone</span>
+        </button>
+        <div class="call-device-select__panel" id="callMicSelectPanel" hidden aria-label="Microphone"></div>
+        <select id="callMicSelect" class="call-device-select__native" tabindex="-1" aria-hidden="true" hidden></select>
+      </div>
+    </label>
+    <label class="call-field" id="callCamField" hidden>
+      <span>Camera</span>
+      <div class="call-device-select">
+        <button type="button" class="call-device-select__trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="callCamSelectPanel" aria-label="Camera">
+          <span class="call-device-select__label">System camera</span>
+        </button>
+        <div class="call-device-select__panel" id="callCamSelectPanel" hidden aria-label="Camera"></div>
+        <select id="callCamSelect" class="call-device-select__native" tabindex="-1" aria-hidden="true" hidden></select>
+      </div>
+    </label>
+    <button type="button" class="call-setup-go" id="callSetupContinue">Continue</button>
+  </div>
+  <div class="call-stage" id="callStage">
+    <div class="call-remote-grid" id="callRemoteGrid" hidden aria-label="Remote participants"></div>
+    <video id="callRemoteVideo" class="call-remote" data-kind="camera" playsinline autoplay hidden></video>
+    <video id="callRemoteScreen" class="call-remote call-remote-screen" data-kind="screen" playsinline autoplay hidden></video>
+    <video id="callLocalVideo" class="call-local" data-kind="camera" playsinline autoplay muted hidden></video>
+    <video id="callLocalScreen" class="call-local-screen" data-kind="screen" playsinline autoplay muted hidden></video>
+    <div class="call-pip-float" id="callPipFloat" hidden>
+      <div class="call-pip-float__bar" id="callPipDrag" aria-hidden="true">
+        <span class="call-pip-float__title">Screen share</span>
+        <button type="button" class="call-pip-float__close" id="callPipClose" aria-label="Close mini player">×</button>
+      </div>
+      <video id="callPipVideo" class="call-pip-float__video" playsinline autoplay muted></video>
+    </div>
+    <div class="call-voice-only" id="callVoiceOnly">
+      <span class="call-voice-ring" aria-hidden="true"></span>
+      <p class="call-voice-label" id="callVoiceLabel">Voice call</p>
+    </div>
+  </div>
+  <p class="call-trust" id="callTrust">
+    <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true"><path d="M5 7V5a3 3 0 0 1 6 0v2M4 7h8v6H4z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    <span>Encrypted · Circle trusted</span>
+    <span class="call-link" id="callLinkHint">· Local network</span>
+  </p>
+  <p class="call-nat" id="callNatHint" hidden></p>
+  <div class="call-controls" id="callControls">
+    <button type="button" class="call-ctl accept" id="callAccept" hidden aria-label="Accept call">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15 15 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z" fill="currentColor"/></svg>
+      <span>Accept</span>
+    </button>
+    <button type="button" class="call-ctl danger" id="callDecline" hidden aria-label="Decline call">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9c-1.6 0-3.2.3-4.6.7v3.1c0 .4-.2.7-.6.9-1 .5-1.9 1.1-2.7 1.8-.2.2-.5.3-.7.3-.3 0-.5-.1-.7-.3L.3 13.1A1 1 0 0 1 0 12.4c0-.3.1-.5.3-.7C3.4 8.8 7.5 7 12 7s8.6 1.8 11.7 4.7c.2.2.3.4.3.7 0 .3-.1.5-.3.7l-2.4 2.4c-.2.2-.4.3-.7.3-.3 0-.5-.1-.7-.3-.8-.7-1.7-1.3-2.7-1.8-.3-.2-.6-.5-.6-.9V9.7C15.2 9.3 13.6 9 12 9z" fill="currentColor"/></svg>
+      <span>Decline</span>
+    </button>
+    <button type="button" class="call-ctl" id="callMute" aria-pressed="false" aria-label="Mute microphone">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-2.1A7 7 0 0 0 19 12z" fill="currentColor"/></svg>
+      <span>Mute</span>
+    </button>
+    <button type="button" class="call-ctl" id="callCamera" aria-pressed="false" aria-label="Turn camera on">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 8v8H5V8h10m1-2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4V7a1 1 0 0 0-1-1z" fill="currentColor"/></svg>
+      <span>Camera</span>
+    </button>
+    <button type="button" class="call-ctl" id="callScreen" aria-label="Share screen">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h6v2H8v2h8v-2h-2v-2h6a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 12H4V6h16zM12 7l-4 4h3v3h2v-3h3z" fill="currentColor"/></svg>
+      <span>Screen</span>
+    </button>
+    <button type="button" class="call-ctl" id="callPip" hidden aria-pressed="false" aria-label="Pop screen share into mini player">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z" fill="currentColor"/></svg>
+      <span>Mini player</span>
+    </button>
+    <button type="button" class="call-ctl" id="callFocus" aria-pressed="false" aria-label="Focus the call stage">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v2H6v4H4V4zm10 0h6v6h-2V6h-4V4zM4 14h2v4h4v2H4v-6zm14 0h2v6h-6v-2h4v-4z" fill="currentColor"/></svg>
+      <span>Stage</span>
+    </button>
+    <button type="button" class="call-ctl" id="callChatToggle" hidden aria-label="Open call chat">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H8l-4 4V5a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      <span>Chat</span>
+    </button>
+    <button type="button" class="call-ctl" id="callRetry" hidden aria-label="Try calling again">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.7 6.3A8 8 0 1 0 20 12h-2a6 6 0 1 1-1.8-4.2L13 11h7V4z" fill="currentColor"/></svg>
+      <span>Try again</span>
+    </button>
+    <button type="button" class="call-ctl danger" id="callEnd" aria-label="End call">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9c-1.6 0-3.2.3-4.6.7v3.1c0 .4-.2.7-.6.9-1 .5-1.9 1.1-2.7 1.8-.2.2-.5.3-.7.3-.3 0-.5-.1-.7-.3L.3 13.1A1 1 0 0 1 0 12.4c0-.3.1-.5.3-.7C3.4 8.8 7.5 7 12 7s8.6 1.8 11.7 4.7c.2.2.3.4.3.7 0 .3-.1.5-.3.7l-2.4 2.4c-.2.2-.4.3-.7.3-.3 0-.5-.1-.7-.3-.8-.7-1.7-1.3-2.7-1.8-.3-.2-.6-.5-.6-.9V9.7C15.2 9.3 13.6 9 12 9z" fill="currentColor"/></svg>
+      <span>End</span>
+    </button>
+  </div>
+  <div class="call-host" id="callHostBar" hidden>
+    <label class="call-field">
+      <span class="sr-only">Participant</span>
+      <select id="callHostTarget" aria-label="Participant"></select>
+    </label>
+    <div class="call-host-actions">
+      <button type="button" id="callHostMute">Mute</button>
+      <button type="button" id="callHostCamera">Camera off</button>
+      <button type="button" id="callHostUnmute">Ask to unmute</button>
+      <button type="button" id="callHostCameraOn">Ask for camera</button>
+    </div>
+  </div>
+</aside>
+</div>
+<dialog class="chat-media-modal" id="chatMediaModal" hidden aria-modal="true" aria-labelledby="chatMediaModalTitle">
+  <button type="button" class="chat-media-modal__backdrop" id="chatMediaModalBackdrop" aria-label="Close"></button>
+  <div class="chat-media-modal__sheet">
+    <header class="chat-media-modal__head">
+      <h3 class="chat-media-modal__title" id="chatMediaModalTitle"><span class="visually-hidden">Media preview</span></h3>
+      <div class="chat-media-modal__actions">
+        <button type="button" class="chat-media-modal__copy" id="chatMediaModalCopy" hidden>Copiar</button>
+        <button type="button" class="chat-media-modal__close" id="chatMediaModalClose" aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </header>
+    <div class="chat-media-modal__body" id="chatMediaModalBody"></div>
+  </div>
+</dialog>

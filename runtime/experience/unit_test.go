@@ -28,7 +28,9 @@ func TestUtilHelpers(t *testing.T) {
 	if !strings.HasPrefix(fp, "mem_") {
 		t.Fatal("fingerprint prefix")
 	}
-	if memoryVectorID("abc") == memoryVectorID("abc") {
+	leftVectorID := memoryVectorID("abc")
+	rightVectorID := memoryVectorID("abc")
+	if leftVectorID == rightVectorID {
 		// stable
 	}
 	red := redact("api_key=supersecretvalue token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U")
@@ -38,6 +40,17 @@ func TestUtilHelpers(t *testing.T) {
 	if redact("-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----") != "<redacted-private-key>" {
 		t.Fatal("redact private key")
 	}
+	assertKindScopeHelpers(t)
+	assertLayerMatches(t)
+	m := &Memory{Scope: "global"}
+	normalizeMemoryScope(m)
+	if m.ScopeID != "*" {
+		t.Fatal("normalizeMemoryScope global")
+	}
+}
+
+func assertKindScopeHelpers(t *testing.T) {
+	t.Helper()
 	if !validKind("lesson") || validKind("bogus") {
 		t.Fatal("validKind")
 	}
@@ -50,6 +63,10 @@ func TestUtilHelpers(t *testing.T) {
 	if strongestSource("agent_observation", "adr") != "adr" {
 		t.Fatal("strongestSource")
 	}
+}
+
+func assertLayerMatches(t *testing.T) {
+	t.Helper()
 	if !matchesLayer("fact", "knowledge") || matchesLayer("episode", "knowledge") {
 		t.Fatal("matchesLayer knowledge")
 	}
@@ -61,11 +78,6 @@ func TestUtilHelpers(t *testing.T) {
 	}
 	if !matchesLayer("anything", "unknown-layer") {
 		t.Fatal("matchesLayer default")
-	}
-	m := &Memory{Scope: "global"}
-	normalizeMemoryScope(m)
-	if m.ScopeID != "*" {
-		t.Fatal("normalizeMemoryScope global")
 	}
 }
 

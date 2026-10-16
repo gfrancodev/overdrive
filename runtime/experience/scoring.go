@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"math"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -80,8 +81,26 @@ func normalizeRemote(remote string) (string, string) {
 	return repo, org
 }
 
+func gitBinaryPath() string {
+	for _, path := range []string{"/usr/bin/git", "/usr/local/bin/git", "/bin/git", "/opt/homebrew/bin/git"} {
+		info, err := os.Stat(path)
+		if err != nil || info.IsDir() || info.Mode()&0o111 == 0 {
+			continue
+		}
+		return path
+	}
+	return ""
+}
+
 func runGit(cwd string, args ...string) string {
-	cmd := exec.Command("git", args...)
+	git := gitBinaryPath()
+	if git == "" {
+		return ""
+	}
+	return gitCommandOutput(exec.Command(git, args...), cwd)
+}
+
+func gitCommandOutput(cmd *exec.Cmd, cwd string) string {
 	cmd.Dir = cwd
 	cmd.Stderr = nil
 	out, err := cmd.Output()
@@ -112,28 +131,39 @@ func scopeIDFor(scope string, p Project) string {
 func scopeWeight(m Memory, p Project) float64 {
 	switch m.Scope {
 	case "global":
-		if m.ScopeID == "*" {
-			return 0.72
-		}
+		return exactScopeWeight(m.ScopeID == "*", 0.72)
 	case "organization":
-		if m.ScopeID == p.Organization {
-			return 0.84
-		}
+		return exactScopeWeight(m.ScopeID == p.Organization, 0.84)
 	case "repository":
-		if m.ScopeID == p.Repository {
-			return 0.96
-		}
+		return exactScopeWeight(m.ScopeID == p.Repository, 0.96)
 	case "module":
-		if m.ScopeID == scopeIDFor("module", p) {
-			return 1.0
-		}
-		prefix := p.Repository + "#"
-		if strings.HasPrefix(m.ScopeID, prefix) && p.Module != "" {
-			storedModule := strings.TrimPrefix(m.ScopeID, prefix)
-			if storedModule != "root" && (p.Module == storedModule || strings.HasPrefix(p.Module, storedModule+"/")) {
-				return 0.98
-			}
-		}
+		return moduleScopeWeight(m, p)
+	default:
+		return 0
+	}
+}
+
+func exactScopeWeight(match bool, weight float64) float64 {
+	if match {
+		return weight
+	}
+	return 0
+}
+
+func moduleScopeWeight(m Memory, p Project) float64 {
+	if m.ScopeID == scopeIDFor("module", p) {
+		return 1.0
+	}
+	prefix := p.Repository + "#"
+	if !strings.HasPrefix(m.ScopeID, prefix) || p.Module == "" {
+		return 0
+	}
+	storedModule := strings.TrimPrefix(m.ScopeID, prefix)
+	if storedModule == "root" {
+		return 0
+	}
+	if p.Module == storedModule || strings.HasPrefix(p.Module, storedModule+"/") {
+		return 0.98
 	}
 	return 0
 }

@@ -1,0 +1,10 @@
+{
+  "id": "zed",
+  "channel": "stdio-mcp",
+  "stdout": "mcp",
+  "events": {},
+  "transcript_glob": "",
+  "install": "~/.config/zed",
+  "session_end": "none",
+  "optional": false
+}

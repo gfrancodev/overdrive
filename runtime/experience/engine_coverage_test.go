@@ -322,7 +322,7 @@ func TestEngineDirectConsolidateAndSyncResponse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := e.recordMemory(project, "lesson", "repository", "sig", "Use ProposalRepository.", 0.9, 50, "verified_execution", "", "proposal.service.ts ECONNREFUSED")
+	m, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "sig", Content: "Use ProposalRepository.", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: "proposal.service.ts ECONNREFUSED"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -415,7 +415,7 @@ func TestEndSessionConsolidates(t *testing.T) {
 	if _, err := e.startSession(project); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.recordMemory(project, "lesson", "repository", "", "Session end consolidation marker.", 0.8, 50, "verified_execution", "", ""); err != nil {
+	if _, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "Session end consolidation marker.", Confidence: 0.8, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""}); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.endSession(project); err != nil {

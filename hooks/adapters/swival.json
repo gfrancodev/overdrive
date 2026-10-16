@@ -1,0 +1,10 @@
+{
+  "id": "swival",
+  "channel": "stdio-mcp",
+  "stdout": "mcp",
+  "events": {},
+  "transcript_glob": "",
+  "install": ".swival",
+  "session_end": "none",
+  "optional": false
+}

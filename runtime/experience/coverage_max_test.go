@@ -260,7 +260,7 @@ func TestRunGCAndStartSessionPrevious(t *testing.T) {
 	_, _ = e.db.Exec(`INSERT INTO working_memory(session_id, repository, kind, subject, content, created_at)
 		VALUES (?, ?, 'episode', '', 'wm cleanup', ?)`, old, project.Repository, nowRFC3339())
 
-	m, _ := e.recordMemory(project, "lesson", "repository", "", "Deprecated old lesson.", 0.5, 50, "agent_observation", "", "")
+	m, _ := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "Deprecated old lesson.", Confidence: 0.5, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""})
 	_, _ = e.db.Exec(`UPDATE memories SET status = 'deprecated', updated_at = ? WHERE id = ?`, "2000-01-01T00:00:00Z", m.ID)
 
 	if err := e.runGC(old); err != nil {
@@ -345,7 +345,7 @@ func TestListExportableMemoriesRepoOnlyProject(t *testing.T) {
 	e, _ := newEngine(home)
 	defer e.Close()
 	project := identifyProjectMust(t, repo)
-	_, _ = e.recordMemory(project, "lesson", "repository", "", "Exportable via repo-only project.", 0.9, 50, "verified_execution", "", "")
+	_, _ = e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "Exportable via repo-only project.", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 	p := Project{Repository: project.Repository}
 	out, err := e.listExportableMemories(p, circle)
 	if err != nil || len(out) == 0 {
@@ -398,11 +398,11 @@ func TestCreateInviteWriteFailure(t *testing.T) {
 
 func TestNormalizeRemoteFormats(t *testing.T) {
 	cases := map[string]string{
-		"https://github.com/acme/repo.git":        "github.com/acme/repo",
-		"git@github.com:acme/repo.git":            "github.com/acme/repo",
-		"ssh://git@gitlab.com/group/proj.git":     "gitlab.com/group/proj",
-		"":                                        "",
-		"invalid":                                 "",
+		"https://github.com/acme/repo.git":    "github.com/acme/repo",
+		"git@github.com:acme/repo.git":        "github.com/acme/repo",
+		"ssh://git@gitlab.com/group/proj.git": "gitlab.com/group/proj",
+		"":                                    "",
+		"invalid":                             "",
 	}
 	for remote, wantRepo := range cases {
 		repo, org := normalizeRemote(remote)
@@ -455,7 +455,7 @@ func TestConsolidateSessionDemotesFailures(t *testing.T) {
 	e, _ := newEngine(home)
 	defer e.Close()
 	project := identifyProjectMust(t, repo)
-	m, _ := e.recordMemory(project, "lesson", "repository", "", "Failure heavy lesson.", 0.2, 50, "agent_observation", "", "")
+	m, _ := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "Failure heavy lesson.", Confidence: 0.2, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""})
 	_, _ = e.db.Exec(`UPDATE memories SET failure_count = 5, success_count = 0, hot_index = 1 WHERE id = ?`, m.ID)
 	if err := e.consolidateSession(project, circle); err != nil {
 		t.Fatal(err)
@@ -605,8 +605,8 @@ func TestRecallCriticalLayerAndWorkingMemory(t *testing.T) {
 	e, _ := newEngine(home)
 	defer e.Close()
 	project := identifyProjectMust(t, repo)
-	rule, _ := e.recordMemory(project, "rule", "repository", "Critical auth rule", "Always validate JWT on API routes.", 0.9, 95, "project_instruction", "", "")
-	_, _ = e.recordMemory(project, "episode", "repository", "", "Ephemeral episode memory.", 0.7, 50, "agent_observation", "", "")
+	rule, _ := e.recordMemory(memoryRecord{Project: project, Kind: "rule", Scope: "repository", Subject: "Critical auth rule", Content: "Always validate JWT on API routes.", Confidence: 0.9, Priority: 95, Source: "project_instruction", SourceRef: "", Evidence: ""})
+	_, _ = e.recordMemory(memoryRecord{Project: project, Kind: "episode", Scope: "repository", Subject: "", Content: "Ephemeral episode memory.", Confidence: 0.7, Priority: 50, Source: "agent_observation", SourceRef: "", Evidence: ""})
 	sid, _ := e.startSession(project)
 	e.sessionID = sid
 	resp, err := e.recall(project, "JWT validate API", 5, "knowledge")
@@ -641,7 +641,7 @@ func TestRunGCStaleProtectedSource(t *testing.T) {
 	e, _ := newEngine(home)
 	defer e.Close()
 	project := identifyProjectMust(t, repo)
-	m, _ := e.recordMemory(project, "fact", "repository", "", "Protected stale fact.", 0.1, 50, "user_feedback", "", "")
+	m, _ := e.recordMemory(memoryRecord{Project: project, Kind: "fact", Scope: "repository", Subject: "", Content: "Protected stale fact.", Confidence: 0.1, Priority: 50, Source: "user_feedback", SourceRef: "", Evidence: ""})
 	_, _ = e.db.Exec(`UPDATE memories SET status = 'stale', updated_at = ? WHERE id = ?`, "2000-01-01T00:00:00Z", m.ID)
 	if err := e.runGC(""); err != nil {
 		t.Fatal(err)
@@ -682,7 +682,7 @@ func TestFtsCandidatesFallbackQuery(t *testing.T) {
 	e, _ := newEngine(home)
 	defer e.Close()
 	project := identifyProjectMust(t, repo)
-	_, _ = e.recordMemory(project, "lesson", "repository", "alpha", "Token searchable lesson content.", 0.9, 50, "verified_execution", "", "")
+	_, _ = e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "alpha", Content: "Token searchable lesson content.", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 	ids, ranks, _ := e.ftsCandidates("\"broken fts\" AND (:", project, 5)
 	if len(ids) == 0 && len(ranks) == 0 {
 		// fallback may still return empty for nonsense query
@@ -700,7 +700,7 @@ func TestDeleteMemoryAndColumnExists(t *testing.T) {
 	e, _ := newEngine(home)
 	defer e.Close()
 	project := identifyProjectMust(t, repo)
-	m, _ := e.recordMemory(project, "lesson", "repository", "", "Delete me lesson.", 0.8, 50, "verified_execution", "", "")
+	m, _ := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "", Content: "Delete me lesson.", Confidence: 0.8, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: ""})
 	if !columnExists(e.db, "memories", "origin") {
 		t.Fatal("origin column")
 	}

@@ -69,6 +69,7 @@ type RecallResponse struct {
 	GraphNeighbors []Memory        `json:"graph_neighbors"`
 	PageIndex      []PageIndexNode `json:"page_index"`
 	GraphEdges     []GraphEdge     `json:"graph_edges"`
+	Unconfirmed    []string        `json:"unconfirmed,omitempty"`
 	Backend        string          `json:"backend"`
 }
 

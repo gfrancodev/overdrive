@@ -1,4 +1,8 @@
 <p align="center">
+  <a href="https://sonarcloud.io/summary/overall?id=gfrancodev_overdrive"><img src="https://sonarcloud.io/api/project_badges/measure?project=gfrancodev_overdrive&metric=coverage" alt="Coverage"></a>
+</p>
+
+<p align="center">
   <img src="assets/logo.png" alt="Overdrive" width="160">
 </p>
 
@@ -8,9 +12,18 @@
   <strong>Architecture-aware autonomous software engineering that learns from every execution, locally and optionally across your team.</strong>
 </p>
 
-**Current release: 1.3.0.** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
+**Current release: 1.5.0.** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
 
-It combines architecture-aware discovery, a single authoritative spec, adaptive execution, autonomous decision-making, test-driven development, systematic debugging, isolated workspaces, code review, evidence-based verification, and a **local Experience Engine** (SQLite, FTS5, TurboVec, lazy MiniLM) that compounds operational knowledge across runs without a memory-management workflow. **1.2** adds opt-in **shared memory circles**: encrypted peer sync over LAN/VPN, folder-scoped recall, and session hooks that consolidate and pull deltas automatically.
+It combines architecture-aware discovery, a single authoritative spec, adaptive execution, autonomous decision-making, test-driven development, systematic debugging, isolated workspaces, code review, evidence-based verification, and a **local Experience Engine** (SQLite, FTS5, TurboVec, lazy MiniLM) that compounds operational knowledge across runs without a memory-management workflow. **1.2** adds opt-in **shared memory circles**; **1.5** adds the **share mesh dashboard** (encrypted chat, WebRTC calls, live terminals) on top of the same circle keys and allowed folders.
+
+### Highlights (1.5)
+
+| Area | What you get |
+|------|----------------|
+| **Mesh dashboard** | Chat, voice/video calls, terminal sharing, and peer machines on `OVERDRIVE_SHARE_UI` while `share listen` runs. |
+| **WebRTC calls** | Mesh signaling, STUN by default, optional TURN (`OVERDRIVE_TURN_*`), screen share with Picture-in-Picture where supported. |
+| **Terminals** | Managed sessions, remote attach, context bundles, and shared workspace artifacts for harness handoff. |
+| **Production CI** | Node signaling contract tests, Playwright fake-media smoke, SonarCloud, and an 82% Go coverage gate (excl. PTY supervisor). |
 
 ### Highlights (1.3)
 
@@ -760,10 +773,17 @@ Overdrive keeps strong engineering disciplines (testing, debugging, review, isol
 
 ## Development and Validation
 
-Run the structural and behavior-oriented local test suite:
+Run the structural and behavior-oriented local test suite (fast path; browser smoke is separate):
 
 ```bash
-python -m pytest -q
+pip install -r requirements-dev.txt
+OVERDRIVE_EMBEDDER=stub python3 -m pytest tests/ -q -m "not playwright"
+```
+
+Go coverage gate (after `go test` in `runtime/experience`):
+
+```bash
+./scripts/go-coverage-gate.sh runtime/experience/coverage.out
 ```
 
 Build all portable Experience Engine runtime binaries (maintainer/CI only; requires Go, Rust, and Zig for cross-platform TurboVec FFI):
@@ -789,7 +809,7 @@ bash -n scripts/*.sh
 ### Releases
 
 GitHub Actions runs on every push to `main` and on pull requests (`.github/workflows/ci.yml`).
-Tagging a version (for example `v1.2.0`, or any `v*` tag on `main`) triggers `.github/workflows/release.yml`, which rebuilds
+Tagging a version (for example `v1.5.0`, or any `v*` tag on `main`) triggers `.github/workflows/release.yml`, which rebuilds
 all six runtime binaries and TurboVec libraries and attaches one zip per OS/arch pair to
 [GitHub Releases](https://github.com/gfrancodev/overdrive/releases).
 The repo also keeps prebuilt artifacts under `runtime/` for zero-toolchain installs; see

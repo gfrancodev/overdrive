@@ -53,7 +53,7 @@ func TestCatalogErrorMatrix(t *testing.T) {
 	project := Project{Root: repo, Repository: "github.com/acme/r", Organization: "github.com/acme"}
 	var ids []string
 	for i := 0; i < 10; i++ {
-		m, err := e.recordMemory(project, "lesson", "repository", "db.go n", "body", 0.9, 1, "verified_execution", "", "db.go")
+		m, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "db.go n", Content: "body", Confidence: 0.9, Priority: 1, Source: "verified_execution", SourceRef: "", Evidence: "db.go"})
 		if err != nil {
 			t.Fatal(err)
 		}

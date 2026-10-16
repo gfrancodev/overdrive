@@ -6,7 +6,6 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"errors"
-	"strings"
 )
 
 type SharedPacket struct {
@@ -27,15 +26,16 @@ type SharedPacket struct {
 }
 
 type SyncRequest struct {
-	DeviceID   string   `json:"device_id"`
-	CircleID   string   `json:"circle_id"`
-	Repository string   `json:"repository"`
-	Since      string   `json:"since"`
-	IDs        []string `json:"ids,omitempty"`
-	Timestamp  string   `json:"timestamp"`
-	ListenAddr string   `json:"listen_addr,omitempty"`
-	Hostname   string   `json:"hostname,omitempty"`
-	Signature  string   `json:"signature"`
+	DeviceID   string         `json:"device_id"`
+	CircleID   string         `json:"circle_id"`
+	Repository string         `json:"repository"`
+	Since      string         `json:"since"`
+	IDs        []string       `json:"ids,omitempty"`
+	Packets    []SharedPacket `json:"packets,omitempty"`
+	Timestamp  string         `json:"timestamp"`
+	ListenAddr string         `json:"listen_addr,omitempty"`
+	Hostname   string         `json:"hostname,omitempty"`
+	Signature  string         `json:"signature"`
 }
 
 type SyncResponse struct {
@@ -203,10 +203,6 @@ func memoryToSharedPacket(m Memory, folder string, hot bool) SharedPacket {
 	if vecSpace == "" {
 		vecSpace = embedderName()
 	}
-	text := packet
-	if text == "" {
-		text = strings.Join([]string{m.Subject, m.Content, m.Evidence}, " ")
-	}
 	return SharedPacket{
 		ID:               m.ID,
 		Kind:             m.Kind,
@@ -218,7 +214,6 @@ func memoryToSharedPacket(m Memory, folder string, hot bool) SharedPacket {
 		SourceFolder:     folder,
 		EvidenceScore:    m.EvidenceScore,
 		Fingerprint:      m.ID,
-		Vector:           embedText(text),
 		VectorSpace:      vecSpace,
 		UpdatedAt:        m.UpdatedAt,
 		HotIndex:         hot,

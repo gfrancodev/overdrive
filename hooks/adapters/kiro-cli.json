@@ -1,0 +1,13 @@
+{
+  "id": "kiro-cli",
+  "channel": "session-stdout",
+  "stdout": "plain",
+  "events": {
+    "SessionStart": "session-start",
+    "Stop": "stop"
+  },
+  "transcript_glob": "~/.kiro/**/*.jsonl",
+  "install": "~/.kiro",
+  "session_end": "finalize-next-start",
+  "optional": false
+}

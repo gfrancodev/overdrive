@@ -1,0 +1,13 @@
+{
+  "id": "devin",
+  "channel": "session-stdout",
+  "stdout": "additionalContext",
+  "events": {
+    "SessionStart": "session-start",
+    "PostCompaction": "before-prompt"
+  },
+  "transcript_glob": "~/.devin/**/*.jsonl",
+  "install": "~/.devin",
+  "session_end": "native",
+  "optional": false
+}

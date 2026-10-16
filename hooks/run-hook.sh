@@ -3,11 +3,11 @@ set -euo pipefail
 
 runtime_path() {
   local home="${OVERDRIVE_HOME:-$HOME/.overdrive}"
-  if [ -n "${OVERDRIVE_BIN_DIR:-}" ] && [ -x "$OVERDRIVE_BIN_DIR/overdrive-runtime" ]; then
+  if [[ -n "${OVERDRIVE_BIN_DIR:-}" ]] && [[ -x "$OVERDRIVE_BIN_DIR/overdrive-runtime" ]]; then
     printf '%s\n' "$OVERDRIVE_BIN_DIR/overdrive-runtime"
     return 0
   fi
-  if [ -x "$home/bin/overdrive-runtime" ]; then
+  if [[ -x "$home/bin/overdrive-runtime" ]]; then
     printf '%s\n' "$home/bin/overdrive-runtime"
     return 0
   fi
@@ -78,34 +78,76 @@ emit_share_context() {
 }
 
 run_session_start() {
-  local runtime share_line
-  if runtime="$(runtime_path 2>/dev/null)"; then
-    "$runtime" session-start --cwd "$PWD" --quiet >/dev/null 2>&1 || true
-  fi
+  local runtime pin share_line
   print_overdrive_intro
-  if [ -n "${runtime:-}" ]; then
-    share_line="$(share_hook_line "$runtime")"
-    if [ -n "$share_line" ] && [ "$share_line" != "share: off (no circle for this folder)" ]; then
-      printf '%s\n' "$share_line"
-      emit_share_context "$share_line"
-    fi
+  if ! runtime="$(runtime_path 2>/dev/null)"; then
+    printf '%s\n' "experience: runtime ausente"
+    return 0
   fi
+  pin="$(OVERDRIVE_TRANSCRIPT_SCAN=1 "$runtime" session-start --cwd "$PWD" --format text 2>/dev/null || true)"
+  if [[ -n "$pin" ]]; then
+    printf '%s\n' "$pin"
+  fi
+  ensure_share_listen "$runtime"
+  share_line="$(share_hook_line "$runtime")"
+  if [[ -n "$share_line" ]] && [[ "$share_line" != "share: off (no circle for this folder)" ]]; then
+    printf '%s\n' "$share_line"
+    emit_share_context "$share_line"
+  fi
+}
+
+ensure_share_listen() {
+  local runtime="$1" status port
+  if [[ "${OVERDRIVE_SHARE_UI:-}" == "off" || "${OVERDRIVE_SHARE_UI:-}" == "0" ]]; then
+    return 0
+  fi
+  status="$("$runtime" share status --cwd "$PWD" --format json 2>/dev/null || true)"
+  if [[ "$status" != *'"mode": "ready"'* && "$status" != *'"mode": "synced"'* ]]; then
+    return 0
+  fi
+  port=7741
+  if (echo >/dev/tcp/127.0.0.1/"$port") >/dev/null 2>&1; then
+    return 0
+  fi
+  OVERDRIVE_SHARE_LISTEN="127.0.0.1:${port}" \
+    OVERDRIVE_SHARE_UI="127.0.0.1:$((port + 1))" \
+    "$runtime" share listen --cwd "$PWD" >/dev/null 2>&1 &
+  disown || true
+}
+
+run_before_prompt() {
+  local runtime payload_file
+  if ! runtime="$(runtime_path 2>/dev/null)"; then
+    return 0
+  fi
+  payload_file="$(mktemp)"
+  if [[ ! -t 0 ]]; then
+    timeout 0.2 cat >"$payload_file" || true
+  fi
+  "$runtime" before-prompt --cwd "$PWD" --payload-file "$payload_file" >/dev/null 2>&1 || true
+  rm -f "$payload_file"
 }
 
 run_session_end() {
   local runtime
   if runtime="$(runtime_path 2>/dev/null)"; then
-    "$runtime" session-end --cwd "$PWD" --quiet >/dev/null 2>&1 || true
+    OVERDRIVE_TRANSCRIPT_SCAN=1 "$runtime" session-end --cwd "$PWD" --quiet >/dev/null 2>&1 || true
   fi
+}
+
+run_stop() {
+  return 0
 }
 
 declare -A HOOK_HANDLERS=(
   [session-start]=run_session_start
   [session-end]=run_session_end
+  [before-prompt]=run_before_prompt
+  [stop]=run_stop
 )
 
 hook="${1:-}"
-if [ -n "${HOOK_HANDLERS[$hook]:-}" ]; then
+if [[ -n "${HOOK_HANDLERS[$hook]:-}" ]]; then
   "${HOOK_HANDLERS[$hook]}"
 else
   exit 0

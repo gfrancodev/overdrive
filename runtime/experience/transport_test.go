@@ -68,9 +68,7 @@ func TestShareTransportSyncRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = eA.recordMemory(project, "lesson", "repository", "ECONNREFUSED proposal.service.ts",
-		"Use ProposalRepository instead of Prisma.", 0.95, 50, "verified_execution", "",
-		"proposal.service.ts integration tests failed with ECONNREFUSED")
+	_, err = eA.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "ECONNREFUSED proposal.service.ts", Content: "Use ProposalRepository instead of Prisma.", Confidence: 0.95, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: "proposal.service.ts integration tests failed with ECONNREFUSED"})
 	if err != nil {
 		t.Fatal(err)
 	}

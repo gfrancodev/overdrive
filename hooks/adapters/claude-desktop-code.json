@@ -1,0 +1,13 @@
+{
+  "id": "claude-desktop-code",
+  "channel": "session-stdout",
+  "stdout": "plain",
+  "events": {
+    "SessionStart": "session-start",
+    "SessionEnd": "session-end"
+  },
+  "transcript_glob": "~/.claude/projects/**/*.jsonl",
+  "install": "~/.claude",
+  "session_end": "native",
+  "optional": false
+}

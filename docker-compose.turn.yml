@@ -1,0 +1,21 @@
+# Local coturn for mesh calls across NAT (development only).
+# Credentials are never committed: set TURN_USERNAME and TURN_PASSWORD in the shell or a local .env file.
+services:
+  coturn:
+    image: coturn/coturn:4.6.2-r8
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TURN_USERNAME: ${TURN_USERNAME:?set TURN_USERNAME}
+      TURN_PASSWORD: ${TURN_PASSWORD:?set TURN_PASSWORD}
+    command:
+      - -n
+      - --log-file=stdout
+      - --listening-port=3478
+      - --fingerprint
+      - --lt-cred-mech
+      - --user=${TURN_USERNAME}:${TURN_PASSWORD}
+      - --realm=overdrive.local
+      - --no-cli
+      - --no-tls
+      - --no-dtls

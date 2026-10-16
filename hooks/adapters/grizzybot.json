@@ -1,0 +1,13 @@
+{
+  "id": "grizzybot",
+  "channel": "local-listen",
+  "stdout": "plain",
+  "events": {
+    "session-start": "session-start",
+    "session-end": "session-end"
+  },
+  "transcript_glob": "",
+  "install": "",
+  "session_end": "native",
+  "optional": false
+}

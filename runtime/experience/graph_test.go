@@ -18,11 +18,11 @@ func TestGraphHopFindsSamePathMemory(t *testing.T) {
 	}
 	defer e.Close()
 	project := Project{Root: home, Repository: "github.com/acme/r", Organization: "github.com/acme"}
-	first, err := e.recordMemory(project, "lesson", "repository", "WAL lock in db.go", "Enable WAL mode for writers", 0.9, 50, "verified_execution", "", "see db.go")
+	first, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "WAL lock in db.go", Content: "Enable WAL mode for writers", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: "see db.go"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := e.recordMemory(project, "lesson", "repository", "HTTP client timeout", "Raise the deadline", 0.9, 50, "verified_execution", "", "also db.go")
+	second, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "HTTP client timeout", Content: "Raise the deadline", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: "also db.go"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,12 +30,17 @@ func TestGraphHopFindsSamePathMemory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	assertSamePathGraphHop(t, resp, first.ID, second.ID)
+}
+
+func assertSamePathGraphHop(t *testing.T, resp RecallResponse, firstID, secondID string) {
+	t.Helper()
 	foundHit := false
 	for _, m := range resp.Memories {
-		if m.ID == first.ID {
+		if m.ID == firstID {
 			foundHit = true
 		}
-		if m.ID == second.ID {
+		if m.ID == secondID {
 			t.Fatalf("second memory ranked without query match: %+v", m)
 		}
 	}
@@ -44,23 +49,28 @@ func TestGraphHopFindsSamePathMemory(t *testing.T) {
 	}
 	foundNeighbor := false
 	for _, m := range resp.GraphNeighbors {
-		if m.ID == second.ID {
+		if m.ID == secondID {
 			foundNeighbor = true
 		}
 	}
 	if !foundNeighbor {
-		t.Fatalf("expected graph neighbor %s, got %v page=%v", second.ID, idsOf(resp.GraphNeighbors), resp.PageIndex)
+		t.Fatalf("expected graph neighbor %s, got %v page=%v", secondID, idsOf(resp.GraphNeighbors), resp.PageIndex)
 	}
 	raw, _ := json.Marshal(resp.PageIndex)
 	if strings.Contains(string(raw), "Enable WAL mode for writers") || strings.Contains(string(raw), "Raise the deadline") {
 		t.Fatalf("page_index leaked lesson body: %s", raw)
 	}
+	assertPageIndexMemories(t, resp.PageIndex, raw, firstID, secondID)
+}
+
+func assertPageIndexMemories(t *testing.T, nodes []PageIndexNode, raw []byte, firstID, secondID string) {
+	t.Helper()
 	sawFirst, sawSecond := false, false
-	for _, n := range resp.PageIndex {
-		if n.MemoryID == first.ID {
+	for _, n := range nodes {
+		if n.MemoryID == firstID {
 			sawFirst = true
 		}
-		if n.MemoryID == second.ID {
+		if n.MemoryID == secondID {
 			sawSecond = true
 		}
 	}
@@ -90,7 +100,7 @@ func TestCatalogGraphOmitsSecrets(t *testing.T) {
 	}
 	defer e.Close()
 	project := Project{Root: "/srv/workstation", Repository: "github.com/acme/r", Organization: "github.com/acme"}
-	if _, err := e.recordMemory(project, "lesson", "repository", "Use WAL", "secret body should not leak", 0.9, 50, "verified_execution", "", "db.go"); err != nil {
+	if _, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "Use WAL", Content: "secret body should not leak", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: "db.go"}); err != nil {
 		t.Fatal(err)
 	}
 	resp, err := e.buildCatalogResponse(circle, id, priv)
@@ -119,10 +129,15 @@ func TestGraphTokensSkipGenericAcronyms(t *testing.T) {
 	}
 	defer e.Close()
 	project := Project{Root: home, Repository: "github.com/acme/r", Organization: "github.com/acme"}
-	m, err := e.recordMemory(project, "lesson", "repository", "WAL HTTP FTS", "secret lesson body", 0.9, 50, "verified_execution", "", "db.go SQLITE_BUSY E500")
+	m, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "WAL HTTP FTS", Content: "secret lesson body", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: "db.go SQLITE_BUSY E500"})
 	if err != nil {
 		t.Fatal(err)
 	}
+	assertGraphTokenNodes(t, e, m)
+}
+
+func assertGraphTokenNodes(t *testing.T, e *Engine, m Memory) {
+	t.Helper()
 	rows, err := e.db.Query(`SELECT kind, title FROM graph_nodes`)
 	if err != nil {
 		t.Fatal(err)
@@ -151,6 +166,11 @@ func TestGraphTokensSkipGenericAcronyms(t *testing.T) {
 	if !pathNodes["db.go"] {
 		t.Fatalf("expected db.go path node, got %v", pathNodes)
 	}
+	assertMemoryGraphCard(t, m)
+}
+
+func assertMemoryGraphCard(t *testing.T, m Memory) {
+	t.Helper()
 	card := memoryGraphSummary(m)
 	if strings.Contains(card, "secret lesson body") {
 		t.Fatalf("index card leaked lesson body: %s", card)
@@ -172,7 +192,7 @@ func TestRecordFailsWhenGraphStoreClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	project := Project{Root: home, Repository: "github.com/acme/r", Organization: "github.com/acme"}
-	if _, err := e.recordMemory(project, "lesson", "repository", "Use WAL", "body", 0.9, 50, "verified_execution", "", "db.go"); err == nil {
+	if _, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "Use WAL", Content: "body", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: "db.go"}); err == nil {
 		t.Fatal("expected record to fail when graph write fails")
 	}
 	var n int
@@ -193,7 +213,7 @@ func TestMentionsIgnoreLessonBody(t *testing.T) {
 	}
 	defer e.Close()
 	project := Project{Root: home, Repository: "github.com/acme/r", Organization: "github.com/acme"}
-	if _, err := e.recordMemory(project, "lesson", "repository", "plain timeout", "see secret.go SQLITE_BUSY", 0.9, 50, "verified_execution", "", "no path here"); err != nil {
+	if _, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "plain timeout", Content: "see secret.go SQLITE_BUSY", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: "no path here"}); err != nil {
 		t.Fatal(err)
 	}
 	rows, err := e.db.Query(`SELECT kind, title FROM graph_nodes WHERE kind IN ('path', 'error')`)
@@ -221,11 +241,11 @@ func TestSameFolderDoesNotBecomeRecallNeighbor(t *testing.T) {
 	}
 	defer e.Close()
 	project := Project{Root: home, Repository: "github.com/acme/r", Organization: "github.com/acme"}
-	first, err := e.recordMemory(project, "lesson", "repository", "WAL lock in db.go", "Enable WAL", 0.9, 50, "verified_execution", "", "see db.go")
+	first, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "WAL lock in db.go", Content: "Enable WAL", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: "see db.go"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := e.recordMemory(project, "lesson", "repository", "unrelated timeout", "Raise the deadline", 0.9, 50, "verified_execution", "", "http.go")
+	second, err := e.recordMemory(memoryRecord{Project: project, Kind: "lesson", Scope: "repository", Subject: "unrelated timeout", Content: "Raise the deadline", Confidence: 0.9, Priority: 50, Source: "verified_execution", SourceRef: "", Evidence: "http.go"})
 	if err != nil {
 		t.Fatal(err)
 	}
