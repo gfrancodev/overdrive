@@ -6,7 +6,6 @@ use turbovec::IdMapIndex;
 struct Handle {
     index: IdMapIndex,
     path: String,
-    dim: usize,
 }
 
 fn read_cstr(ptr: *const c_char) -> Option<String> {
@@ -41,7 +40,6 @@ pub extern "C" fn od_tv_open(path: *const c_char, dim: c_int, bit_width: c_int) 
     Box::into_raw(Box::new(Handle {
         index,
         path: path_str,
-        dim,
     })) as *mut c_void
 }
 
