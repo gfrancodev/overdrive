@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## 1.5.0 - 2026-10-16
+## 2.0.0 - 2026-10-16
 
 ### Share mesh dashboard
 

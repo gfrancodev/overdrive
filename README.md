@@ -12,11 +12,11 @@
   <strong>Architecture-aware autonomous software engineering that learns from every execution, locally and optionally across your team.</strong>
 </p>
 
-**Current release: 1.5.0.** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
+**Current release: 2.0.0.** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
 
-It combines architecture-aware discovery, a single authoritative spec, adaptive execution, autonomous decision-making, test-driven development, systematic debugging, isolated workspaces, code review, evidence-based verification, and a **local Experience Engine** (SQLite, FTS5, TurboVec, lazy MiniLM) that compounds operational knowledge across runs without a memory-management workflow. **1.2** adds opt-in **shared memory circles**; **1.5** adds the **share mesh dashboard** (encrypted chat, WebRTC calls, live terminals) on top of the same circle keys and allowed folders.
+It combines architecture-aware discovery, a single authoritative spec, adaptive execution, autonomous decision-making, test-driven development, systematic debugging, isolated workspaces, code review, evidence-based verification, and a **local Experience Engine** (SQLite, FTS5, TurboVec, lazy MiniLM) that compounds operational knowledge across runs without a memory-management workflow. **1.2** adds opt-in **shared memory circles**; **2.0** adds the **share mesh dashboard** (encrypted chat, WebRTC calls, live terminals) on top of the same circle keys and allowed folders.
 
-### Highlights (1.5)
+### Highlights (2.0)
 
 | Area | What you get |
 |------|----------------|
@@ -809,7 +809,7 @@ bash -n scripts/*.sh
 ### Releases
 
 GitHub Actions runs on every push to `main` and on pull requests (`.github/workflows/ci.yml`).
-Tagging a version (for example `v1.5.0`, or any `v*` tag on `main`) triggers `.github/workflows/release.yml`, which rebuilds
+Tagging a version (for example `v2.0.0`, or any `v*` tag on `main`) triggers `.github/workflows/release.yml`, which rebuilds
 all six runtime binaries and TurboVec libraries and attaches one zip per OS/arch pair to
 [GitHub Releases](https://github.com/gfrancodev/overdrive/releases).
 The repo also keeps prebuilt artifacts under `runtime/` for zero-toolchain installs; see
