@@ -637,24 +637,16 @@ func dialTerminalP2PStream(home string, circle Circle, self DeviceIdentity, priv
 	if err != nil {
 		return nil, nil, err
 	}
-	cfg := &tls.Config{
-		MinVersion:         tls.VersionTLS13,
-		Certificates:       []tls.Certificate{cert},
-		ServerName:         peerDeviceID,
-		InsecureSkipVerify: true,
-		VerifyPeerCertificate: func(raw [][]byte, _ [][]*x509.Certificate) error {
-			return verifyDeviceCert(raw, func(pub ed25519.PublicKey) error {
-				member, ok := circle.activeMember(peerDeviceID)
-				if !ok {
-					return errors.New("peer not in circle")
-				}
-				if member.PublicKey != base64.StdEncoding.EncodeToString(pub) {
-					return errors.New("peer cert mismatch")
-				}
-				return nil
-			})
-		},
-	}
+	cfg := circleTLSClientConfig(cert, peerDeviceID, func(pub ed25519.PublicKey) error {
+		member, ok := circle.activeMember(peerDeviceID)
+		if !ok {
+			return errors.New("peer not in circle")
+		}
+		if member.PublicKey != base64.StdEncoding.EncodeToString(pub) {
+			return errors.New("peer cert mismatch")
+		}
+		return nil
+	})
 	dctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	conn, err := (&tls.Dialer{NetDialer: &net.Dialer{Timeout: 2 * time.Second}, Config: cfg}).DialContext(dctx, "tcp", addr)

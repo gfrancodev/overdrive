@@ -11,21 +11,21 @@ jobs:
     name: Validate and test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.0.0
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.0.0
         with:
           python-version: "3.12"
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
         with:
           go-version: "1.27.2"
           cache-dependency-path: runtime/experience/go.sum
 
       - name: Install test dependencies
-        run: 'pip install --only-binary :all: -r requirements-dev.txt'
+        run: pip install --only-binary :all: 'pytest==9.1.1' 'pytest-playwright==0.7.2'
 
       - name: Build host runtime for installer test
         working-directory: runtime/experience
@@ -72,11 +72,11 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.0.0
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
         with:
           go-version: "1.27.2"
           cache-dependency-path: runtime/experience/go.sum
@@ -94,7 +94,9 @@ jobs:
 
       - name: Install gremlins
         if: steps.filter.outputs.run == 'true'
-        run: go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
+        run: |
+          go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
+          go version -m "$(go env GOPATH)/bin/gremlins" | grep -F 'github.com/go-gremlins/gremlins'
 
       - name: Mutation gate
         if: steps.filter.outputs.run == 'true'
@@ -107,19 +109,19 @@ jobs:
     name: Browser call smoke
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.0.0
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.0.0
         with:
           python-version: "3.12"
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
         with:
           go-version: "1.27.2"
           cache-dependency-path: runtime/experience/go.sum
 
       - name: Install test dependencies
-        run: 'pip install --only-binary :all: -r requirements-dev.txt'
+        run: pip install --only-binary :all: 'pytest==9.1.1' 'pytest-playwright==0.7.2'
 
       - name: Install Playwright Chromium
         run: python3 -m playwright install chromium

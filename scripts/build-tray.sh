@@ -40,16 +40,16 @@ build_one() {
 }
 
 name="overdrive-tray-${host_os}-${host_arch}"
-if [[ "$host_os" == "windows" ]]; then
+if [[ "$host_os" = "windows" ]]; then
   name="${name}.exe"
 fi
 cgo=0
-if [[ "$host_os" == "darwin" ]]; then
+if [[ "$host_os" = "darwin" ]]; then
   cgo=1
 fi
 build_one "$host_os" "$host_arch" "$cgo" "$name"
 
-if [[ "$host_os" == "linux" ]]; then
+if [[ "$host_os" = "linux" ]]; then
   build_one windows amd64 0 overdrive-tray-windows-amd64.exe
   build_one windows arm64 0 overdrive-tray-windows-arm64.exe
 fi

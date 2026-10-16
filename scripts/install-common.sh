@@ -135,7 +135,7 @@ install_tree_has_forbidden_payload() {
 
 tray_artifact_name() {
   local os="$1" arch="$2"
-  if [[ "$os" == "windows" ]]; then
+  if [[ "$os" = "windows" ]]; then
     echo "overdrive-tray-${os}-${arch}.exe"
   elif [[ -n "$os" && -n "$arch" ]]; then
     echo "overdrive-tray-${os}-${arch}"
@@ -145,7 +145,7 @@ tray_artifact_name() {
 }
 
 tray_installed_name() {
-  if [[ "$1" == "windows" ]]; then
+  if [[ "$1" = "windows" ]]; then
     echo "overdrive-tray.exe"
   else
     echo "overdrive-tray"
@@ -170,7 +170,7 @@ install_tray_for_platform() {
   src="$root/runtime/tray"
   if [[ -f "$src/go.mod" ]] && command -v go >/dev/null 2>&1; then
     cgo=0
-    if [[ "$os" == "darwin" ]]; then
+    if [[ "$os" = "darwin" ]]; then
       cgo=1
     fi
     if (

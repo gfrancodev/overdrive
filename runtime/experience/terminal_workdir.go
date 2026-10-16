@@ -143,12 +143,31 @@ func sharedWorkspaceShortLabel(workspaceID string) string {
 	return "ws_" + hex.EncodeToString(sum[:4])
 }
 
-func countCircleWorkspaces(home, circleID string) int {
+func resolveCircleScopedPath(home, circleID string, elems ...string) (string, error) {
 	circleID = sanitizeSharedWorkspaceSegment(circleID)
 	if circleID == "" {
+		return "", errors.New("invalid circle id")
+	}
+	for _, elem := range elems {
+		if strings.Contains(filepath.ToSlash(elem), "..") {
+			return "", errors.New(errMsgPathTraversal)
+		}
+	}
+	parts := append([]string{circlesDir(home), circleID}, elems...)
+	candidate := filepath.Clean(filepath.Join(parts...))
+	base := filepath.Clean(circlesDir(home)) + string(os.PathSeparator)
+	if !strings.HasPrefix(candidate, base) {
+		return "", errors.New(errMsgPathTraversal)
+	}
+	return candidate, nil
+}
+
+func countCircleWorkspaces(home, circleID string) int {
+	dir, err := resolveCircleScopedPath(home, circleID, "workspaces")
+	if err != nil {
 		return 0
 	}
-	entries, err := os.ReadDir(filepath.Join(circlesDir(home), circleID, "workspaces"))
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return 0
 	}
@@ -161,20 +180,31 @@ func countCircleWorkspaces(home, circleID string) int {
 	return n
 }
 
-func circleTerminalSessionLinkPath(home, circleID, workspaceID, workName string, multiWorkspace bool) string {
-	if multiWorkspace {
-		return filepath.Join(circlesDir(home), circleID, "sessions", sharedWorkspaceShortLabel(workspaceID), workName)
+func circleTerminalSessionLinkPath(home, circleID, workspaceID, workName string, multiWorkspace bool) (string, error) {
+	workName = sanitizeSharedWorkspaceSegment(workName)
+	if workName == "" {
+		return "", errors.New("invalid session name")
 	}
-	return filepath.Join(circlesDir(home), circleID, "sessions", workName)
+	if multiWorkspace {
+		label := sanitizeSharedWorkspaceSegment(sharedWorkspaceShortLabel(workspaceID))
+		if label == "" {
+			label = "ws"
+		}
+		return resolveCircleScopedPath(home, circleID, "sessions", label, workName)
+	}
+	return resolveCircleScopedPath(home, circleID, "sessions", workName)
 }
 
 // ensureCircleTerminalSessionLink exposes a shorter logical cwd (circles/.../sessions/...) while the
 // synced tree remains under circles/.../workspaces/ws_*/sessions/...
 func ensureCircleTerminalSessionLink(home, circleID, workspaceID, workName, sessionDir string) (string, error) {
-	multi := countCircleWorkspaces(home, circleID) > 1
-	linkPath := circleTerminalSessionLinkPath(home, circleID, workspaceID, workName, multi)
 	fallback := func() (string, error) {
 		return canonicalTerminalWorkingDirectory(sessionDir)
+	}
+	multi := countCircleWorkspaces(home, circleID) > 1
+	linkPath, err := circleTerminalSessionLinkPath(home, circleID, workspaceID, workName, multi)
+	if err != nil {
+		return fallback()
 	}
 	if err := hookMkdirAll(filepath.Dir(linkPath), 0o700); err != nil {
 		return fallback()
@@ -219,7 +249,7 @@ func ensureTerminalWorkSessionDirectory(home, deviceID, circleID, projectRoot st
 		return "", err
 	}
 	workName := experienceWorkSessionSegment(home, project)
-	rel := filepath.Join("sessions", workName)
+	rel := "sessions/" + workName
 	sessionDir, err := resolveSharedWorkspacePath(wsRoot, rel)
 	if err != nil {
 		return "", err

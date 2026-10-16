@@ -63,9 +63,13 @@ pub extern "C" fn od_tv_add(
     if handle.is_null() || vector.is_null() || dim <= 0 {
         return -1;
     }
-    let handle = unsafe { &mut *(handle as *mut Handle) };
     let dim = dim as usize;
-    let slice = unsafe { std::slice::from_raw_parts(vector, dim) };
+    let (handle, slice) = unsafe {
+        (
+            &mut *(handle as *mut Handle),
+            std::slice::from_raw_parts(vector, dim),
+        )
+    };
     let ids = [id as u64];
     match handle.index.add_with_ids(slice, &ids) {
         Ok(()) => 0,
@@ -78,8 +82,8 @@ pub extern "C" fn od_tv_remove(handle: *mut c_void, id: c_ulonglong) -> c_int {
     if handle.is_null() {
         return -1;
     }
-    let handle = unsafe { &mut *(handle as *mut Handle) };
-    if handle.index.remove(id as u64) {
+    let removed = unsafe { (*(handle as *mut Handle)).index.remove(id as u64) };
+    if removed {
         0
     } else {
         -2
@@ -138,8 +142,11 @@ pub extern "C" fn od_tv_sync(handle: *mut c_void) -> c_int {
     if handle.is_null() {
         return -1;
     }
-    let handle = unsafe { &mut *(handle as *mut Handle) };
-    match handle.index.sync(&handle.path) {
+    let err = unsafe {
+        let handle = &mut *(handle as *mut Handle);
+        handle.index.sync(&handle.path)
+    };
+    match err {
         Ok(()) => 0,
         Err(_) => -2,
     }

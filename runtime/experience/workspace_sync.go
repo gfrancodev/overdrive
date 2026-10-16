@@ -89,20 +89,54 @@ func resolveSharedWorkspacePath(root, rel string) (string, error) {
 	}
 	resolved, err := filepath.EvalSymlinks(candidate)
 	if err != nil {
-		if os.IsNotExist(err) {
-			// allow creating new files under root without existing symlink target
-			if !strings.HasPrefix(candidate, root+string(os.PathSeparator)) && candidate != root {
-				return "", errors.New(errMsgPathTraversal)
-			}
-			return candidate, nil
+		// Uniform handling: missing leaf paths still use the prefix-checked candidate.
+		if !sharedWorkspacePathWithinRoot(candidate, root, rootPrefix) {
+			return "", errors.New(errMsgPathTraversal)
 		}
-		return "", err
+		return candidate, nil
 	}
 	resolvedRootPrefix := resolvedRoot + string(os.PathSeparator)
 	if resolved != resolvedRoot && !strings.HasPrefix(resolved, resolvedRootPrefix) {
 		return "", errors.New("symlink escapes workspace root")
 	}
 	return resolved, nil
+}
+
+func sharedWorkspacePathWithinRoot(candidate, root, rootPrefix string) bool {
+	candidate = filepath.Clean(candidate)
+	root = filepath.Clean(root)
+	if candidate == root {
+		return true
+	}
+	if rootPrefix == "" {
+		rootPrefix = root + string(os.PathSeparator)
+	}
+	return strings.HasPrefix(candidate, rootPrefix)
+}
+
+func writeSharedWorkspaceFile(root, rel string, data []byte, mode os.FileMode) error {
+	path, err := resolveSharedWorkspacePath(root, rel)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, mode)
+}
+
+func createSharedWorkspaceFile(root, rel string, data []byte, mode os.FileMode) error {
+	path, err := resolveSharedWorkspacePath(root, rel)
+	if err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return nil
+		}
+		return err
+	}
+	defer f.Close()
+	_, err = f.Write(data)
+	return err
 }
 
 func defaultSharedWorkspaceLayout() map[string]string {
@@ -139,14 +173,7 @@ func EnsureSharedWorkspace(home, circleID, workspaceID, deviceID string) (string
 
 func seedSharedWorkspaceFiles(root string) error {
 	for rel, content := range defaultSharedWorkspaceLayout() {
-		path, err := resolveSharedWorkspacePath(root, rel)
-		if err != nil {
-			return err
-		}
-		if _, err := os.Stat(path); err == nil {
-			continue
-		}
-		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		if err := createSharedWorkspaceFile(root, rel, []byte(content), 0o600); err != nil {
 			return err
 		}
 	}
@@ -154,18 +181,15 @@ func seedSharedWorkspaceFiles(root string) error {
 }
 
 func ensureSharedWorkspaceManifest(root, circleID, workspaceID, deviceID string) error {
-	manifestPath, err := resolveSharedWorkspacePath(root, sharedWorkspaceManifestFile)
-	if err != nil {
-		return err
-	}
-	if _, err := os.Stat(manifestPath); !os.IsNotExist(err) {
-		return nil
-	}
 	m := SharedWorkspaceManifest{
 		WorkspaceID: workspaceID, CircleID: circleID, Version: 1,
 		UpdatedAt: terminalNow(), UpdatedByDevice: deviceID, Files: map[string]SharedWorkspaceFile{},
 	}
-	return writeSharedWorkspaceManifest(root, m)
+	raw, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+	return createSharedWorkspaceFile(root, sharedWorkspaceManifestFile, raw, 0o600)
 }
 
 func readSharedWorkspaceManifest(root string) (SharedWorkspaceManifest, error) {
@@ -188,10 +212,6 @@ func readSharedWorkspaceManifest(root string) (SharedWorkspaceManifest, error) {
 }
 
 func writeSharedWorkspaceManifest(root string, m SharedWorkspaceManifest) error {
-	path, err := resolveSharedWorkspacePath(root, sharedWorkspaceManifestFile)
-	if err != nil {
-		return err
-	}
 	if m.Files == nil {
 		m.Files = map[string]SharedWorkspaceFile{}
 	}
@@ -199,7 +219,7 @@ func writeSharedWorkspaceManifest(root string, m SharedWorkspaceManifest) error 
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, raw, 0o600)
+	return writeSharedWorkspaceFile(root, sharedWorkspaceManifestFile, raw, 0o600)
 }
 
 func hashSharedWorkspaceFile(path string) (SharedWorkspaceFile, error) {
@@ -234,8 +254,7 @@ func WriteSharedWorkspaceArtifact(home, circleID, workspaceID, deviceID, relName
 		return SharedWorkspaceFile{}, err
 	}
 	rel := filepath.ToSlash(filepath.Join("artifacts", filepath.Base(relName)))
-	dest, err := resolveSharedWorkspacePath(root, rel)
-	if err != nil {
+	if _, err := resolveSharedWorkspacePath(root, rel); err != nil {
 		return SharedWorkspaceFile{}, err
 	}
 	if len(payload) > sharedWorkspaceMaxBytes {
@@ -250,16 +269,15 @@ func WriteSharedWorkspaceArtifact(home, circleID, workspaceID, deviceID, relName
 	}
 	if prev, ok := manifest.Files[rel]; ok && prev.SHA256 != "" && prev.SHA256 != newHash {
 		conflictRel := strings.TrimSuffix(rel, filepath.Ext(rel)) + ".conflict-" + randomToken(6) + filepath.Ext(rel)
-		conflictPath, err := resolveSharedWorkspacePath(root, conflictRel)
-		if err != nil {
+		if _, err := resolveSharedWorkspacePath(root, conflictRel); err != nil {
 			return SharedWorkspaceFile{}, err
 		}
-		if err := os.WriteFile(conflictPath, payload, 0o600); err != nil {
+		if err := writeSharedWorkspaceFile(root, conflictRel, payload, 0o600); err != nil {
 			return SharedWorkspaceFile{}, err
 		}
 		entry.Path = conflictRel
 		rel = conflictRel
-	} else if err := os.WriteFile(dest, payload, 0o600); err != nil {
+	} else if err := writeSharedWorkspaceFile(root, rel, payload, 0o600); err != nil {
 		return SharedWorkspaceFile{}, err
 	}
 	manifest.Files[rel] = entry

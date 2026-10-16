@@ -22,8 +22,14 @@ var (
 	noteURL  atomic.Value
 )
 
+const (
+	gnomeGsettingsBin        = "gsettings"
+	gnomeNotificationsSchema = "org.gnome.desktop.notifications"
+	gnomeShowBannersKey      = "show-banners"
+)
+
 func notificationsPaused() bool {
-	out, err := exec.Command("gsettings", "get", "org.gnome.desktop.notifications", "show-banners").Output()
+	out, err := exec.Command(gnomeGsettingsBin, "get", gnomeNotificationsSchema, gnomeShowBannersKey).Output()
 	return quiet.Paused(quiet.GnomeBannersDisabled(string(out), err), dbusInhibited())
 }
 

@@ -309,6 +309,11 @@ func decodePeers(body []byte) (Peers, error) {
 			return Peers{}, ErrBadStatus
 		}
 	}
+	decodePeersTerminalFields(raw, &out)
+	return out, nil
+}
+
+func decodePeersTerminalFields(raw map[string]json.RawMessage, out *Peers) {
 	if inc, ok := raw["incoming_call"]; ok && string(inc) != "null" {
 		var ring struct {
 			CallID string `json:"call_id"`
@@ -331,7 +336,6 @@ func decodePeers(body []byte) (Peers, error) {
 		_ = json.Unmarshal(v, &out.TerminalControlID)
 		out.TerminalControlID = strings.TrimSpace(out.TerminalControlID)
 	}
-	return out, nil
 }
 
 // CallDeepLink returns the dashboard URL focused on the call panel.

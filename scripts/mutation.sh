@@ -30,12 +30,12 @@ for file in *.go; do
   esac
   kept=0
   for name in "${allow[@]}"; do
-    if [ "$file" = "$name" ]; then
+    if [[ "$file" = "$name" ]]; then
       kept=1
       break
     fi
   done
-  if [ "$kept" -eq 0 ]; then
+  if [[ "$kept" -eq 0 ]]; then
     exclude_re+=("$(printf '%s' "$file" | sed 's/[.[\*^$()+?{|]/\\&/g')")
   fi
 done

@@ -69,7 +69,10 @@ func TestCircleTerminalSessionLinkPathMultiWorkspace(t *testing.T) {
 	home := t.TempDir()
 	circleID := "circle_multi"
 	wsB := sharedWorkspaceIDForRepository("github.com/other/demo")
-	got := circleTerminalSessionLinkPath(home, circleID, wsB, "sess_test", true)
+	got, err := circleTerminalSessionLinkPath(home, circleID, wsB, "sess_test", true)
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := filepath.Join(circlesDir(home), circleID, "sessions", "demo", "sess_test")
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
@@ -91,7 +94,10 @@ func TestEnsureCircleTerminalSessionLinkCreatesSymlink(t *testing.T) {
 	if strings.Contains(got, string(filepath.Separator)+"workspaces"+string(filepath.Separator)) {
 		t.Fatalf("expected display path without workspaces: %s", got)
 	}
-	link := circleTerminalSessionLinkPath(home, circleID, wsID, "sess_a", false)
+	link, err := circleTerminalSessionLinkPath(home, circleID, wsID, "sess_a", false)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if st, err := os.Lstat(link); err != nil || st.Mode()&os.ModeSymlink == 0 {
 		t.Fatalf("expected symlink at %s: %v", link, err)
 	}

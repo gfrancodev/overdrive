@@ -457,19 +457,9 @@ func dialMeshClient(home string, circle Circle, self DeviceIdentity, priv ed2551
 	if err != nil {
 		return nil, err
 	}
-	cfg := &tls.Config{
-		MinVersion:   tls.VersionTLS13,
-		Certificates: []tls.Certificate{cert},
-		ServerName:   brokerID,
-		// Hostname and public CA checks are skipped. VerifyPeerCertificate still
-		// requires a certificate signed by the elected device's ed25519 key.
-		InsecureSkipVerify: true,
-		VerifyPeerCertificate: func(raw [][]byte, _ [][]*x509.Certificate) error {
-			return verifyDeviceCert(raw, func(pub ed25519.PublicKey) error {
-				return allowBrokerKey(circleForTLS(home, circle), brokerID, pub)
-			})
-		},
-	}
+	cfg := circleTLSClientConfig(cert, brokerID, func(pub ed25519.PublicKey) error {
+		return allowBrokerKey(circleForTLS(home, circle), brokerID, pub)
+	})
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
 	conn, err := (&tls.Dialer{NetDialer: &net.Dialer{Timeout: 2 * time.Second}, Config: cfg}).DialContext(ctx, "tcp", addr)

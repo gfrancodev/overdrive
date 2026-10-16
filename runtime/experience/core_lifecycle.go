@@ -205,7 +205,8 @@ func coreDashboardURL() (string, error) {
 	if !ok {
 		return "", errors.New("share ui is off")
 	}
-	return "http://" + addr + "/", nil
+	// shareUIAddr binds the dashboard to loopback; HTTP is intentional for local UI only.
+	return "http://" + addr + "/", nil // NOSONAR go:S5332
 }
 
 func currentCoreStatus() coreStatus {
