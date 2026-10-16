@@ -135,7 +135,7 @@ CI enforces Go coverage via `scripts/go-coverage-gate.sh` (≥82%, excluding `te
 **SonarCloud** (`sonar.projectKey=gfrancodev_overdrive`, `sonar.organization=devgfrancodev` in
 `sonar-project.properties`; the organization **key** is not always the display name). This project
 currently uses **Automatic Analysis** on SonarCloud. You cannot run `sonar-scanner` from GitHub
-Actions at the same time — the scanner fails with *You are running CI analysis while Automatic
+Actions at the same time; the scanner fails with *You are running CI analysis while Automatic
 Analysis is enabled*.
 
 To use CI-based analysis with coverage reports instead:
