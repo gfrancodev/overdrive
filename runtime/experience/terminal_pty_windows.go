@@ -7,15 +7,14 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"syscall"
-	"unsafe"
-
-	"golang.org/x/sys/windows"
 )
 
 type ptyHandle struct {
-	conIn  *windows.Handle
-	conOut *windows.Handle
+	inW    *os.File
+	outR   *os.File
 	cmd    *exec.Cmd
 	closed bool
 }
@@ -27,96 +26,52 @@ func startPTY(command string, args []string, dir string, env []string, cols, row
 	if rows == 0 {
 		rows = 24
 	}
-	inRead, inWrite, err := os.Pipe()
+	inR, inW, err := os.Pipe()
 	if err != nil {
 		return nil, err
 	}
-	outRead, outWrite, err := os.Pipe()
+	outR, outW, err := os.Pipe()
 	if err != nil {
-		_ = inRead.Close()
-		_ = inWrite.Close()
+		_ = inR.Close()
+		_ = inW.Close()
 		return nil, err
 	}
 
-	coord := windows.Coord{X: int16(cols), Y: int16(rows)}
-	var hIn, hOut windows.Handle
-	if err := windows.CreatePseudoConsole(coord, windows.Handle(inRead.Fd()), windows.Handle(outWrite.Fd()), 0, &hIn, &hOut); err != nil {
-		_ = inRead.Close()
-		_ = inWrite.Close()
-		_ = outRead.Close()
-		_ = outWrite.Close()
-		return nil, fmt.Errorf("CreatePseudoConsole: %w", err)
-	}
-	_ = inRead.Close()
-	_ = outWrite.Close()
-
-	exe, err := windows.UTF16PtrFromString(command)
-	if err != nil {
-		closePseudo(hIn, hOut)
-		return nil, err
-	}
-	argv, err := windows.UTF16PtrFromString(command)
-	if err != nil {
-		closePseudo(hIn, hOut)
-		return nil, err
-	}
-	attr := &windows.ProcThreadAttributeListContainer{}
 	cmd := exec.Command(command, args...)
 	cmd.Dir = dir
 	cmd.Env = ensurePTYEnv(env)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		CreationFlags: windows.CREATE_UNICODE_ENVIRONMENT | windows.EXTENDED_STARTUPINFO_PRESENT,
-	}
-	if len(args) > 0 {
-		_ = argv
-	}
-	_ = exe
-	_ = attr
-
-	// Attach ConPTY to child via STARTUPINFOEX — simplified path uses extra files.
-	cmd.ExtraFiles = []*os.File{os.NewFile(uintptr(hIn), "conin"), os.NewFile(uintptr(hOut), "conout")}
-	cmd.Stdin = os.NewFile(uintptr(hIn), "stdin")
-	cmd.Stdout = os.NewFile(uintptr(outRead.Fd()), "stdout")
-	cmd.Stderr = os.NewFile(uintptr(outRead.Fd()), "stderr")
+	cmd.Stdin = inR
+	cmd.Stdout = outW
+	cmd.Stderr = outW
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	if err := cmd.Start(); err != nil {
-		closePseudo(hIn, hOut)
-		_ = outRead.Close()
+		_ = inR.Close()
+		_ = inW.Close()
+		_ = outR.Close()
+		_ = outW.Close()
 		return nil, err
 	}
-	return &ptyHandle{conIn: &hIn, conOut: &hOut, cmd: cmd}, nil
-}
-
-func closePseudo(hIn, hOut windows.Handle) {
-	_ = windows.ClosePseudoConsole(hIn)
-	_ = windows.CloseHandle(hOut)
+	_ = inR.Close()
+	_ = outW.Close()
+	return &ptyHandle{inW: inW, outR: outR, cmd: cmd}, nil
 }
 
 func (p *ptyHandle) Read(b []byte) (int, error) {
-	if p == nil || p.cmd == nil || p.cmd.Stdout == nil {
+	if p == nil || p.outR == nil {
 		return 0, io.EOF
 	}
-	if f, ok := p.cmd.Stdout.(*os.File); ok {
-		return f.Read(b)
-	}
-	return 0, io.EOF
+	return p.outR.Read(b)
 }
 
 func (p *ptyHandle) Write(b []byte) (int, error) {
-	if p == nil || p.cmd == nil || p.cmd.Stdin == nil {
+	if p == nil || p.inW == nil {
 		return 0, io.EOF
 	}
-	if f, ok := p.cmd.Stdin.(*os.File); ok {
-		return f.Write(b)
-	}
-	return 0, io.EOF
+	return p.inW.Write(b)
 }
 
 func (p *ptyHandle) Resize(cols, rows uint16) error {
-	if p == nil || p.conIn == nil {
-		return fmt.Errorf("pty closed")
-	}
-	coord := windows.Coord{X: int16(cols), Y: int16(rows)}
-	return windows.ResizePseudoConsole(*p.conIn, coord)
+	return nil
 }
 
 func (p *ptyHandle) Signal(sig syscall.Signal) error {
@@ -147,11 +102,11 @@ func (p *ptyHandle) Close() error {
 		return nil
 	}
 	p.closed = true
-	if p.conIn != nil {
-		_ = windows.ClosePseudoConsole(*p.conIn)
+	if p.inW != nil {
+		_ = p.inW.Close()
 	}
-	if p.conOut != nil {
-		_ = windows.CloseHandle(*p.conOut)
+	if p.outR != nil {
+		_ = p.outR.Close()
 	}
 	return nil
 }
@@ -164,5 +119,12 @@ func defaultShellCommand() (string, []string) {
 	return comspec, []string{"/Q", "/K"}
 }
 
-// silence unused on older windows builds
-var _ = unsafe.Pointer(nil)
+func isInteractiveShell(command string) bool {
+	base := strings.ToLower(filepath.Base(command))
+	switch base {
+	case "cmd.exe", "powershell.exe", "pwsh.exe", "bash.exe":
+		return true
+	default:
+		return strings.Contains(base, "powershell") || strings.Contains(base, "pwsh")
+	}
+}

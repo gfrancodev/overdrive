@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build linux
 
 package main
 
@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strings"
 	"syscall"
 
 	"golang.org/x/sys/unix"
@@ -137,23 +136,3 @@ func (p *ptyHandle) Close() error {
 	return nil
 }
 
-func defaultShellCommand() (string, []string) {
-	shell := os.Getenv("SHELL")
-	if shell == "" {
-		shell = "/bin/sh"
-	}
-	return shell, []string{"-i"}
-}
-
-func isInteractiveShell(command string) bool {
-	base := strings.ToLower(command)
-	if i := strings.LastIndex(base, "/"); i >= 0 {
-		base = base[i+1:]
-	}
-	switch base {
-	case "bash", "zsh", "sh", "fish", "dash":
-		return true
-	default:
-		return strings.Contains(base, "bash") || strings.Contains(base, "zsh")
-	}
-}

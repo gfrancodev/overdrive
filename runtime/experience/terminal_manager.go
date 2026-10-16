@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -184,7 +183,7 @@ func (m *TerminalManager) spawnSessionHost(sess TerminalSession, opts terminalCr
 	cmd := exec.Command(exe, args...)
 	cmd.Dir = sess.WorkingDirectory
 	cmd.Env = env
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	configureSessionHostCmd(cmd)
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -239,9 +238,8 @@ func (m *TerminalManager) reapOrphanHosts() {
 		if tracked || r.pid <= 1 {
 			continue
 		}
-		alive := syscall.Kill(r.pid, 0) == nil
-		if alive {
-			_ = syscall.Kill(r.pid, syscall.SIGTERM)
+		if processAlive(r.pid) {
+			terminateProcess(r.pid)
 		}
 		removeStaleSessionSocket(m.home, r.id)
 		_ = m.store.UpdateSessionState(r.id, TerminalStateFailed, "session host restarted", nil)
