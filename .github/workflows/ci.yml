@@ -1,4 +1,4 @@
-# Overdrive CI: structure validation, pytest (stub embedder), shell syntax checks, Go coverage gate.
+# Overdrive CI: structure validation, pytest (stub embedder), shell syntax checks, Go coverage gate, SonarCloud.
 name: CI
 
 on:
@@ -56,12 +56,16 @@ jobs:
           go test -tags=overdrive_fake_ort -covermode=atomic -coverprofile=coverage.out ./...
           ../../scripts/go-coverage-gate.sh coverage.out
 
-      # SonarCloud: projeto usa Automatic Analysis (não pode rodar sonar-scanner no CI ao mesmo tempo).
-      # Para voltar a enviar cobertura Go/JS pelo Actions, desligue Automatic Analysis em
-      # Administration → Analysis Method e restaure os passos abaixo (ver CONTRIBUTING.md).
-      # - Dashboard JS coverage (lcov for Sonar)
-      # - Rewrite Go coverage paths for Sonar
-      # - SonarCloud scan (SONAR_TOKEN)
+      - name: Dashboard JS coverage (lcov for Sonar)
+        run: ./scripts/generate-dashboard-js-lcov.sh
+
+      - name: Rewrite Go coverage paths for Sonar
+        run: ./scripts/rewrite-go-coverage-for-sonar.sh runtime/experience/coverage.out
+
+      - name: SonarCloud scan
+        uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8.3.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   mutation:
     name: Mutation

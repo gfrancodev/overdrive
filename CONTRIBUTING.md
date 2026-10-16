@@ -133,17 +133,11 @@ is 100% killed mutants on those predicates and 85% efficacy on that file set.
 CI enforces Go coverage via `scripts/go-coverage-gate.sh` (≥82%, excluding `terminal_host.go`).
 
 **SonarCloud** (`sonar.projectKey=gfrancodev_overdrive`, `sonar.organization=devgfrancodev` in
-`sonar-project.properties`; the organization **key** is not always the display name). This project
-currently uses **Automatic Analysis** on SonarCloud. You cannot run `sonar-scanner` from GitHub
-Actions at the same time; the scanner fails with *You are running CI analysis while Automatic
-Analysis is enabled*.
-
-To use CI-based analysis with coverage reports instead:
-
-1. In SonarCloud, open **Administration → Analysis Method** for the project (project admin required)
-   and turn **off** Automatic Analysis.
-2. Restore the commented Sonar steps in `.github/workflows/ci.yml` (JS lcov, Go path rewrite,
-   `SonarSource/sonarqube-scan-action` with `SONAR_TOKEN`).
+`sonar-project.properties`; the organization **key** is not always the display name). CI runs
+`SonarSource/sonarqube-scan-action` after Go/JS coverage (job **SonarCloud scan**). **Automatic
+Analysis must be off** on the SonarCloud project; otherwise the scanner fails with *You are running
+CI analysis while Automatic Analysis is enabled*. Disable it under **Administration → Analysis
+Method** (project admin). A GitHub App is not required for CI-based analysis.
 
 The repository secret `SONAR_TOKEN` must be a SonarCloud analysis token with access to org
 `devgfrancodev`. A missing or wrong org key in `sonar-project.properties` causes **Not authorized**.
