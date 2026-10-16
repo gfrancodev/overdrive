@@ -1257,9 +1257,13 @@ def test_call_setup_device_select_uses_custom_listbox():
     assert 'id="callMicSelectPanel"' in html and 'class="call-device-select__trigger"' in html
     assert 'id="callCamSelectPanel"' in html
     assert 'class="call-device-select__native"' in html
-    assert "CALL_DEVICE_SELECT_IDS" in call and "renderCallDeviceSelectPanel" in call
-    assert ".call-device-select__panel" in css and ".call-device-select__option" in css.split(".call-device-select__panel", 1)[1]
-    assert 'createElement("button")' in call and "call-device-select__option" in call
+    assert "CALL_DEVICE_SELECT_IDS" in call
+    assert "renderCallDeviceSelectPanel" in call
+    assert ".call-device-select__panel" in css
+    device_select_panel_css = css.split(".call-device-select__panel", 1)[1]
+    assert ".call-device-select__option" in device_select_panel_css
+    assert 'createElement("button")' in call
+    assert "call-device-select__option" in call
 
 
 def test_composer_image_video_attachment_thumbnails():

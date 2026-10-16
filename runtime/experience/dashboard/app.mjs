@@ -2570,7 +2570,7 @@
       if (liveSessions.raise) liveSessions.raise();
       return liveSessions.refreshSessionList().then(() => {
         if (liveSessions.openTabCount() === 0) return liveSessions.ensureDefaultSession();
-      });
+      }).catch(() => {});
     }
     function openTerminal() {
       const panel = document.getElementById("liveSessions");
