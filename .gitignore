@@ -20,3 +20,4 @@ bin/
 
 # Local SonarQube (docker-compose.sonar.yml stack)
 .env.sonar
+sonar-project.local.properties
