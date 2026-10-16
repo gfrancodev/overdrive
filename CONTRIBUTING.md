@@ -133,8 +133,12 @@ is 100% killed mutants on those predicates and 85% efficacy on that file set.
 CI enforces Go coverage via `scripts/go-coverage-gate.sh` (≥82%, excluding `terminal_host.go`).
 
 **SonarCloud** (`sonar.projectKey=gfrancodev_overdrive`, `sonar.organization=devgfrancodev` in
-`sonar-project.properties`; the organization **key** is not always the display name). CI runs
-`SonarSource/sonarqube-scan-action` after Go/JS coverage (job **SonarCloud scan**). **Automatic
+`sonar-project.properties`; the organization **key** is not always the display name). Sources are
+scoped to `runtime/experience` (Go + dashboard ESM) with pytest under `tests/`; tray, FFI, skills,
+hooks, and other repo paths stay out of analysis so the coverage badge tracks the same Go profile
+and dashboard lcov CI publishes (`sonar.coverage.exclusions` drops `terminal_host.go`, build-tag
+ORT FFI, and platform-specific Go not measured on Linux). CI runs `SonarSource/sonarqube-scan-action`
+after Go/JS coverage (job **SonarCloud scan**). **Automatic
 Analysis must be off** on the SonarCloud project; otherwise the scanner fails with *You are running
 CI analysis while Automatic Analysis is enabled*. Disable it under **Administration → Analysis
 Method** (project admin). A GitHub App is not required for CI-based analysis.
