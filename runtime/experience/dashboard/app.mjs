@@ -2,9 +2,22 @@
     applyShareTheme(uiConfig);
     if ((uiConfig.preset || "orbit") === "enterprise") {
       bootEnterprise();
+      globalThis.__odMessagesReady = true;
     } else {
-      const THREE = await import("three");
-      await bootOrbit(THREE);
+      let orbitThree = null;
+      try {
+        orbitThree = await import("three");
+      } catch (err) {
+        globalThis.console?.debug?.(err);
+        globalThis.__odBootError = String(err && err.stack || err);
+      }
+      try {
+        await bootOrbit(orbitThree);
+        globalThis.__odMessagesReady = true;
+      } catch (err) {
+        globalThis.__odBootError = String(err && err.stack || err);
+        globalThis.console?.debug?.(err);
+      }
     }
 
     function applyShareTheme(ui) {
@@ -338,7 +351,10 @@
     document.getElementById("actToggle").addEventListener("click", () => toggleDrawer("activity"));
     document.getElementById("legendApp").addEventListener("click", () => toggleDrawer("legend"));
     document.getElementById("findApp").addEventListener("click", toggleFind);
-    document.getElementById("msgApp").addEventListener("click", openMessages);
+    document.getElementById("msgApp").addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      openMessages();
+    });
     document.getElementById("termApp")?.addEventListener("click", openTerminal);
     document.getElementById("liveSessions")?.addEventListener("click", (ev) => ev.stopPropagation());
     document.getElementById("nearbyApp").addEventListener("click", openNearby);
@@ -412,7 +428,9 @@
         trigger?.setAttribute("aria-expanded", "false");
       });
     }
-    document.addEventListener("click", () => {
+    document.addEventListener("click", (ev) => {
+      const origin = ev.target instanceof Element ? ev.target : null;
+      if (origin?.closest("#dock, #messages, #callPanel, #nearby, #settings, #liveSessions")) return;
       closeMenubarPopovers();
       hidePopover();
       closeStack();
@@ -1793,8 +1811,15 @@
       return { line, points: pts };
     }
     function ensureWorld() {
+      if (!THREE) return null;
       if (world) return world;
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      let renderer;
+      try {
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      } catch (err) {
+        globalThis.console?.debug?.(err);
+        return null;
+      }
       renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1, 2));
       renderer.setClearColor(0x000000, 0);
       stage.replaceChildren(renderer.domElement);
@@ -2001,8 +2026,8 @@
       group.scale.set(scale, scale, scale);
       return { mesh: group, screen };
     }
-    const HERO_ANGLE = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.3, 0.3, 0));
-    const tmpQuat = new THREE.Quaternion();
+    const HERO_ANGLE = THREE ? new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.3, 0.3, 0)) : null;
+    const tmpQuat = THREE ? new THREE.Quaternion() : null;
     // Keep the laptop facing the camera at a three-quarter angle wherever it sits on the globe.
     function faceCamera(station) {
       station.group.getWorldQuaternion(tmpQuat);
@@ -2019,6 +2044,7 @@
     }
     function syncStations(data) {
       const view = ensureWorld();
+      if (!view) return;
       const members = roster(data);
       const placed = placeMembers(members);
       disposeGroup(view.markers);

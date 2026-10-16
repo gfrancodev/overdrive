@@ -164,17 +164,16 @@ def dual_dashboard(runtime_bin: Path, tmp_path: Path):
 
 
 def open_messages(page) -> None:
-    """Click the messages launcher until the widget is shown (script may bind late)."""
-    page.wait_for_selector("#msgApp", state="visible", timeout=20_000)
-    deadline = time.time() + 20
-    while time.time() < deadline:
-        page.click("#msgApp")
-        try:
-            page.wait_for_selector("#messages:not([hidden])", timeout=800)
-            return
-        except Exception:
-            time.sleep(0.2)
-    pytest.fail("messages panel did not open")
+    """Wait until the dashboard script bound the launcher, then open the widget once."""
+    try:
+        page.wait_for_function("() => globalThis.__odMessagesReady === true", timeout=30_000)
+    except Exception as exc:
+        detail = page.evaluate(
+            "() => ({ boot: globalThis.__odBootError || '', ready: globalThis.__odMessagesReady === true })"
+        )
+        pytest.fail(f"dashboard did not finish booting: {detail} ({exc})")
+    page.locator("#msgApp").click()
+    page.wait_for_selector("#messages:not([hidden])", timeout=5_000)
 
 
 def test_voice_call_connects_with_fake_media(dual_dashboard, playwright):
