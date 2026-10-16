@@ -133,7 +133,7 @@ func writeSharedWorkspaceFile(root, rel string, data []byte, mode os.FileMode) e
 	if err := assertSharedWorkspacePathResolved(root, path); err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, mode)
+	return os.WriteFile(path, data, mode) // NOSONAR gosecurity:S2083 — path validated by assertSharedWorkspacePathResolved; see workspace_sync_test.go
 }
 
 func createSharedWorkspaceFile(root, rel string, data []byte, mode os.FileMode) error {
@@ -144,7 +144,7 @@ func createSharedWorkspaceFile(root, rel string, data []byte, mode os.FileMode) 
 	if err := assertSharedWorkspacePathResolved(root, path); err != nil {
 		return err
 	}
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode) // NOSONAR gosecurity:S2083 — path validated by assertSharedWorkspacePathResolved
 	if err != nil {
 		if errors.Is(err, os.ErrExist) {
 			return nil
@@ -217,7 +217,7 @@ func readSharedWorkspaceManifest(root string) (SharedWorkspaceManifest, error) {
 	if err := assertSharedWorkspacePathResolved(root, path); err != nil {
 		return SharedWorkspaceManifest{}, err
 	}
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // NOSONAR gosecurity:S2083 — path validated by assertSharedWorkspacePathResolved; see workspace_sync_test.go
 	if err != nil {
 		return SharedWorkspaceManifest{}, err
 	}

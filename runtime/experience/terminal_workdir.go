@@ -226,8 +226,8 @@ func ensureCircleTerminalSessionLink(home, circleID, workspaceID, workName, sess
 	if err := assertCircleScopedPath(home, linkPath); err != nil {
 		return fallback()
 	}
-	_ = os.Remove(linkPath)
-	if err := os.Symlink(targetAbs, linkPath); err != nil {
+	_ = os.Remove(linkPath) // NOSONAR gosecurity:S2083 — linkPath scoped via assertCircleScopedPath; terminal_workdir_test.go
+	if err := os.Symlink(targetAbs, linkPath); err != nil { // NOSONAR gosecurity:S2083
 		return fallback()
 	}
 	logical, err := logicalTerminalWorkingDirectory(linkPath)

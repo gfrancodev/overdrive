@@ -1392,7 +1392,7 @@ function createMeshCall(deps) {
     const renegotiate = [];
     peerConnections.forEach((pc, remotePeerID) => {
       const sender = pc.getSenders().find((s) => s.track?.kind === "video" && s.track !== screenTrack && s.track.contentHint !== "detail");
-      if (sender?.replaceTrack) sender.replaceTrack(track);
+      if (sender?.replaceTrack) sender.replaceTrack(track).catch(() => {});
       else if (track) pc.addTrack(track, localStream);
       renegotiate.push(remotePeerID);
     });

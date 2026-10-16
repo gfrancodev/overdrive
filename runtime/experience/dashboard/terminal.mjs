@@ -1656,7 +1656,7 @@ function createLiveSessions(deps) {
     if (sessionList) {
       sessionList.querySelectorAll(".term-session-row").forEach((row) => row.classList.remove("active"));
     }
-    if (listOpen) refreshSessionList();
+    if (listOpen) refreshSessionList().catch(() => {});
     if (deps.onTabsChanged) deps.onTabsChanged(openTabCount());
     paintDockBadge();
   }
@@ -1697,7 +1697,9 @@ function createLiveSessions(deps) {
     pinned.delete(sessionId);
     savePins();
     const ending = remote ? fetch(api + "/detach", { method: "POST" }) : purgeSession(sessionId);
-    Promise.resolve(ending).catch(() => {}).then(() => { if (listOpen) refreshSessionList(); });
+    Promise.resolve(ending).catch(() => {}).finally(() => {
+      if (listOpen) refreshSessionList().catch(() => {});
+    });
     splitRoot = removeLeaf(splitRoot, sessionId);
     paintDockBadge();
     focusTabAfterClose(sessionId);
@@ -1980,9 +1982,10 @@ function createLiveSessions(deps) {
       sessionList.appendChild(el("p", "term-sidebar-section-label", "Ended"));
       const clear = el("button", "term-sidebar-btn term-clear-dead", "Clear " + dead.length + " ended");
       clear.type = "button";
-      clear.addEventListener("click", async () => {
-        await Promise.all(dead.map((sess) => purgeSession(sess.id)));
-        await refreshSessionList();
+      clear.addEventListener("click", () => {
+        Promise.all(dead.map((sess) => purgeSession(sess.id))).catch(() => {}).finally(() => {
+          refreshSessionList().catch(() => {});
+        });
       });
       sessionList.appendChild(clear);
     }
@@ -2100,19 +2103,19 @@ function createLiveSessions(deps) {
   function openPanelWithSessions() {
     showPanel();
     return refreshSessionList().then(() => {
-      if (tabs.size === 0) return ensureDefaultSession();
+      if (tabs.size === 0) return ensureDefaultSession().catch(() => {});
     }).catch(() => {});
   }
 
   function togglePanel() {
     if (!root) return;
-    if (root.hidden) openPanelWithSessions();
+    if (root.hidden) openPanelWithSessions().catch(() => {});
     else hidePanel();
   }
 
   function openFromHash() {
     if (location.hash.replace("#", "") === "live-sessions" || location.hash === "#terminals") {
-      openPanelWithSessions();
+      openPanelWithSessions().catch(() => {});
     }
   }
 
@@ -2132,8 +2135,8 @@ function createLiveSessions(deps) {
     fitActiveSoon();
   }
 
-  if (btnNew) btnNew.addEventListener("click", () => createSession());
-  if (btnTabAdd) btnTabAdd.addEventListener("click", () => createSession());
+  if (btnNew) btnNew.addEventListener("click", () => createSession().catch(() => {}));
+  if (btnTabAdd) btnTabAdd.addEventListener("click", () => createSession().catch(() => {}));
   if (btnClosePanel) btnClosePanel.addEventListener("click", hidePanel);
   const trafficClose = document.getElementById("termTrafficClose");
   const trafficMin = document.getElementById("termTrafficMin");
@@ -2146,7 +2149,7 @@ function createLiveSessions(deps) {
     btnToggleList.addEventListener("click", () => {
       listOpen = !listOpen;
       syncLayoutClasses();
-      if (listOpen) refreshSessionList();
+      if (listOpen) refreshSessionList().catch(() => {});
       fitActiveSoon();
     });
   }
@@ -2188,7 +2191,7 @@ function createLiveSessions(deps) {
         .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
       if (mine.length) {
         await mine.reduce(
-          (chain, sess, i) => chain.then(() => openSession(sess.id, sess.name, { focus: i === mine.length - 1 })),
+          (chain, sess, i) => chain.then(() => openSession(sess.id, sess.name, { focus: i === mine.length - 1 }).catch(() => {})),
           Promise.resolve()
         );
         await refreshSessionList();
@@ -2207,7 +2210,7 @@ function createLiveSessions(deps) {
     const before = JSON.stringify(tab.lease);
     await refreshLease(tab);
     if (tabs.get(activeTabId) !== tab || tab.disposed) return;
-    if (JSON.stringify(tab.lease) === before) fetchParticipants(tab);
+    if (JSON.stringify(tab.lease) === before) fetchParticipants(tab).catch(() => {});
     else renderSide(tab);
   }
   if (!pollTimer) pollTimer = setInterval(() => { pollActiveControl().catch(() => {}); }, CONTROL_POLL_MS);
@@ -2234,7 +2237,7 @@ function createLiveSessions(deps) {
     refreshSessionList,
     shareActiveToChat,
     apply() {
-      refreshSessionList();
+      refreshSessionList().catch(() => {});
       const tab = tabs.get(activeTabId);
       if (tab) tab.refreshMeta().catch(() => {});
     },
