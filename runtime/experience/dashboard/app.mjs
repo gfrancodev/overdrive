@@ -269,6 +269,9 @@
       writeNearbyHidden(new Set());
       syncDiscoveredFromOutsideCircle();
     }
+    function computerLabel(peer, data) {
+      return peer.name || peer.hostname || (peer.self ? data.hostname : "") || "computer";
+    }
     const meshChat = createMeshChat({
       el,
       roster,

@@ -93,8 +93,8 @@
           </div>
         </dialog>
         <script type="application/json" id="emojiCatalog"><!--{{emojis.json}}--></script>
-        <input type="file" id="messageFile" hidden>
-        <input type="file" id="messageAudioFile" accept="audio/*" hidden>
+        <input type="file" id="messageFile" hidden aria-label="Attach file">
+        <input type="file" id="messageAudioFile" accept="audio/*" hidden aria-label="Attach audio file">
       </div>
     </div>
     <p class="chat-privacy" id="chatPrivacy" role="note">
@@ -102,7 +102,7 @@
       Encrypted with the circle key
     </p>
   </form>
-  <hr class="chat-resize" id="msgResize" role="separator" aria-orientation="vertical" aria-label="Resize messages panel" tabindex="-1">
+  <div class="chat-resize" id="msgResize" role="separator" aria-orientation="vertical" aria-label="Resize messages panel" tabindex="-1"></div>
 </aside>
 <aside class="call-panel" id="callPanel" data-phase="idle" hidden aria-hidden="true" aria-label="Mesh call">
   <header class="call-head">
