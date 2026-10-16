@@ -307,9 +307,9 @@ def test_terminal_ended_pane_is_centered_empty_state():
     assert "Session ended. Use + to open a new terminal." in term
     assert 'setOption("theme"' in term
     assert "--term-bg-opacity" in term
-    assert ".term-view--ended .term-xterm { display: none !important; }" in css
+    assert ".term-view.term-view--ended .term-xterm { display: none; }" in css
     assert ".term-view--ended .term-view-status" in css
-    assert "overflow-x: hidden !important;" in css
+    assert "overflow-x: hidden;" in css
     assert "background: transparent;" in css.split(".term-view-status {", 1)[1].split("}", 1)[0]
 
 
@@ -325,9 +325,10 @@ def test_terminal_bg_opacity_slider_wires_transparency():
     assert "bgOpacitySlider.addEventListener(\"input\"" in term
     assert "overdriveTermBgOpacity" in term
     assert "calc(var(--term-bg-opacity, 1) * 0.72)" in css
-    assert ".term-xterm .xterm-viewport" in css
-    viewport = css.split(".term-xterm .xterm-viewport {", 1)[1].split("}", 1)[0]
-    assert "background-color: transparent !important;" in viewport
+    viewport_sel = ".live-sessions .term-xterm .xterm .xterm-viewport"
+    assert viewport_sel in css
+    viewport = css.split(viewport_sel + " {", 1)[1].split("}", 1)[0]
+    assert "background-color: transparent;" in viewport
 
 
 def test_terminal_path_helpers():
@@ -399,16 +400,28 @@ function node(id) {
   if (!nodes.has(id)) {
     const classes = new Set();
     const el = {
-      id, hidden: true, childElementCount: 0, srcObject: null, attrs: {},
+      id, hidden: true, childElementCount: 0, srcObject: null, attrs: {}, dataset: {},
       classList: {
         add: (c) => classes.add(c),
         remove: (c) => classes.delete(c),
         toggle: (c, on) => (on ? classes.add(c) : classes.delete(c)),
         contains: (c) => classes.has(c),
       },
-      setAttribute(k, v) { this.attrs[k] = v; },
+      setAttribute(k, v) {
+        this.attrs[k] = v;
+        if (k.startsWith("data-") && k.length > 5) {
+          const key = k.slice(5).replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+          this.dataset[key] = v;
+        }
+      },
       getAttribute(k) { return this.attrs[k]; },
-      removeAttribute(k) { delete this.attrs[k]; },
+      removeAttribute(k) {
+        delete this.attrs[k];
+        if (k.startsWith("data-") && k.length > 5) {
+          const key = k.slice(5).replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+          delete this.dataset[key];
+        }
+      },
       listeners: {}, addEventListener(type, fn) { this.listeners[type] = fn; },
       replaceChildren() {}, appendChild() {}, querySelector() { return null; },
     };
@@ -1233,7 +1246,8 @@ def test_mesh_joined_resize_handle_and_drag_wiring():
     assert ".mesh-live.call-joined .chat-resize" in css
     assert "z-index: 25" in css.split(".mesh-live.call-joined .chat-resize", 1)[1].split("}", 1)[0]
     assert "width: 10px" in css
-    assert "mesh-split-dragging" in css and "mesh-split-dragging" in js
+    assert "mesh-split-dragging" in css
+    assert "mesh-split-dragging" in js
     assert "meshSplitPaneWidth" in js
     assert 'live.style.setProperty("--mesh-chat"' in js
     assert 'live.style.setProperty("--mesh-stage"' in js
@@ -1244,9 +1258,13 @@ def test_call_error_banner_uses_apple_notice_and_alert_variants():
     html = (ROOT / "runtime/experience/dashboard/chat.html").read_text(encoding="utf-8")
     call = CALL_MJS.read_text(encoding="utf-8")
     css = (ROOT / "runtime/experience/dashboard/chat.css").read_text(encoding="utf-8")
-    assert 'id="callErrorText"' in html and "call-error-icon" in html
-    assert "call-error--notice" in call and "call-error--alert" in call
-    assert ".call-error--notice" in css and "backdrop-filter" in css.split(".call-error {", 1)[1].split(".call-error-icon", 1)[0]
+    assert 'id="callErrorText"' in html
+    assert "call-error-icon" in html
+    assert "call-error--notice" in call
+    assert "call-error--alert" in call
+    assert ".call-error--notice" in css
+    call_error_block = css.split(".call-error {", 1)[1].split(".call-error-icon", 1)[0]
+    assert "backdrop-filter" in call_error_block
     assert "#ffd9d6" not in css
 
 
@@ -1254,7 +1272,8 @@ def test_call_setup_device_select_uses_custom_listbox():
     html = (ROOT / "runtime/experience/dashboard/chat.html").read_text(encoding="utf-8")
     call = CALL_MJS.read_text(encoding="utf-8")
     css = (ROOT / "runtime/experience/dashboard/chat.css").read_text(encoding="utf-8")
-    assert 'id="callMicSelectPanel"' in html and 'class="call-device-select__trigger"' in html
+    assert 'id="callMicSelectPanel"' in html
+    assert 'class="call-device-select__trigger"' in html
     assert 'id="callCamSelectPanel"' in html
     assert 'class="call-device-select__native"' in html
     assert "CALL_DEVICE_SELECT_IDS" in call
@@ -1270,10 +1289,12 @@ def test_composer_image_video_attachment_thumbnails():
     chat = CHAT_MJS.read_text(encoding="utf-8")
     css = (ROOT / "runtime/experience/dashboard/chat.css").read_text(encoding="utf-8")
     block = chat[chat.index("function renderPendingFile()"):chat.index("const readFileAsBase64")]
-    assert "composer-chip--media" in block and "composer-chip-thumb" in block
+    assert "composer-chip--media" in block
+    assert "composer-chip-thumb" in block
     assert "URL.createObjectURL(file)" in chat
     assert "revokePendingPreview" in chat
-    assert ".composer-chip-thumb" in css and ".composer-chip--media" in css
+    assert ".composer-chip-thumb" in css
+    assert ".composer-chip--media" in css
 
 
 def test_nearby_forget_persists_hidden_peers_in_local_storage():
@@ -1281,11 +1302,16 @@ def test_nearby_forget_persists_hidden_peers_in_local_storage():
     machines = MACHINES_MJS.read_text(encoding="utf-8")
     css = (ROOT / "runtime/experience/dashboard/dashboard.css").read_text(encoding="utf-8")
     assert 'const NEARBY_HIDDEN_KEY = "overdriveNearbyHidden"' in app
-    assert "const nearbyPeerKey = (peer) =>" in app and "function forgetNearbyPeer(peer)" in app
-    assert "function forgetCircleMember(peer)" in app and "function rowForgetButton(" in app
-    assert "function dedupeDiscoveredPeers(peers)" in machines and "nearby-clear-hidden" in app
+    assert "const nearbyPeerKey = (peer) =>" in app
+    assert "function forgetNearbyPeer(peer)" in app
+    assert "function forgetCircleMember(peer)" in app
+    assert "function rowForgetButton(" in app
+    assert "function dedupeDiscoveredPeers(peers)" in machines
+    assert "nearby-clear-hidden" in app
     assert "/api/discovery/forget" in app
-    assert ".row-forget" in css and ".machine-row-shell" in css and ".nearby-clear-hidden" in css
+    assert ".row-forget" in css
+    assert ".machine-row-shell" in css
+    assert ".nearby-clear-hidden" in css
 
 
 def test_machines_dedupe_and_forget_filters():
@@ -1401,7 +1427,12 @@ def test_terminal_owner_grant_control_badge_opens_inspector():
     html = (ROOT / "runtime" / "experience" / "dashboard" / "shell.html").read_text(encoding="utf-8")
     js = (ROOT / "runtime" / "experience" / "dashboard" / "terminal.mjs").read_text(encoding="utf-8")
     css = (ROOT / "runtime" / "experience" / "dashboard" / "dashboard.css").read_text(encoding="utf-8")
-    assert 'id="termBadgeControl"' in html and "<button" in html.split("termBadgeControl")[0][-80:]
-    assert "Grant control" in js and "pending_control_requesters" in js
-    assert "term-badge--grant" in css and "term-inspector-block--attention" in css
-    assert "term-inspector-group" in css and "--term-insp-accent" in css
+    term_badge_prefix = html.split("termBadgeControl")[0][-80:]
+    assert 'id="termBadgeControl"' in html
+    assert "<button" in term_badge_prefix
+    assert "Grant control" in js
+    assert "pending_control_requesters" in js
+    assert "term-badge--grant" in css
+    assert "term-inspector-block--attention" in css
+    assert "term-inspector-group" in css
+    assert "--term-insp-accent" in css
