@@ -8,7 +8,7 @@ import shutil
 import socket
 import subprocess
 import time
-import uuid
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -35,6 +35,31 @@ def runtime_bin(tmp_path_factory: pytest.TempPathFactory) -> Path:
         text=True,
     )
     return out
+
+
+def fetch_peers(base: str) -> dict:
+    with urllib.request.urlopen(base + "/api/peers", timeout=3) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def wait_peer_ready(base: str, timeout: float = 45.0) -> str:
+    """Wait until another circle member is visible (mesh synced)."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            data = fetch_peers(base)
+            self_id = str(data.get("device_id") or "")
+            for circle in data.get("circles") or []:
+                for member in circle.get("members") or []:
+                    if member.get("revoked"):
+                        continue
+                    device_id = str(member.get("device_id") or "")
+                    if device_id and device_id != self_id:
+                        return device_id
+        except OSError:
+            pass
+        time.sleep(0.25)
+    pytest.fail(f"no peer visible on dashboard at {base}")
 
 
 def wait_http(url: str, timeout: float = 15.0) -> None:
@@ -128,6 +153,8 @@ def dual_dashboard(runtime_bin: Path, tmp_path: Path):
     try:
         wait_http(base_a + "/")
         wait_http(base_b + "/")
+        wait_peer_ready(base_a)
+        wait_peer_ready(base_b)
         yield base_a, base_b
     finally:
         proc_a.terminate()
@@ -156,10 +183,8 @@ def test_voice_call_connects_with_fake_media(dual_dashboard, playwright):
         page_b.wait_for_function("() => document.getElementById('callPanel')", timeout=20_000)
 
         page_a.click("#msgApp", timeout=10_000)
-        page_b.click("#msgApp", timeout=10_000)
-        page_a.locator("button.conv").first.click(timeout=15_000)
-        page_b.locator("button.conv").first.click(timeout=15_000)
-
+        page_a.click("#msgNew", timeout=10_000)
+        page_a.locator("#composeContacts button.compose-contact").first.click(timeout=45_000)
         page_a.click("#msgCall", timeout=10_000)
         page_b.locator("#callAccept").wait_for(state="visible", timeout=20_000)
         page_b.click("#callAccept", timeout=10_000)

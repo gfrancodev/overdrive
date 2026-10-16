@@ -116,6 +116,12 @@ func gitRun(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
+	cmd.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME=overdrive-test",
+		"GIT_AUTHOR_EMAIL=overdrive-test@example.com",
+		"GIT_COMMITTER_NAME=overdrive-test",
+		"GIT_COMMITTER_EMAIL=overdrive-test@example.com",
+	)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
 	}
