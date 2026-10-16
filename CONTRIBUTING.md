@@ -132,7 +132,8 @@ is 100% killed mutants on those predicates and 85% efficacy on that file set.
 
 CI uploads Go coverage and runs a SonarCloud scan (`sonar-project.properties`, workflow job **SonarCloud scan**).
 
-SonarCloud uses `sonar.projectKey=gfrancodev_overdrive` and `sonar.organization=gfrancodev`
+SonarCloud uses `sonar.projectKey=gfrancodev_overdrive` and `sonar.organization=devgfrancodev`
+  (organization **key** on SonarCloud; the display name may differ, e.g. `gfrancodev`)
 (see `sonar-project.properties`). A token created in the SonarCloud UI is **not** automatically
 available to GitHub Actions: add the same token as a repository secret named `SONAR_TOKEN`
 (**Settings → Secrets and variables → Actions → New repository secret**). The workflow passes

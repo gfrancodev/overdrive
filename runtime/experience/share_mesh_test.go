@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -1000,6 +1001,104 @@ func TestMeshPresenceExpires(t *testing.T) {
 	case <-late:
 		t.Fatal("expired presence was still retained")
 	case <-time.After(1500 * time.Millisecond):
+	}
+}
+
+func TestMeshEpochOpenTracksArmedEpoch(t *testing.T) {
+	meshHome(t)
+	meshRT.mu.Lock()
+	meshRT.initLocked()
+	meshRT.armed = true
+	meshRT.epoch = 7
+	meshRT.closing = false
+	meshRT.mu.Unlock()
+	if meshEpoch() != 7 {
+		t.Fatalf("epoch %d", meshEpoch())
+	}
+	if !meshEpochOpen(7) || meshEpochOpen(6) {
+		t.Fatal("epoch open mismatch")
+	}
+	meshRT.mu.Lock()
+	meshRT.closing = true
+	meshRT.mu.Unlock()
+	if meshEpochOpen(7) {
+		t.Fatal("closing epoch still open")
+	}
+}
+
+func TestBrokerAddrFromPeerCatalog(t *testing.T) {
+	homeHost := meshHome(t)
+	sl, endpoint := startShareListenerForTest(t, homeHost)
+	defer sl.Close()
+	host, hostPriv, err := loadOrCreateIdentity(homeHost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	peer, peerPriv := testDevice(t)
+	circle := testCircle(host, peer)
+	for i := range circle.Members {
+		if circle.Members[i].DeviceID == host.DeviceID {
+			circle.Members[i].Endpoint = endpoint
+		}
+	}
+	saveTestCircle(t, homeHost, circle)
+	meshRT.mu.Lock()
+	meshRT.initLocked()
+	meshRT.armed = true
+	meshRT.home = homeHost
+	meshRT.mu.Unlock()
+	brokerAddr, err := ensureLocalBroker(homeHost, circle, host, hostPriv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, brokerPort, err := net.SplitHostPort(brokerAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	meshRT.mu.Lock()
+	broker := meshRT.links[circle.ID].broker
+	meshRT.mu.Unlock()
+	if broker == nil {
+		t.Fatal("missing broker")
+	}
+	t.Cleanup(broker.close)
+	homePeer := t.TempDir()
+	writeIdentityFile(t, homePeer, peer)
+	saveTestCircle(t, homePeer, circle)
+
+	resp, err := fetchPeerCatalog(homePeer, endpoint, circle, peer, peerPriv)
+	if err != nil {
+		t.Fatalf("fetch catalog: %v", err)
+	}
+	if resp.MeshMQTTPort <= 0 {
+		t.Fatalf("catalog mqtt port %d", resp.MeshMQTTPort)
+	}
+
+	addr, err := brokerAddrFromPeerCatalog(homePeer, circle, peer, peerPriv, host.DeviceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hostIP, port, err := net.SplitHostPort(addr)
+	if err != nil || hostIP != "127.0.0.1" || port != brokerPort || port != strconv.Itoa(broker.port) {
+		t.Fatalf("addr %q broker port %d", addr, broker.port)
+	}
+	got, ok := meshEndpoint(host.DeviceID)
+	if !ok || got != addr {
+		t.Fatalf("cached endpoint %q ok %v", got, ok)
+	}
+
+	if _, err := brokerAddrFromPeerCatalog(homePeer, circle, peer, peerPriv, "dev_missing"); err != errBrokerUnknown {
+		t.Fatalf("missing member err=%v", err)
+	}
+	empty := circle
+	empty.Members = circle.Members
+	for i := range empty.Members {
+		if empty.Members[i].DeviceID == host.DeviceID {
+			empty.Members[i].Endpoint = ""
+		}
+	}
+	if _, err := brokerAddrFromPeerCatalog(homePeer, empty, peer, peerPriv, host.DeviceID); err != errBrokerUnknown {
+		t.Fatalf("empty endpoint err=%v", err)
 	}
 }
 
