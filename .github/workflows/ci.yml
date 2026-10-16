@@ -25,7 +25,7 @@ jobs:
           cache-dependency-path: runtime/experience/go.sum
 
       - name: Install test dependencies
-        run: pip install --only-binary :all: 'pytest==9.1.1' 'pytest-playwright==0.7.2'
+        run: "pip install --only-binary :all: 'pytest==9.1.1' 'pytest-playwright==0.7.2'"
 
       - name: Build host runtime for installer test
         working-directory: runtime/experience
@@ -121,7 +121,7 @@ jobs:
           cache-dependency-path: runtime/experience/go.sum
 
       - name: Install test dependencies
-        run: pip install --only-binary :all: 'pytest==9.1.1' 'pytest-playwright==0.7.2'
+        run: "pip install --only-binary :all: 'pytest==9.1.1' 'pytest-playwright==0.7.2'"
 
       - name: Install Playwright Chromium
         run: python3 -m playwright install chromium
