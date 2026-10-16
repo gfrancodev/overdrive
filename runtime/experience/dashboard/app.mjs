@@ -976,7 +976,7 @@
         : "Nothing stored yet";
       box.textContent = scope + " · " + tally;
     }
-    const computerLabel = (peer, data) => {
+    function computerLabel(peer, data) {
       return peer.name || peer.hostname || (peer.self ? data.hostname : "") || "computer";
     }
     function peerState(peer) {
