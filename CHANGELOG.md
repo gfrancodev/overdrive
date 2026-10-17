@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Security
+
+- A terminal card posted in chat grants its shares only after the card is saved, and grants the whole audience in one transaction. If saving the card or granting fails, the post fails and nobody gains access; before, a failed post could leave the session shared with part or all of the audience.
+
+### Docs
+
+- `SECURITY.md` states the revocation window: new requests are refused at once, but private mode and a CLI revoke reach already open streams at the next 15-second check.
+
 ## 2.0.2 - 2026-10-17
 
 ### Security

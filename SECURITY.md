@@ -51,8 +51,9 @@ The circle key does **not** separate members from each other:
 ### Live terminals
 
 - The host checks, on every remote operation (metadata, control requests, stream), that the requesting device is an active circle member **and** holds a share for that session. The owner and the host device always pass.
-- Only the session owner creates shares: an invite to one device, or a terminal card posted in a direct conversation (the recipient), a custom group (its members at that moment), or the circle channel (active members at that moment).
-- Removing a participant or revoking a circle member deletes its shares and hands any control lease back to the owner. Live remote streams are re-admitted every 15 seconds and closed when the device is no longer admitted, including when private mode is turned on.
+- Only the session owner creates shares: an invite to one device, or a terminal card posted in a direct conversation (the recipient), a custom group (its members at that moment), or the circle channel (active members at that moment). A card's shares are granted only after the card is saved, all at once; if either step fails, the post fails and nobody gains access.
+- Removing a participant or revoking a circle member deletes its shares and hands any control lease back to the owner. New requests from that device are refused at once.
+- Streams that are already open are re-admitted every 15 seconds and closed when the device is no longer admitted. Removing a participant from the host's dashboard closes its streams at once. Private mode, and `share circle revoke` run from the CLI, reach open streams at the next check: a revoked viewer can keep seeing output for up to 15 seconds.
 - Viewing never implies typing. Input and resize require the control lease, granted by the owner, with a monotonic epoch that rejects stale controllers.
 - Sessions shared before 2.0.2 relied on circle membership alone. After upgrading the host, share them again.
 
