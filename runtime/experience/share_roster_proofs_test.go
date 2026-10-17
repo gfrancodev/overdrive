@@ -393,3 +393,38 @@ func TestAcceptInviteRecordsTheCircleCreator(t *testing.T) {
 		t.Fatal("an invite whose inviter key does not derive the inviter id must be refused")
 	}
 }
+
+func TestRevokeWithInviteesTakesTheWholeSubtree(t *testing.T) {
+	home := t.TempDir()
+	setupTestEnv(t, home)
+	id, priv, _ := loadOrCreateIdentity(home)
+	circle, err := createCircle(home, "team", id, priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	creator := proofDevice{id: id, priv: priv}
+	b, c, d := newProofDevice(t), newProofDevice(t), newProofDevice(t)
+	circle = circle.admit(b.member(), creator.admit(t, circle.ID, b))
+	circle = circle.admit(c.member(), b.admit(t, circle.ID, c))
+	circle = circle.admit(d.member(), creator.admit(t, circle.ID, d))
+	if err := saveCircle(home, circle); err != nil {
+		t.Fatal(err)
+	}
+	if got := circleInvitees(circle, b.id.DeviceID); len(got) != 1 || got[0] != c.id.DeviceID {
+		t.Fatalf("invitees of b: %v", got)
+	}
+	_, _, code := runCLICapture(t, []string{"share", "circle", "revoke", "--circle", circle.ID, "--device", b.id.DeviceID, "--with-invitees"})
+	if code != 0 {
+		t.Fatal(code)
+	}
+	got, err := loadCircle(home, circle.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if activeIn(got, b) || activeIn(got, c) {
+		t.Fatal("--with-invitees must revoke the member and everyone it brought in")
+	}
+	if !activeIn(got, d) {
+		t.Fatal("members the revoked device did not invite stay")
+	}
+}

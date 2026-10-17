@@ -217,3 +217,24 @@ func (c Circle) signRevocationFor(deviceID string, priv ed25519.PrivateKey) Circ
 	c.Revocations[deviceID] = rev
 	return c
 }
+
+// circleInvitees lists every device deviceID brought in, directly or through its invitees.
+func circleInvitees(circle Circle, deviceID string) []string {
+	var out []string
+	queue := []string{deviceID}
+	seen := map[string]bool{deviceID: true, circle.CreatorDeviceID: true}
+	for len(queue) > 0 {
+		inviter := queue[0]
+		queue = queue[1:]
+		for _, m := range circle.Members {
+			adm, ok := circle.Admissions[m.DeviceID]
+			if !ok || adm.InvitedBy != inviter || seen[m.DeviceID] {
+				continue
+			}
+			seen[m.DeviceID] = true
+			out = append(out, m.DeviceID)
+			queue = append(queue, m.DeviceID)
+		}
+	}
+	return out
+}

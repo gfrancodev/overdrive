@@ -212,6 +212,7 @@ func cmdCircleRevoke(args []string) error {
 	fs := flag.NewFlagSet("share circle revoke", flag.ContinueOnError)
 	circleID := fs.String("circle", "", circleIDFlagHelp)
 	deviceID := fs.String("device", "", "device id to revoke")
+	withInvitees := fs.Bool("with-invitees", false, "also revoke every device this one invited, directly or not")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -223,12 +224,20 @@ func cmdCircleRevoke(args []string) error {
 		if err != nil {
 			return err
 		}
-		c, err := revokeMember(e.home, *circleID, *deviceID, id, priv)
-		if err != nil {
-			return err
+		targets := []string{*deviceID}
+		if *withInvitees {
+			if c, err := loadCircle(e.home, *circleID); err == nil {
+				targets = append(targets, circleInvitees(c, *deviceID)...)
+			}
 		}
-		_ = e.markPeerRevoked(*circleID, *deviceID)
-		_ = revokeTerminalAccessForDevice(e.home, *circleID, *deviceID)
+		var c Circle
+		for _, target := range targets {
+			if c, err = revokeMember(e.home, *circleID, target, id, priv); err != nil {
+				return err
+			}
+			_ = e.markPeerRevoked(*circleID, target)
+			_ = revokeTerminalAccessForDevice(e.home, *circleID, target)
+		}
 		return writeJSON(c)
 	})
 }
