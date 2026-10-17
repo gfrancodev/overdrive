@@ -54,9 +54,8 @@ func loadOrCreateIdentity(home string) (DeviceIdentity, ed25519.PrivateKey, erro
 	if err != nil {
 		return DeviceIdentity{}, nil, err
 	}
-	sum := sha256Hex(pub)
 	id := DeviceIdentity{
-		DeviceID:   "dev_" + sum[:16],
+		DeviceID:   deviceIDForPublicKey(pub),
 		PublicKey:  base64.StdEncoding.EncodeToString(pub),
 		PrivateKey: base64.StdEncoding.EncodeToString(priv),
 		CreatedAt:  nowRFC3339(),
@@ -80,6 +79,17 @@ func decodePublicKey(b64 string) (ed25519.PublicKey, error) {
 		return nil, errors.New("invalid public key size")
 	}
 	return ed25519.PublicKey(raw), nil
+}
+
+func deviceIDForPublicKey(pub ed25519.PublicKey) string {
+	return "dev_" + sha256Hex(pub)[:16]
+}
+
+// memberKeyBound reports whether publicKey is the key deviceID was derived from. A roster record that
+// fails this check speaks for a device with someone else's key.
+func memberKeyBound(deviceID, publicKey string) bool {
+	pub, err := decodePublicKey(publicKey)
+	return err == nil && deviceIDForPublicKey(pub) == deviceID
 }
 
 func signPayload(priv ed25519.PrivateKey, payload []byte) string {

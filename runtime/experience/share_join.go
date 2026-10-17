@@ -137,7 +137,7 @@ func (sl *shareListener) applyJoin(conn net.Conn, env wireEnvelope, plain []byte
 		return true
 	}
 	pub, err := decodePublicKey(req.PublicKey)
-	if err != nil || !verifyJoinRequest(pub, req) {
+	if err != nil || !memberKeyBound(req.DeviceID, req.PublicKey) || !verifyJoinRequest(pub, req) {
 		return true
 	}
 	var remote net.Addr

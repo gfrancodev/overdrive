@@ -175,11 +175,17 @@ func upsertMember(circle Circle, member CircleMember) Circle {
 	if member.DeviceID == "" {
 		return circle
 	}
+	if member.PublicKey != "" && !memberKeyBound(member.DeviceID, member.PublicKey) {
+		return circle
+	}
 	for i, existing := range circle.Members {
 		if existing.DeviceID != member.DeviceID {
 			continue
 		}
 		circle.Members[i] = mergeMember(existing, member)
+		return circle
+	}
+	if member.PublicKey == "" {
 		return circle
 	}
 	if member.AddedAt == "" {
@@ -190,7 +196,7 @@ func upsertMember(circle Circle, member CircleMember) Circle {
 }
 
 func mergeMember(local, incoming CircleMember) CircleMember {
-	if incoming.PublicKey != "" {
+	if local.PublicKey == "" {
 		local.PublicKey = incoming.PublicKey
 	}
 	if incoming.Endpoint != "" {

@@ -1,0 +1,107 @@
+package main
+
+import (
+	"encoding/json"
+	"testing"
+)
+
+// A device id is derived from its public key, so roster gossip and joins can never change which key
+// speaks for a device: that key is what every signed peer request is checked against.
+
+type rosterFixture struct {
+	home    string
+	creator DeviceIdentity
+	rogue   DeviceIdentity
+	victim  DeviceIdentity
+	circle  Circle
+}
+
+func newRosterFixture(t *testing.T) rosterFixture {
+	t.Helper()
+	home := meshHome(t)
+	creator, _ := testDevice(t)
+	self, _ := testDevice(t)
+	rogue, _ := testDevice(t)
+	victim, _ := testDevice(t)
+	writeIdentityFile(t, home, self)
+	circle := saveTestCircle(t, home, testCircle(creator, self, rogue, victim))
+	return rosterFixture{home: home, creator: creator, rogue: rogue, victim: victim, circle: circle}
+}
+
+func (f rosterFixture) reload(t *testing.T) Circle {
+	t.Helper()
+	c, err := loadCircle(f.home, f.circle.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+func TestRosterGossipCannotRewriteAMemberKey(t *testing.T) {
+	f := newRosterFixture(t)
+	if err := mergePeerRoster(f.home, f.circle.ID, []CircleMember{
+		{DeviceID: f.victim.DeviceID, PublicKey: f.rogue.PublicKey, Hostname: "spoofed"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	m, ok := f.reload(t).activeMember(f.victim.DeviceID)
+	if !ok || m.PublicKey != f.victim.PublicKey {
+		t.Fatalf("a peer must not swap another member's key, got %q", m.PublicKey)
+	}
+	if m.Hostname == "spoofed" {
+		t.Fatal("a record whose key does not match its device id must be dropped whole")
+	}
+}
+
+func TestRosterGossipAddsOnlyDevicesWhoseIDMatchesTheirKey(t *testing.T) {
+	f := newRosterFixture(t)
+	invited, _ := testDevice(t)
+	puppet, _ := testDevice(t)
+	if err := mergePeerRoster(f.home, f.circle.ID, []CircleMember{
+		{DeviceID: invited.DeviceID, PublicKey: invited.PublicKey},
+		{DeviceID: "dev_00112233445566ff", PublicKey: puppet.PublicKey},
+		{DeviceID: "dev_ffeeddccbbaa9988"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	c := f.reload(t)
+	if _, ok := c.activeMember(invited.DeviceID); !ok {
+		t.Fatal("a member invited elsewhere must still reach this roster")
+	}
+	for _, id := range []string{"dev_00112233445566ff", "dev_ffeeddccbbaa9988"} {
+		if _, ok := c.activeMember(id); ok {
+			t.Fatalf("%s has no key that derives its id and must not become a member", id)
+		}
+	}
+}
+
+func TestJoinRejectsADeviceIDThatIsNotItsKey(t *testing.T) {
+	home := t.TempDir()
+	setupTestEnv(t, home)
+	id, priv, _ := loadOrCreateIdentity(home)
+	circle, _ := createCircle(home, "team", id, priv)
+	victim, _ := testDevice(t)
+	circle = upsertMember(circle, CircleMember{DeviceID: victim.DeviceID, PublicKey: victim.PublicKey})
+	if err := saveCircle(home, circle); err != nil {
+		t.Fatal(err)
+	}
+	invite, _ := createInvite(home, circle.ID, id)
+	attacker, attackerPriv := testDevice(t)
+	req, err := signJoinRequest(attackerPriv, JoinRequest{
+		CircleID: circle.ID, DeviceID: victim.DeviceID, PublicKey: attacker.PublicKey,
+		Code: invite.Code, Timestamp: nowRFC3339(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, _ := json.Marshal(req)
+	sl := &shareListener{home: home, id: id}
+	sl.tryHandleJoin(wireEnvelope{Kind: "join"}, payload)
+	updated, err := loadCircle(home, circle.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m, _ := updated.activeMember(victim.DeviceID); m.PublicKey != victim.PublicKey {
+		t.Fatal("a join must not take over an existing device id with another key")
+	}
+}
