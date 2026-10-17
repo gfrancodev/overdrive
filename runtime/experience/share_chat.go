@@ -529,8 +529,14 @@ func resolvePostConversationID(req chatPostRequest, senderDeviceID string) strin
 	}
 }
 
-func deliverLocalChatPost(home string, circle Circle, env chatEnvelope, topic string, qos byte, wire []byte) (chatEnvelope, bool, error) {
+// deliverLocalChatPost saves the post, runs afterSave, then publishes. When afterSave fails the saved post
+// is dropped, so an error means nothing was posted.
+func deliverLocalChatPost(home string, circle Circle, env chatEnvelope, topic string, qos byte, wire []byte, afterSave func() error) (chatEnvelope, bool, error) {
 	if err := saveOutgoingChat(home, env, topic, qos, wire); err != nil {
+		return chatEnvelope{}, false, err
+	}
+	if err := afterSave(); err != nil {
+		_ = discardOutgoingChat(home, env.MessageID)
 		return chatEnvelope{}, false, err
 	}
 	if !meshAllowsChat() {
@@ -549,8 +555,9 @@ func postLocalChat(home string, req chatPostRequest) (chatEnvelope, bool, error)
 		return chatEnvelope{}, false, err
 	}
 	conv := resolvePostConversationID(req, id.DeviceID)
+	var grantees []string
 	if req.Type == "terminal_session" {
-		if err := shareTerminalWithConversation(home, circle, id.DeviceID, req.SessionID, conv); err != nil {
+		if grantees, err = terminalChatShareGrantees(home, circle, id.DeviceID, req.SessionID, conv); err != nil {
 			return chatEnvelope{}, false, err
 		}
 	}
@@ -583,7 +590,10 @@ func postLocalChat(home string, req chatPostRequest) (chatEnvelope, bool, error)
 	if err != nil {
 		return chatEnvelope{}, false, err
 	}
-	return deliverLocalChatPost(home, circle, env, topic, qos, wire)
+	// The card is saved before anyone gains access, so a failed post never leaves a share without its card.
+	return deliverLocalChatPost(home, circle, env, topic, qos, wire, func() error {
+		return grantTerminalChatShare(home, req.SessionID, grantees)
+	})
 }
 
 func saveOutgoingChat(home string, env chatEnvelope, topic string, qos byte, wire []byte) error {
@@ -740,6 +750,28 @@ func deleteOutbox(home, messageID string) error {
 	defer chatMu.Unlock()
 	_, err = db.Exec(`DELETE FROM outbox WHERE message_id = ?`, messageID)
 	return err
+}
+
+// discardOutgoingChat removes a saved post that must not go out.
+func discardOutgoingChat(home, messageID string) error {
+	db, err := openChatDB(home)
+	if err != nil {
+		return err
+	}
+	chatMu.Lock()
+	defer chatMu.Unlock()
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.Exec(`DELETE FROM outbox WHERE message_id = ?`, messageID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM messages WHERE message_id = ?`, messageID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func flushOutbox(home, meshID string, send func(topic string, qos byte, body []byte) error) error {

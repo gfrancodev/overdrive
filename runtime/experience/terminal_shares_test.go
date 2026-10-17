@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -243,6 +244,65 @@ func TestTerminalChatShareRejectsSessionOutsideTheCircle(t *testing.T) {
 	}
 	if msgs, _ := listChatConversations(f.home, f.circle.ID); len(msgs) != 0 {
 		t.Fatalf("a refused share must not post the card: %+v", msgs)
+	}
+}
+
+// abortInserts makes SQLite refuse inserts into table when the condition holds, standing in for a disk
+// or lock failure at that step of a post.
+func abortInserts(t *testing.T, db *sql.DB, table, when string) {
+	t.Helper()
+	if _, err := db.Exec(`CREATE TRIGGER abort_` + table + ` BEFORE INSERT ON ` + table +
+		` WHEN ` + when + ` BEGIN SELECT RAISE(ABORT, 'injected failure'); END`); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func countChatRows(t *testing.T, home, table string) int {
+	t.Helper()
+	db, err := openChatDB(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM ` + table).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestTerminalChatShareWaitsForTheCardToBeSaved(t *testing.T) {
+	f := newTerminalChatShareFixture(t)
+	db, err := openChatDB(f.home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	abortInserts(t, db, "messages", "1")
+	dm := f.card(f.sessionID)
+	dm.Recipient = f.friend.DeviceID
+	if _, _, err := postLocalChat(f.home, dm); err == nil {
+		t.Fatal("the post must fail when its card cannot be saved")
+	}
+	if f.shared(t, f.friend) {
+		t.Fatal("a card that was never saved must not leave a share behind")
+	}
+}
+
+func TestTerminalChatShareFailureDropsTheCardAndEveryGrant(t *testing.T) {
+	f := newTerminalChatShareFixture(t)
+	abortInserts(t, f.store.db, "terminal_shares", "NEW.target_id = '"+f.bystander.DeviceID+"'")
+	everyone := f.card(f.sessionID)
+	everyone.ConversationID = circleGroupConversationID()
+	if _, _, err := postLocalChat(f.home, everyone); err == nil {
+		t.Fatal("the post must fail when its share cannot be granted")
+	}
+	if f.shared(t, f.friend) || f.shared(t, f.squad) {
+		t.Fatal("a failed grant must not leave part of the audience shared")
+	}
+	if n := countChatRows(t, f.home, "messages"); n != 0 {
+		t.Fatalf("the card must be dropped when its share fails, %d messages kept", n)
+	}
+	if n := countChatRows(t, f.home, "outbox"); n != 0 {
+		t.Fatalf("the card must not stay queued for the mesh, %d outbox rows kept", n)
 	}
 }
 

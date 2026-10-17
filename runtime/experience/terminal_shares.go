@@ -22,29 +22,75 @@ func newTerminalShareID() string {
 func (s *TerminalStore) GrantShare(sessionID, deviceID, permission string) (TerminalShare, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return TerminalShare{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	share, created, err := grantShareTx(tx, sessionID, deviceID, permission)
+	if err != nil {
+		return TerminalShare{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return TerminalShare{}, err
+	}
+	if created {
+		_ = s.audit(sessionID, deviceID, "share_grant", permission)
+	}
+	return share, nil
+}
+
+// GrantShares grants every device in one transaction: the whole audience gets the session, or nobody does.
+func (s *TerminalStore) GrantShares(sessionID string, deviceIDs []string, permission string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var created []string
+	for _, deviceID := range deviceIDs {
+		_, isNew, err := grantShareTx(tx, sessionID, deviceID, permission)
+		if err != nil {
+			return err
+		}
+		if isNew {
+			created = append(created, deviceID)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	for _, deviceID := range created {
+		_ = s.audit(sessionID, deviceID, "share_grant", permission)
+	}
+	return nil
+}
+
+func grantShareTx(tx *sql.Tx, sessionID, deviceID, permission string) (TerminalShare, bool, error) {
 	var share TerminalShare
-	err := s.db.QueryRow(`SELECT id, session_id, target_id, permission, created_at, expires_at FROM terminal_shares
+	err := tx.QueryRow(`SELECT id, session_id, target_id, permission, created_at, expires_at FROM terminal_shares
  WHERE session_id=? AND target_id=? LIMIT 1`, sessionID, deviceID).
 		Scan(&share.ID, &share.SessionID, &share.TargetID, &share.Permission, &share.CreatedAt, &share.ExpiresAt)
 	if err == nil {
-		_, err = s.db.Exec(`UPDATE terminal_shares SET permission=?, expires_at='' WHERE id=?`, permission, share.ID)
+		_, err = tx.Exec(`UPDATE terminal_shares SET permission=?, expires_at='' WHERE id=?`, permission, share.ID)
 		share.Permission, share.ExpiresAt = permission, ""
-		return share, err
+		return share, false, err
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return TerminalShare{}, err
+		return TerminalShare{}, false, err
 	}
 	share = TerminalShare{
 		ID: newTerminalShareID(), SessionID: sessionID, TargetID: deviceID,
 		Permission: permission, CreatedAt: terminalNow(),
 	}
-	_, err = s.db.Exec(`INSERT INTO terminal_shares (id, session_id, target_id, permission, created_at, expires_at)
+	_, err = tx.Exec(`INSERT INTO terminal_shares (id, session_id, target_id, permission, created_at, expires_at)
  VALUES (?,?,?,?,?,'')`, share.ID, share.SessionID, share.TargetID, share.Permission, share.CreatedAt)
 	if err != nil {
-		return TerminalShare{}, err
+		return TerminalShare{}, false, err
 	}
-	_ = s.audit(sessionID, deviceID, "share_grant", permission)
-	return share, nil
+	return share, true, nil
 }
 
 // HasShare reports whether deviceID holds an unexpired share on sessionID.
@@ -120,43 +166,52 @@ func revokeTerminalSessionAccess(store *TerminalStore, sessionID, deviceID, reas
 	closeTerminalStreamsForDevice(sessionID, deviceID)
 }
 
-// shareTerminalWithConversation grants every member of a chat conversation access to a session this device
-// owns, before the card that announces it is sent. Cards for sessions hosted elsewhere or owned by another
-// device grant nothing: only the owner delegates access, and the host enforces it.
-func shareTerminalWithConversation(home string, circle Circle, selfID, sessionID, conversationID string) error {
+// terminalChatShareGrantees lists who a terminal card posted in a conversation should share the session
+// with, and refuses a session from another circle. Cards for sessions hosted elsewhere or owned by another
+// device share with nobody: only the owner delegates access, and the host enforces it.
+func terminalChatShareGrantees(home string, circle Circle, selfID, sessionID, conversationID string) ([]string, error) {
 	if sessionID == "" {
+		return nil, nil
+	}
+	store, err := newTerminalStore(home)
+	if err != nil {
+		return nil, err
+	}
+	sess, err := store.GetSession(sessionID)
+	if err != nil {
+		if strings.Contains(err.Error(), string(TerminalErrSessionNotFound)) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if sess.OwnerDeviceID != selfID {
+		return nil, nil
+	}
+	if sess.CircleID != circle.ID {
+		return nil, errTerminalShareCircle
+	}
+	audience, err := conversationAudience(home, circle.ID, conversationID)
+	if err != nil {
+		return nil, err
+	}
+	var grantees []string
+	for _, deviceID := range audience {
+		if _, ok := circle.activeMember(deviceID); ok && deviceID != selfID {
+			grantees = append(grantees, deviceID)
+		}
+	}
+	return grantees, nil
+}
+
+func grantTerminalChatShare(home, sessionID string, grantees []string) error {
+	if len(grantees) == 0 {
 		return nil
 	}
 	store, err := newTerminalStore(home)
 	if err != nil {
 		return err
 	}
-	sess, err := store.GetSession(sessionID)
-	if err != nil {
-		if strings.Contains(err.Error(), string(TerminalErrSessionNotFound)) {
-			return nil
-		}
-		return err
-	}
-	if sess.OwnerDeviceID != selfID {
-		return nil
-	}
-	if sess.CircleID != circle.ID {
-		return errTerminalShareCircle
-	}
-	audience, err := conversationAudience(home, circle.ID, conversationID)
-	if err != nil {
-		return err
-	}
-	for _, deviceID := range audience {
-		if _, ok := circle.activeMember(deviceID); !ok || deviceID == selfID {
-			continue
-		}
-		if _, err := store.GrantShare(sessionID, deviceID, terminalSharePermissionObserve); err != nil {
-			return err
-		}
-	}
-	return nil
+	return store.GrantShares(sessionID, grantees, terminalSharePermissionObserve)
 }
 
 // conversationAudience lists the devices that read a conversation: both ends of a direct thread, the roster
