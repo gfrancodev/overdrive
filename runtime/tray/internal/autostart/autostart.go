@@ -85,7 +85,7 @@ func Build(goos, home, xdg, exe string, uid int) (Plan, error) {
 }
 
 func systemdUnit(exe string) string {
-	return "[Unit]\nDescription=Overdrive tray\nAfter=graphical-session.target\n\n[Service]\nType=simple\nExecStart=" + quoteExec(exe) + "\nRestart=on-failure\nRestartSec=10\n\n[Install]\nWantedBy=graphical-session.target\n"
+	return "[Unit]\nDescription=Overdrive tray\nAfter=graphical-session.target\n\n[Service]\nType=simple\nExecStart=" + quoteExec(exe) + "\nRestart=on-failure\nRestartSec=10\nKillMode=process\n\n[Install]\nWantedBy=graphical-session.target\n"
 }
 
 func quoteExec(exe string) string {

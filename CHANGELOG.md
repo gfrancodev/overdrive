@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixes
+
+- Upgrading while the Core runs no longer crashes it. The installer replaced the runtime binary and the TurboVec library by copying over them in place, which truncates a file the running Core has mapped (SIGBUS). It now writes a temporary file and renames it, so the running Core keeps the old file until it restarts.
+- Reinstalling or re-registering the tray no longer stops the Core and live terminals on Linux. They run in the tray unit's cgroup, and restarting the unit killed them; the unit now uses `KillMode=process`. The new unit takes effect at the next install.
+
 ## 2.1.0 - 2026-10-17
 
 ### Security

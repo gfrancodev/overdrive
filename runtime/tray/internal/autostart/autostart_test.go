@@ -88,3 +88,16 @@ func TestWindowsRunValue(t *testing.T) {
 		t.Fatal(plan, err)
 	}
 }
+
+func TestLinuxUnitStopsOnlyTheTray(t *testing.T) {
+	home := t.TempDir()
+	plan, err := Build("linux", home, "", filepath.Join(home, "bin", "overdrive-tray"), 1000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The tray starts the Core and terminal hosts, which land in the unit's cgroup. Restarting the tray on
+	// install must not take them down with it.
+	if !strings.Contains(string(plan.Files[0].Data), "\nKillMode=process\n") {
+		t.Fatalf("unit must stop only the tray process:\n%s", plan.Files[0].Data)
+	}
+}
