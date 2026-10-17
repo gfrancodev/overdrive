@@ -117,6 +117,10 @@ func (sl *shareListener) handleConn(conn net.Conn, priv ed25519.PrivateKey) {
 		sl.handleTerminalPeer(conn, reader, circle, plain)
 		return
 	}
+	if env.Kind == rosterKind {
+		sl.handleRoster(conn, circle, priv, plain)
+		return
+	}
 	sl.handleSyncWire(conn, circle, priv, plain)
 }
 
@@ -125,10 +129,6 @@ func (sl *shareListener) handleSyncWire(conn net.Conn, circle Circle, priv ed255
 	if err := json.Unmarshal(plain, &req); err != nil {
 		return
 	}
-	circle = rememberSyncPeer(circle, req, conn.RemoteAddr())
-	circle = stampSelfMember(circle, sl.id.DeviceID, sl.selfEndpoint())
-	circle = refreshPeerEndpoints(circle, sl.id.DeviceID)
-	_ = persistJoinedCircle(sl.home, circle)
 	member, ok := circle.activeMember(req.DeviceID)
 	if !ok {
 		return
@@ -137,6 +137,10 @@ func (sl *shareListener) handleSyncWire(conn net.Conn, circle Circle, priv ed255
 	if err != nil || !verifySyncRequest(pub, req) {
 		return
 	}
+	circle = rememberSyncPeer(circle, req, conn.RemoteAddr())
+	circle = stampSelfMember(circle, sl.id.DeviceID, sl.selfEndpoint())
+	circle = refreshPeerEndpoints(circle, sl.id.DeviceID)
+	_ = persistJoinedCircle(sl.home, circle)
 	var e *Engine
 	if hookShareNewEngine != nil {
 		e, err = hookShareNewEngine(sl.home)
@@ -279,5 +283,6 @@ func doFetchPeerSyncTimed(call peerSyncCall) (SyncResponse, error) {
 	if len(resp.Members) > 0 {
 		_ = mergePeerRoster(call.Home, call.Circle.ID, resp.Members)
 	}
+	refreshPeerRoster(call.Home, call.Endpoint, call.Circle, call.Identity, call.Priv)
 	return resp, nil
 }

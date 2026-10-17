@@ -280,6 +280,7 @@ func (ctx peerCatalogMergeCtx) appendEndpoint(endpoint string, items []CatalogIt
 	if len(resp.Members) > 0 {
 		_ = mergePeerRoster(ctx.home, ctx.circle.ID, resp.Members)
 	}
+	refreshPeerRoster(ctx.home, endpoint, ctx.circle, ctx.id, ctx.priv)
 	return items
 }
 
