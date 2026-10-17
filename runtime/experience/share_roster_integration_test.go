@@ -56,6 +56,7 @@ func (c rosterCore) join(t *testing.T, inviter rosterCore, circleID string) {
 	if err := os.WriteFile(filepath.Join(invitesDir(c.home), invite.Code+".json"), raw, 0o600); err != nil {
 		t.Fatal(err)
 	}
+	t.Setenv("OVERDRIVE_SHARE_LISTEN", c.endpoint)
 	if _, err := acceptInvite(c.home, invite.Code, invite.Fingerprint, inviter.endpoint, c.id, c.priv); err != nil {
 		t.Fatal(err)
 	}

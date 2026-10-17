@@ -740,6 +740,7 @@ func startMeshServices(home string) {
 	if !meshTransportsOpen() {
 		return
 	}
+	go membershipLoop(home, epoch)
 	go func() {
 		if err := startCircleLinks(home, epoch); err != nil && !errors.Is(err, errBrokerUnknown) && meshEpochOpen(epoch) {
 			fmt.Fprintf(os.Stderr, "mesh: %v\n", err)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -105,5 +106,67 @@ func TestAdoptingANewKeyDropsInvitesAndResealsTheOutbox(t *testing.T) {
 	env, err := openChatWire(rotated.GroupKey, items[0].Wire)
 	if err != nil || env.MessageID != queued.MessageID {
 		t.Fatalf("a queued message must leave sealed with the new key: %v", err)
+	}
+}
+
+func TestRevokeRotatesTheKeyForEveryoneElse(t *testing.T) {
+	setupTestEnv(t, t.TempDir())
+	creator := startRosterCore(t, "creator")
+	stays := startRosterCore(t, "stays")
+	leaves := startRosterCore(t, "leaves")
+	circle, err := createCircle(creator.home, "team", creator.id, creator.priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stays.join(t, creator, circle.ID)
+	leaves.join(t, creator, circle.ID)
+	for _, c := range []rosterCore{stays, leaves} {
+		if err := c.pullKeys(t, creator, circle.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	before := creator.circle(t, circle.ID).GroupKey
+
+	got, cutOff, err := revokeAndRotate(creator.home, circle.ID, []string{leaves.id.DeviceID}, creator.id, creator.priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.GroupKey == before || len(cutOff) != 0 {
+		t.Fatalf("revoking must rotate the key for every remaining member, cut off %v", cutOff)
+	}
+	if stays.circle(t, circle.ID).GroupKey != got.GroupKey {
+		t.Fatal("the revoke must push the new key to the members that stay")
+	}
+	if leaves.circle(t, circle.ID).GroupKey == got.GroupKey {
+		t.Fatal("the revoked device must not receive the new key")
+	}
+}
+
+func TestRekeyCommandRotatesAndNamesMembersLeftBehind(t *testing.T) {
+	home := t.TempDir()
+	setupTestEnv(t, home)
+	id, priv, _ := loadOrCreateIdentity(home)
+	circle, err := createCircle(home, "team", id, priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := newProofDevice(t)
+	circle = circle.admit(legacy.member(), proofDevice{id: id, priv: priv}.admit(t, circle.ID, legacy))
+	if err := saveCircle(home, circle); err != nil {
+		t.Fatal(err)
+	}
+	_, stderr, code := runCLICapture(t, []string{"share", "circle", "rekey", "--circle", circle.ID})
+	if code != 0 {
+		t.Fatalf("rekey exit %d: %s", code, stderr)
+	}
+	got, err := loadCircle(home, circle.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.KeyEpoch != 1 || got.GroupKey == circle.GroupKey {
+		t.Fatal("share circle rekey must move the circle to a new key")
+	}
+	if !strings.Contains(stderr, legacy.id.DeviceID) {
+		t.Fatalf("a member without a key-agreement key must be named, stderr: %s", stderr)
 	}
 }

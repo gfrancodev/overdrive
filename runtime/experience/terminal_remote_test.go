@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -424,4 +426,37 @@ func TestWatchTerminalPeerAccessClosesRevokedViewer(t *testing.T) {
 func isTimeout(err error) bool {
 	ne, ok := err.(net.Error)
 	return ok && ne.Timeout()
+}
+
+func TestWatchTerminalPeerAccessClosesALinkOnTheOldKey(t *testing.T) {
+	prev := terminalPeerRecheckEvery
+	terminalPeerRecheckEvery = 20 * time.Millisecond
+	t.Cleanup(func() { terminalPeerRecheckEvery = prev })
+	f := newTerminalRemoteFixture(t)
+	mgr, err := getTerminalManager(f.home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hostSide, viewerSide := net.Pipe()
+	defer viewerSide.Close()
+	viewer := newTerminalPeerLink(viewerSide, nil, f.circle.GroupKey)
+	done := make(chan struct{})
+	defer close(done)
+	go watchTerminalPeerAccess(f.home, mgr, f.request("stream"), newTerminalPeerLink(hostSide, nil, f.circle.GroupKey), done)
+
+	_ = viewerSide.SetReadDeadline(time.Now().Add(150 * time.Millisecond))
+	if _, err := viewer.Recv(); err == nil || !isTimeout(err) {
+		t.Fatalf("a viewer on the current key must stay connected, got %v", err)
+	}
+	circle, err := loadCircle(f.home, f.circle.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := saveCircle(f.home, circle.moveToKey(1, base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{5}, 32)))); err != nil {
+		t.Fatal(err)
+	}
+	_ = viewerSide.SetReadDeadline(time.Now().Add(3 * time.Second))
+	if _, err := viewer.Recv(); err == nil || isTimeout(err) {
+		t.Fatalf("a link sealed with the replaced key must close so the viewer reconnects, got %v", err)
+	}
 }

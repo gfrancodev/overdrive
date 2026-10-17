@@ -132,6 +132,13 @@ func terminalPeerStillAdmitted(home string, mgr *TerminalManager, req terminalPe
 	return err == nil
 }
 
+// terminalPeerKeyCurrent reports whether a link is still sealed with the circle's current key. After a
+// rotation the old key may be known to a revoked device, so the link closes and the viewer reconnects.
+func terminalPeerKeyCurrent(home, circleID, key string) bool {
+	circle, err := loadCircle(home, circleID)
+	return err == nil && circle.GroupKey == key
+}
+
 // watchTerminalPeerAccess closes a live peer stream as soon as its viewer is no longer admitted.
 func watchTerminalPeerAccess(home string, mgr *TerminalManager, req terminalPeerRequest, link *terminalPeerLink, done <-chan struct{}) {
 	ticker := time.NewTicker(terminalPeerRecheckEvery)
@@ -144,6 +151,10 @@ func watchTerminalPeerAccess(home string, mgr *TerminalManager, req terminalPeer
 			if !terminalPeerStillAdmitted(home, mgr, req) {
 				_ = link.conn.SetWriteDeadline(time.Now().Add(terminalPeerReplyWait))
 				_ = link.Send(mustEncodeFrame(terminalFrameError, 0, []byte(TerminalErrAccessDenied)))
+				_ = link.Close()
+				return
+			}
+			if !terminalPeerKeyCurrent(home, req.CircleID, link.key) {
 				_ = link.Close()
 				return
 			}

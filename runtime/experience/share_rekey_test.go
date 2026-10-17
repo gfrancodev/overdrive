@@ -222,3 +222,23 @@ func TestChatSealedJustBeforeARotationStillDelivers(t *testing.T) {
 		t.Fatal("after the grace window the old key must no longer deliver")
 	}
 }
+
+func TestCreatorHandsTheCurrentKeyToAMemberThatUpgradesLater(t *testing.T) {
+	f := newRekeyFixture(t)
+	rotated, cutOff, err := rekeyCircle(f.circle, f.creator.id, f.creator.priv)
+	if err != nil || len(cutOff) != 1 {
+		t.Fatalf("precondition: the stale member is cut off, got %v %v", cutOff, err)
+	}
+	rotated = rotated.ingestKexRecords([]DeviceKexRecord{kexRecordFor(t, f.stale)})
+	extended := rotated.extendKeyUpdate(f.creator.id, f.creator.priv)
+	if extended.KeyUpdate.Epoch != rotated.KeyEpoch {
+		t.Fatal("extending must not start a new epoch")
+	}
+	adopted, ok := f.circle.adoptKeyUpdate(*extended.KeyUpdate, f.stale.id, f.stale.priv)
+	if !ok || adopted.GroupKey != rotated.GroupKey {
+		t.Fatal("a member that publishes its key-agreement key later must receive the current key")
+	}
+	if _, ok := f.circle.adoptKeyUpdate(*extended.KeyUpdate, f.member.id, f.member.priv); !ok {
+		t.Fatal("extending must keep the entries already handed out")
+	}
+}

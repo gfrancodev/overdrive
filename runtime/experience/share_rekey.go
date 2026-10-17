@@ -273,3 +273,37 @@ func openCircleTerminalWire(c Circle, body []byte) (terminalEnvelope, error) {
 	}
 	return terminalEnvelope{}, lastErr
 }
+
+// extendKeyUpdate, on the creator, adds an entry to the current key update for each active member whose
+// key-agreement key arrived after the rotation, so a member that upgrades late still gets the current key.
+func (c Circle) extendKeyUpdate(self DeviceIdentity, priv ed25519.PrivateKey) Circle {
+	if c.CreatorDeviceID != self.DeviceID || c.KeyUpdate == nil || c.KeyUpdate.Epoch != c.KeyEpoch {
+		return c
+	}
+	key, err := base64.StdEncoding.DecodeString(c.GroupKey)
+	if err != nil {
+		return c
+	}
+	update := *c.KeyUpdate
+	update.Entries = map[string]string{}
+	for deviceID, entry := range c.KeyUpdate.Entries {
+		update.Entries[deviceID] = entry
+	}
+	added := false
+	for _, m := range c.Members {
+		if _, has := update.Entries[m.DeviceID]; has || m.Revoked || m.DeviceID == self.DeviceID {
+			continue
+		}
+		if sealed, err := sealKeyEntry(c, update.Epoch, m.DeviceID, key); err == nil {
+			update.Entries[m.DeviceID] = sealed
+			added = true
+		}
+	}
+	if !added {
+		return c
+	}
+	if signed, err := signKeyUpdate(priv, update); err == nil {
+		c.KeyUpdate = &signed
+	}
+	return c
+}

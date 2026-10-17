@@ -168,7 +168,7 @@ var rosterRefresh = struct {
 	last map[string]time.Time
 }{last: map[string]time.Time{}}
 
-// refreshPeerRoster runs the roster exchange with a peer this core just synced with, at most once a minute.
+// refreshPeerRoster runs the membership exchanges with a peer this core just synced with, at most once a minute.
 func refreshPeerRoster(home, endpoint string, circle Circle, id DeviceIdentity, priv ed25519.PrivateKey) {
 	key := circle.ID + "|" + endpoint
 	rosterRefresh.Lock()
@@ -178,7 +178,53 @@ func refreshPeerRoster(home, endpoint string, circle Circle, id DeviceIdentity, 
 	}
 	rosterRefresh.last[key] = time.Now()
 	rosterRefresh.Unlock()
+	exchangeMembership(home, endpoint, circle, id, priv)
+}
+
+// exchangeMembership pulls the peer's signed roster, then trades key-agreement records and key updates.
+func exchangeMembership(home, endpoint string, circle Circle, id DeviceIdentity, priv ed25519.PrivateKey) {
 	if resp, err := fetchPeerRoster(endpoint, circle, id, priv); err == nil {
 		_ = applyPeerRoster(home, circle.ID, resp)
+	}
+	if current, err := loadCircle(home, circle.ID); err == nil {
+		circle = current
+	}
+	if resp, err := fetchPeerKeys(endpoint, circle, id, priv); err == nil {
+		_ = applyPeerKeys(home, circle.ID, resp)
+	}
+}
+
+// membershipLoop keeps rosters and circle keys converging while the mesh is open, even when no memory sync
+// runs, so a revocation or a new key reaches every member within a minute or two.
+func membershipLoop(home string, epoch uint64) {
+	ticker := time.NewTicker(rosterRefreshEvery)
+	defer ticker.Stop()
+	for meshEpochOpen(epoch) {
+		if meshAllowsSync() {
+			exchangeMembershipWithPeers(home)
+		}
+		<-ticker.C
+	}
+}
+
+func exchangeMembershipWithPeers(home string) {
+	id, priv, err := loadOrCreateIdentity(home)
+	if err != nil {
+		return
+	}
+	circles, err := listCircles(home)
+	if err != nil {
+		return
+	}
+	selfListen := advertisedListenAddr()
+	for _, circle := range circles {
+		if _, ok := circle.activeMember(id.DeviceID); !ok {
+			continue
+		}
+		for _, endpoint := range nonEmptyEndpoints(circle.PeerEndpoints) {
+			if endpoint != selfListen {
+				exchangeMembership(home, endpoint, circle, id, priv)
+			}
+		}
 	}
 }

@@ -123,6 +123,7 @@ var circleCommands = map[string]func([]string) error{
 	"invite":      cmdCircleInvite,
 	"accept":      cmdCircleAccept,
 	"revoke":      cmdCircleRevoke,
+	"rekey":       cmdCircleRekey,
 	"list":        cmdCircleList,
 	"folder-add":  cmdCircleFolderAdd,
 	"folder-list": cmdCircleFolderList,
@@ -131,7 +132,7 @@ var circleCommands = map[string]func([]string) error{
 
 func cmdShareCircle(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("usage: share circle <create|invite|accept|revoke|list|folder-add|folder-list|prune>")
+		return fmt.Errorf("usage: share circle <create|invite|accept|revoke|rekey|list|folder-add|folder-list|prune>")
 	}
 	handler, ok := circleCommands[args[0]]
 	if !ok {
@@ -230,16 +231,49 @@ func cmdCircleRevoke(args []string) error {
 				targets = append(targets, circleInvitees(c, *deviceID)...)
 			}
 		}
-		var c Circle
+		c, cutOff, err := revokeAndRotate(e.home, *circleID, targets, id, priv)
+		if err != nil {
+			return err
+		}
 		for _, target := range targets {
-			if c, err = revokeMember(e.home, *circleID, target, id, priv); err != nil {
-				return err
-			}
 			_ = e.markPeerRevoked(*circleID, target)
 			_ = revokeTerminalAccessForDevice(e.home, *circleID, target)
 		}
+		reportKeyRotation(c, cutOff)
 		return writeJSON(c)
 	})
+}
+
+func cmdCircleRekey(args []string) error {
+	fs := flag.NewFlagSet("share circle rekey", flag.ContinueOnError)
+	circleID := fs.String("circle", "", circleIDFlagHelp)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *circleID == "" {
+		return fmt.Errorf("--circle is required")
+	}
+	return withEngine(func(e *Engine) error {
+		id, priv, err := loadOrCreateIdentity(e.home)
+		if err != nil {
+			return err
+		}
+		c, cutOff, err := rotateCircleKey(e.home, *circleID, id, priv)
+		if err != nil {
+			return err
+		}
+		reportKeyRotation(c, cutOff)
+		return writeJSON(c)
+	})
+}
+
+// reportKeyRotation tells the creator which members did not get the new key: their core has not published a
+// key-agreement key yet. Each gets it once its core upgrades and syncs with this one.
+func reportKeyRotation(c Circle, cutOff []string) {
+	fmt.Fprintf(os.Stderr, "share: circle %s moved to key epoch %d\n", c.ID, c.KeyEpoch)
+	if len(cutOff) > 0 {
+		fmt.Fprintf(os.Stderr, "share: these members cannot read new messages until their core upgrades and syncs: %s\n", strings.Join(cutOff, ", "))
+	}
 }
 
 func cmdCircleList(args []string) error {

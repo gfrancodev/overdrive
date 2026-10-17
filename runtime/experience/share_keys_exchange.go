@@ -149,7 +149,7 @@ func applyKeysMaterial(home, circleID string, records []DeviceKexRecord, update 
 	if err != nil {
 		return err
 	}
-	circle = circle.ingestKexRecords(records)
+	circle = circle.ingestKexRecords(records).extendKeyUpdate(id, priv)
 	adopted := false
 	if update != nil {
 		circle, adopted = circle.adoptKeyUpdate(*update, id, priv)
@@ -216,4 +216,44 @@ func resealOutbox(home, circleID, oldKey, newKey string) error {
 		}
 	}
 	return nil
+}
+
+// rotateCircleKey, on the creator, moves the circle to a new key, drops the old invites, reseals the outbox
+// and pushes the update to every member it can reach. It returns the members left without the new key.
+func rotateCircleKey(home, circleID string, id DeviceIdentity, priv ed25519.PrivateKey) (Circle, []string, error) {
+	circle, err := loadCircle(home, circleID)
+	if err != nil {
+		return Circle{}, nil, err
+	}
+	rotated, cutOff, err := rekeyCircle(circle, id, priv)
+	if err != nil {
+		return Circle{}, nil, err
+	}
+	if err := saveCircle(home, rotated); err != nil {
+		return Circle{}, nil, err
+	}
+	afterKeyRotation(home, rotated)
+	pushKeyUpdate(home, rotated, id, priv)
+	return rotated, cutOff, nil
+}
+
+// revokeAndRotate revokes each target, then rotates the key once so none of them can read what comes next.
+func revokeAndRotate(home, circleID string, targets []string, id DeviceIdentity, priv ed25519.PrivateKey) (Circle, []string, error) {
+	for _, target := range targets {
+		if _, err := revokeMember(home, circleID, target, id, priv); err != nil {
+			return Circle{}, nil, err
+		}
+	}
+	return rotateCircleKey(home, circleID, id, priv)
+}
+
+func pushKeyUpdate(home string, circle Circle, id DeviceIdentity, priv ed25519.PrivateKey) {
+	for _, m := range circle.Members {
+		if m.Revoked || m.DeviceID == id.DeviceID || strings.TrimSpace(m.Endpoint) == "" {
+			continue
+		}
+		if resp, err := fetchPeerKeys(m.Endpoint, circle, id, priv); err == nil {
+			_ = applyPeerKeys(home, circle.ID, resp)
+		}
+	}
 }
