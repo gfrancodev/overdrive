@@ -2,6 +2,19 @@
 # Shared helpers for install.sh and package-platform.sh.
 # Installs only skills plus the runtime binary/library for the current OS/arch.
 
+# install_file_atomic swaps dest for a copy of src through a temporary file and a rename. A running Core keeps
+# its mapped binary and TurboVec library; copying over them in place truncates the file under it (SIGBUS).
+install_file_atomic() {
+  local src="$1" dest="$2" tmp
+  tmp="$(mktemp "${dest}.tmp.XXXXXX")" || return 1
+  if ! cp "$src" "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  chmod +x "$tmp" 2>/dev/null || true
+  mv -f "$tmp" "$dest"
+}
+
 detect_platform() {
   local os_name arch_name
   os_name="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -67,16 +80,13 @@ install_runtime_for_platform() {
     return 1
   fi
   mkdir -p "$bin_dir" "$lib_dir"
-  cp "$root/runtime/bin/$artifact" "$bin_dir/$installed"
-  chmod +x "$bin_dir/$installed" 2>/dev/null || true
+  install_file_atomic "$root/runtime/bin/$artifact" "$bin_dir/$installed" || return 1
 
   lib_name="$(turbovec_lib_name "$os")"
   bundled_lib="$root/runtime/lib/${os}-${arch}/$lib_name"
   if [[ -f "$bundled_lib" ]]; then
-    cp "$bundled_lib" "$lib_dir/$lib_name"
-    cp "$bundled_lib" "$bin_dir/$lib_name"
-    chmod +x "$lib_dir/$lib_name" 2>/dev/null || true
-    chmod +x "$bin_dir/$lib_name" 2>/dev/null || true
+    install_file_atomic "$bundled_lib" "$lib_dir/$lib_name"
+    install_file_atomic "$bundled_lib" "$bin_dir/$lib_name"
   fi
   return 0
 }
@@ -163,8 +173,7 @@ install_tray_for_platform() {
   fi
   mkdir -p "$bin_dir"
   if [[ -n "$artifact" && -f "$root/runtime/bin/$artifact" ]]; then
-    cp "$root/runtime/bin/$artifact" "$bin_dir/$installed"
-    chmod +x "$bin_dir/$installed" 2>/dev/null || true
+    install_file_atomic "$root/runtime/bin/$artifact" "$bin_dir/$installed" || return 1
     return 0
   fi
   src="$root/runtime/tray"
@@ -176,8 +185,8 @@ install_tray_for_platform() {
     if (
       cd "$src"
       CGO_ENABLED="$cgo" GOOS="$os" GOARCH="$arch" \
-        go build -buildvcs=false -trimpath -ldflags='-s -w' -o "$bin_dir/$installed" ./cmd/overdrive-tray
-    ); then
+        go build -buildvcs=false -trimpath -ldflags='-s -w' -o "$bin_dir/$installed.new" ./cmd/overdrive-tray
+    ) && mv -f "$bin_dir/$installed.new" "$bin_dir/$installed"; then
       chmod +x "$bin_dir/$installed" 2>/dev/null || true
       return 0
     fi

@@ -25,16 +25,17 @@ elif [[ "${OVERDRIVE_INSTALL_FROM_SOURCE:-}" = "1" ]] && [[ "$TARGET_OS" != "win
   echo "Prebuilt runtime not found; building from source (OVERDRIVE_INSTALL_FROM_SOURCE=1)..." >&2
   (
     cd "$ROOT/runtime/experience"
-    CGO_ENABLED=0 go build -buildvcs=false -trimpath -ldflags='-s -w' -o "$BIN_DIR/$INSTALLED_NAME" .
+    CGO_ENABLED=0 go build -buildvcs=false -trimpath -ldflags='-s -w' -o "$BIN_DIR/$INSTALLED_NAME.new" .
   )
+  mv -f "$BIN_DIR/$INSTALLED_NAME.new" "$BIN_DIR/$INSTALLED_NAME"
   chmod +x "$BIN_DIR/$INSTALLED_NAME"
   if command -v cargo >/dev/null 2>&1 && [[ -f "$ROOT/runtime/turbovec-ffi/Cargo.toml" ]]; then
     (cd "$ROOT/runtime/turbovec-ffi" && cargo build --release)
     lib_name="$(turbovec_lib_name "$TARGET_OS")"
     dev_lib="$ROOT/runtime/turbovec-ffi/target/release/$lib_name"
     if [[ -f "$dev_lib" ]]; then
-      cp "$dev_lib" "$LIB_DIR/$lib_name"
-      cp "$dev_lib" "$BIN_DIR/$lib_name"
+      install_file_atomic "$dev_lib" "$LIB_DIR/$lib_name"
+      install_file_atomic "$dev_lib" "$BIN_DIR/$lib_name"
     fi
   fi
   prune_foreign_runtime_artifacts "$BIN_DIR" "$LIB_DIR" "$TARGET_OS" "$TARGET_ARCH"

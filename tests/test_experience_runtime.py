@@ -371,6 +371,28 @@ def test_installer_installs_matching_runtime_binary(runtime_bin: Path, tmp_path:
     assert result["backend"] == "sqlite-fts5-turbovec-v1"
 
 
+def test_installer_upgrade_never_rewrites_a_running_core_in_place(tmp_path: Path):
+    # A running Core maps its binary and the TurboVec library. Rewriting either file in place truncates it
+    # under the process (SIGBUS); the installer must swap in a new file instead, so the inode changes.
+    bin_dir = tmp_path / "bin"
+    home = tmp_path / "home"
+    env = dict(os.environ)
+    env["OVERDRIVE_SKILLS_DIR"] = str(tmp_path / "skills")
+    env["OVERDRIVE_BIN_DIR"] = str(bin_dir)
+    env["OVERDRIVE_HOME"] = str(home)
+    env["OVERDRIVE_TRAY_ENABLE"] = "0"
+    run(str(ROOT / "scripts" / "install.sh"), env=env)
+    runtime = bin_dir / ("overdrive-runtime.exe" if os.name == "nt" else "overdrive-runtime")
+    libs = [p for p in [*bin_dir.glob("*turbovec_ffi*"), *(home / "lib").glob("*turbovec_ffi*")] if p.is_file()]
+    targets = [runtime, *libs]
+    before = {p: p.stat().st_ino for p in targets}
+    run(str(ROOT / "scripts" / "install.sh"), env=env)
+    for path, inode in before.items():
+        assert path.stat().st_ino != inode, f"{path.name} was rewritten in place"
+        assert os.access(path, os.X_OK)
+    assert not list(bin_dir.glob("*.tmp*")) and not list(bin_dir.glob("*.new"))
+
+
 def test_skills_treat_experience_as_advisory_and_automatic():
     using = (ROOT / "skills/using-overdrive/SKILL.md").read_text().lower()
     plan = (ROOT / "skills/plan/SKILL.md").read_text().lower()
