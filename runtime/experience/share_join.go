@@ -150,6 +150,9 @@ func (sl *shareListener) applyJoin(conn net.Conn, env wireEnvelope, plain []byte
 	if err := persistJoinedCircle(sl.home, circle); err != nil {
 		return true
 	}
+	if vouched, err := loadCircle(sl.home, circle.ID); err == nil {
+		circle = vouched
+	}
 	if conn != nil {
 		_ = writeJoinAck(conn, circle)
 	}

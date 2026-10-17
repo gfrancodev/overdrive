@@ -140,6 +140,7 @@ func createCircle(home string, name string, id DeviceIdentity, priv ed25519.Priv
 	if err := c.signMemberList(priv); err != nil {
 		return Circle{}, err
 	}
+	c = vouchMembers(c, id, priv)
 	if err := saveCircle(home, c); err != nil {
 		return Circle{}, err
 	}
@@ -282,6 +283,9 @@ func revokeMember(home, circleID, deviceID string, actor DeviceIdentity, priv ed
 	if c.CreatorDeviceID != actor.DeviceID {
 		return Circle{}, errors.New("only circle creator can revoke members")
 	}
+	if deviceID == c.CreatorDeviceID {
+		return Circle{}, errors.New("the circle creator cannot be revoked")
+	}
 	found := false
 	for i, m := range c.Members {
 		if m.DeviceID == deviceID {
@@ -292,6 +296,7 @@ func revokeMember(home, circleID, deviceID string, actor DeviceIdentity, priv ed
 	if !found {
 		return Circle{}, errors.New("member not found")
 	}
+	c = c.signRevocationFor(deviceID, priv)
 	if err := c.signMemberList(priv); err != nil {
 		return Circle{}, err
 	}

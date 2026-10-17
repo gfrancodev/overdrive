@@ -46,12 +46,9 @@ func circleWithJoinMember(circle Circle, req JoinRequest) Circle {
 }
 
 func persistJoinedCircle(home string, circle Circle) error {
-	_, priv, err := loadOrCreateIdentity(home)
+	id, priv, err := loadOrCreateIdentity(home)
 	if err != nil {
 		return err
 	}
-	if err := circle.signMemberList(priv); err != nil {
-		return err
-	}
-	return saveCircle(home, circle)
+	return saveCircle(home, vouchMembers(circle, id, priv))
 }

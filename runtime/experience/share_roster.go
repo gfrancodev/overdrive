@@ -174,3 +174,46 @@ func (c Circle) applyRevocation(deviceID string, rev MemberRevocation) Circle {
 	}
 	return c
 }
+
+// vouchMembers signs what this core can vouch for and the roster still lacks: the creator's own admission,
+// an admission for every active member nobody vouched for yet (rosters from before signed admissions, and
+// devices this core just let in), and, on the creator, a revocation for every member already revoked.
+func vouchMembers(circle Circle, self DeviceIdentity, priv ed25519.PrivateKey) Circle {
+	if _, ok := circle.activeMember(self.DeviceID); !ok {
+		return circle
+	}
+	isCreator := self.DeviceID == circle.CreatorDeviceID
+	for _, m := range circle.Members {
+		if m.Revoked {
+			if isCreator {
+				circle = circle.signRevocationFor(m.DeviceID, priv)
+			}
+			continue
+		}
+		if _, has := circle.Admissions[m.DeviceID]; has || !memberKeyBound(m.DeviceID, m.PublicKey) {
+			continue
+		}
+		if m.DeviceID == self.DeviceID && !isCreator {
+			continue
+		}
+		if adm, err := signAdmission(priv, circle.ID, m, self.DeviceID); err == nil {
+			circle = circle.admit(m, adm)
+		}
+	}
+	return circle
+}
+
+func (c Circle) signRevocationFor(deviceID string, priv ed25519.PrivateKey) Circle {
+	if _, has := c.Revocations[deviceID]; has || deviceID == c.CreatorDeviceID {
+		return c
+	}
+	rev, err := signRevocation(priv, c.ID, deviceID)
+	if err != nil {
+		return c
+	}
+	if c.Revocations == nil {
+		c.Revocations = map[string]MemberRevocation{}
+	}
+	c.Revocations[deviceID] = rev
+	return c
+}
