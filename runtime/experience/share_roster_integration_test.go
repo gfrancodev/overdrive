@@ -125,3 +125,13 @@ func TestSignedRosterAcrossThreeCores(t *testing.T) {
 		t.Fatal("a revoked device must not get the roster any more")
 	}
 }
+
+// pullKeys runs the keys exchange from c to peer.
+func (c rosterCore) pullKeys(t *testing.T, peer rosterCore, circleID string) error {
+	t.Helper()
+	resp, err := fetchPeerKeys(peer.endpoint, c.circle(t, circleID), c.id, c.priv)
+	if err != nil {
+		return err
+	}
+	return applyPeerKeys(c.home, circleID, resp)
+}

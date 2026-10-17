@@ -102,6 +102,10 @@ func (sl *shareListener) handleConn(conn net.Conn, priv ed25519.PrivateKey) {
 	if err != nil {
 		return
 	}
+	if env.Kind == keysKind {
+		sl.handleKeys(conn, circle, priv, env.Plain)
+		return
+	}
 	plain, err := decryptCircle(circle, env.Ciphertext)
 	if err != nil {
 		return

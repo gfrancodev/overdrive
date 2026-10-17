@@ -76,6 +76,8 @@ type wireEnvelope struct {
 	CircleID   string `json:"circle_id"`
 	Ciphertext string `json:"ciphertext"`
 	Kind       string `json:"kind,omitempty"`
+	// Plain carries the keys exchange, which must work for a device that no longer shares the circle key.
+	Plain string `json:"plain,omitempty"`
 }
 
 func aesNewCipher(key []byte) (cipher.Block, error) { return aes.NewCipher(key) }
