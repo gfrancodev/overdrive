@@ -170,3 +170,22 @@ func TestRekeyCommandRotatesAndNamesMembersLeftBehind(t *testing.T) {
 		t.Fatalf("a member without a key-agreement key must be named, stderr: %s", stderr)
 	}
 }
+
+func TestJoiningAfterARotationStartsAtTheCurrentEpoch(t *testing.T) {
+	setupTestEnv(t, t.TempDir())
+	creator := startRosterCore(t, "creator")
+	joiner := startRosterCore(t, "joiner")
+	circle, err := createCircle(creator.home, "team", creator.id, creator.priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rotated, _, err := rotateCircleKey(creator.home, circle.ID, creator.id, creator.priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	joiner.join(t, creator, circle.ID)
+	got := joiner.circle(t, circle.ID)
+	if got.GroupKey != rotated.GroupKey || got.KeyEpoch != rotated.KeyEpoch {
+		t.Fatalf("a device joining after a rotation must hold the current key at the current epoch, got epoch %d", got.KeyEpoch)
+	}
+}

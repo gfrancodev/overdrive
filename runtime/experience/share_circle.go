@@ -58,6 +58,7 @@ type CircleInvite struct {
 	Endpoint    string `json:"endpoint,omitempty"`
 	// CircleCreatorID is the circle's creator; CreatorID is the member who made this invite.
 	CircleCreatorID string `json:"circle_creator_id,omitempty"`
+	KeyEpoch        int    `json:"key_epoch,omitempty"`
 }
 
 func circlesDir(home string) string {
@@ -205,6 +206,7 @@ func createInvite(home string, circleID string, id DeviceIdentity) (CircleInvite
 		Endpoint:    advertisedListenAddr(),
 
 		CircleCreatorID: c.CreatorDeviceID,
+		KeyEpoch:        c.KeyEpoch,
 	}
 	if err := hookMkdirAll(invitesDir(home), 0o700); err != nil {
 		return CircleInvite{}, err
@@ -250,6 +252,7 @@ func acceptInvite(home string, code string, fingerprint string, endpoint string,
 			ID:              invite.CircleID,
 			Name:            invite.CircleName,
 			GroupKey:        invite.GroupKey,
+			KeyEpoch:        invite.KeyEpoch,
 			CreatorDeviceID: creatorID,
 			Members:         []CircleMember{},
 			AllowedFolders:  []string{},
