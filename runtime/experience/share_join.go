@@ -21,8 +21,10 @@ type JoinRequest struct {
 }
 
 type joinAck struct {
-	CircleID string         `json:"circle_id"`
-	Members  []CircleMember `json:"members"`
+	CircleID    string                      `json:"circle_id"`
+	Members     []CircleMember              `json:"members"`
+	Admissions  map[string]MemberAdmission  `json:"admissions,omitempty"`
+	Revocations map[string]MemberRevocation `json:"revocations,omitempty"`
 }
 
 func signJoinRequest(priv ed25519.PrivateKey, req JoinRequest) (JoinRequest, error) {
@@ -108,9 +110,39 @@ func exchangeJoin(home string, invite CircleInvite, endpoint string, id DeviceId
 		return joinAck{}, err
 	}
 	if home != "" && len(ack.Members) > 0 {
-		_ = mergePeerRoster(home, invite.CircleID, ack.Members)
+		_ = applyJoinAck(home, invite.CircleID, ack)
 	}
 	return ack, nil
+}
+
+// applyJoinAck takes the roster the inviter returned. An ack with proofs admits only what they vouch for. An
+// ack without them comes from an older inviter; the joiner already trusts that device, which handed over the
+// invite, so its roster is taken as before, keys still bound to their ids.
+func applyJoinAck(home, circleID string, ack joinAck) error {
+	circle, err := loadCircle(home, circleID)
+	if err != nil {
+		return err
+	}
+	id, _, err := loadOrCreateIdentity(home)
+	if err != nil {
+		return err
+	}
+	if ack.Admissions != nil {
+		circle = ingestRosterProofs(circle, ack.Members, ack.Admissions, ack.Revocations)
+	} else {
+		for _, m := range ack.Members {
+			if m.DeviceID == id.DeviceID || !memberKeyBound(m.DeviceID, m.PublicKey) {
+				continue
+			}
+			if _, known := circle.memberRecord(m.DeviceID); !known {
+				circle.Members = append(circle.Members, m)
+			}
+		}
+	}
+	if err := saveCircle(home, circle); err != nil {
+		return err
+	}
+	return mergePeerRoster(home, circleID, ack.Members)
 }
 
 func (sl *shareListener) tryHandleJoin(env wireEnvelope, plain []byte) bool {

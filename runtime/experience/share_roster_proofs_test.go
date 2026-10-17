@@ -3,7 +3,10 @@ package main
 import (
 	"crypto/ed25519"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 )
 
 type proofDevice struct {
@@ -75,7 +78,7 @@ func TestAdmissionVerifiesOnlyForItsSignerCircleAndKey(t *testing.T) {
 func TestIngestAdmitsAChainFromATrustedMember(t *testing.T) {
 	creator, self, a, b := newProofDevice(t), newProofDevice(t), newProofDevice(t), newProofDevice(t)
 	circle := testCircle(creator.id, self.id)
-	got := ingestRosterProofs(circle, self.id.DeviceID,
+	got := ingestRosterProofs(circle,
 		[]CircleMember{b.member(), a.member()},
 		map[string]MemberAdmission{
 			a.id.DeviceID: creator.admit(t, circle.ID, a),
@@ -92,7 +95,7 @@ func TestIngestAdmitsAChainFromATrustedMember(t *testing.T) {
 func TestIngestDropsDevicesWithoutATrustedAdmission(t *testing.T) {
 	creator, self, outsider, puppet, selfSigned, bare := newProofDevice(t), newProofDevice(t), newProofDevice(t), newProofDevice(t), newProofDevice(t), newProofDevice(t)
 	circle := testCircle(creator.id, self.id)
-	got := ingestRosterProofs(circle, self.id.DeviceID,
+	got := ingestRosterProofs(circle,
 		[]CircleMember{outsider.member(), puppet.member(), selfSigned.member(), bare.member()},
 		map[string]MemberAdmission{
 			puppet.id.DeviceID:     outsider.admit(t, circle.ID, puppet),
@@ -109,7 +112,7 @@ func TestIngestRefusesAdmissionsFromRevokedMembers(t *testing.T) {
 	creator, self, gone, puppet := newProofDevice(t), newProofDevice(t), newProofDevice(t), newProofDevice(t)
 	circle := testCircle(creator.id, self.id, gone.id)
 	circle.Members[2].Revoked = true
-	got := ingestRosterProofs(circle, self.id.DeviceID, []CircleMember{puppet.member()},
+	got := ingestRosterProofs(circle, []CircleMember{puppet.member()},
 		map[string]MemberAdmission{puppet.id.DeviceID: gone.admit(t, circle.ID, puppet)}, nil)
 	if knownIn(got, puppet) {
 		t.Fatal("a revoked member can no longer bring devices in")
@@ -119,14 +122,14 @@ func TestIngestRefusesAdmissionsFromRevokedMembers(t *testing.T) {
 func TestIngestRevocationNeedsTheCreator(t *testing.T) {
 	creator, self, rogue, victim := newProofDevice(t), newProofDevice(t), newProofDevice(t), newProofDevice(t)
 	circle := testCircle(creator.id, self.id, rogue.id, victim.id)
-	got := ingestRosterProofs(circle, self.id.DeviceID, nil, nil, map[string]MemberRevocation{
+	got := ingestRosterProofs(circle, nil, nil, map[string]MemberRevocation{
 		victim.id.DeviceID:  rogue.revoke(t, circle.ID, victim),
 		creator.id.DeviceID: rogue.revoke(t, circle.ID, creator),
 	})
 	if !activeIn(got, victim) || !activeIn(got, creator) {
 		t.Fatal("only the creator can revoke a member")
 	}
-	got = ingestRosterProofs(got, self.id.DeviceID, nil, nil, map[string]MemberRevocation{
+	got = ingestRosterProofs(got, nil, nil, map[string]MemberRevocation{
 		rogue.id.DeviceID:   creator.revoke(t, circle.ID, rogue),
 		creator.id.DeviceID: creator.revoke(t, circle.ID, creator),
 	})
@@ -144,10 +147,10 @@ func TestIngestRevocationNeedsTheCreator(t *testing.T) {
 func TestIngestRevocationThatArrivesBeforeTheMember(t *testing.T) {
 	creator, self, late := newProofDevice(t), newProofDevice(t), newProofDevice(t)
 	circle := testCircle(creator.id, self.id)
-	got := ingestRosterProofs(circle, self.id.DeviceID, nil, nil, map[string]MemberRevocation{
+	got := ingestRosterProofs(circle, nil, nil, map[string]MemberRevocation{
 		late.id.DeviceID: creator.revoke(t, circle.ID, late),
 	})
-	got = ingestRosterProofs(got, self.id.DeviceID, []CircleMember{late.member()},
+	got = ingestRosterProofs(got, []CircleMember{late.member()},
 		map[string]MemberAdmission{late.id.DeviceID: creator.admit(t, circle.ID, late)}, nil)
 	if activeIn(got, late) {
 		t.Fatal("a device revoked before its admission arrives must join already revoked")
@@ -158,7 +161,7 @@ func TestIngestTrustsTheCreatorSelfAdmission(t *testing.T) {
 	creator, inviter, self, peer := newProofDevice(t), newProofDevice(t), newProofDevice(t), newProofDevice(t)
 	circle := testCircle(inviter.id, self.id)
 	circle.CreatorDeviceID = creator.id.DeviceID
-	got := ingestRosterProofs(circle, self.id.DeviceID,
+	got := ingestRosterProofs(circle,
 		[]CircleMember{peer.member(), creator.member()},
 		map[string]MemberAdmission{
 			creator.id.DeviceID: creator.admit(t, circle.ID, creator),
@@ -283,5 +286,110 @@ func TestJoinAdmitsTheJoinerUnderTheInviter(t *testing.T) {
 	adm, ok := got.Admissions[joiner.id.DeviceID]
 	if !ok || adm.InvitedBy != id.DeviceID || !got.trustsAdmission(joiner.member(), adm) {
 		t.Fatal("the inviter must sign the joiner's admission")
+	}
+}
+
+func joinerFixture(t *testing.T) (home string, creator, inviter, self proofDevice, circle Circle) {
+	t.Helper()
+	home = meshHome(t)
+	creator, inviter, self = newProofDevice(t), newProofDevice(t), newProofDevice(t)
+	writeIdentityFile(t, home, self.id)
+	circle = testCircle(inviter.id, self.id)
+	circle.CreatorDeviceID = creator.id.DeviceID
+	return home, creator, inviter, self, saveTestCircle(t, home, circle)
+}
+
+func TestJoinAckWithProofsAdmitsOnlyVouchedMembers(t *testing.T) {
+	home, creator, inviter, self, circle := joinerFixture(t)
+	peer, puppet := newProofDevice(t), newProofDevice(t)
+	ack := joinAck{
+		CircleID: circle.ID,
+		Members:  []CircleMember{creator.member(), inviter.member(), peer.member(), puppet.member(), self.member()},
+		Admissions: map[string]MemberAdmission{
+			creator.id.DeviceID: creator.admit(t, circle.ID, creator),
+			inviter.id.DeviceID: creator.admit(t, circle.ID, inviter),
+			peer.id.DeviceID:    creator.admit(t, circle.ID, peer),
+			self.id.DeviceID:    inviter.admit(t, circle.ID, self),
+		},
+	}
+	if err := applyJoinAck(home, circle.ID, ack); err != nil {
+		t.Fatal(err)
+	}
+	got, err := loadCircle(home, circle.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !activeIn(got, creator) || !activeIn(got, peer) {
+		t.Fatal("the joiner must learn every member the creator chain vouches for")
+	}
+	if knownIn(got, puppet) {
+		t.Fatal("a member without an admission must not ride in on a join ack")
+	}
+	if _, ok := got.Admissions[self.id.DeviceID]; !ok {
+		t.Fatal("the joiner keeps its own admission to relay")
+	}
+}
+
+func TestJoinAckFromAnOlderCoreStillTrustsTheInviter(t *testing.T) {
+	home, creator, inviter, self, circle := joinerFixture(t)
+	peer := newProofDevice(t)
+	gone := newProofDevice(t)
+	goneMember := gone.member()
+	goneMember.Revoked = true
+	ack := joinAck{CircleID: circle.ID, Members: []CircleMember{
+		creator.member(), inviter.member(), peer.member(), goneMember, self.member(),
+		{DeviceID: "dev_00112233445566ff", PublicKey: peer.id.PublicKey},
+	}}
+	if err := applyJoinAck(home, circle.ID, ack); err != nil {
+		t.Fatal(err)
+	}
+	got, err := loadCircle(home, circle.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !activeIn(got, creator) || !activeIn(got, peer) {
+		t.Fatal("an ack without proofs comes from an older inviter the joiner already trusts")
+	}
+	if activeIn(got, gone) {
+		t.Fatal("the older inviter's revocations still apply on join")
+	}
+	if _, ok := got.memberRecord("dev_00112233445566ff"); ok {
+		t.Fatal("a key that does not derive its device id is still refused")
+	}
+}
+
+func TestAcceptInviteRecordsTheCircleCreator(t *testing.T) {
+	home := meshHome(t)
+	self, inviter, creator := newProofDevice(t), newProofDevice(t), newProofDevice(t)
+	writeIdentityFile(t, home, self.id)
+	write := func(invite CircleInvite) {
+		t.Helper()
+		raw, _ := json.Marshal(invite)
+		if err := os.MkdirAll(invitesDir(home), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(invitesDir(home), invite.Code+".json"), raw, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	invite := CircleInvite{
+		CircleID: "circle_join01", CircleName: "team", Code: "abc123", Fingerprint: "fp",
+		GroupKey: testGroupKey(), ExpiresAt: time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+		CreatorPK: inviter.id.PublicKey, CreatorID: inviter.id.DeviceID, CircleCreatorID: creator.id.DeviceID,
+	}
+	write(invite)
+	got, err := acceptInvite(home, invite.Code, invite.Fingerprint, "", self.id, self.priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.CreatorDeviceID != creator.id.DeviceID {
+		t.Fatalf("the joiner must record the circle creator, not the inviter: %s", got.CreatorDeviceID)
+	}
+	forged := invite
+	forged.CircleID, forged.Code = "circle_join02", "def456"
+	forged.CreatorPK = creator.id.PublicKey
+	write(forged)
+	if _, err := acceptInvite(home, forged.Code, forged.Fingerprint, "", self.id, self.priv); err == nil {
+		t.Fatal("an invite whose inviter key does not derive the inviter id must be refused")
 	}
 }

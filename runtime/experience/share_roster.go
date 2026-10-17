@@ -107,10 +107,10 @@ func (c Circle) trustsAdmission(member CircleMember, adm MemberAdmission) bool {
 
 // ingestRosterProofs admits the devices an incoming roster carries admissions for and applies the creator's
 // revocations. Member records only supply keys and hints; on their own they change nothing.
-func ingestRosterProofs(circle Circle, selfID string, members []CircleMember, admissions map[string]MemberAdmission, revocations map[string]MemberRevocation) Circle {
+func ingestRosterProofs(circle Circle, members []CircleMember, admissions map[string]MemberAdmission, revocations map[string]MemberRevocation) Circle {
 	pending := map[string]CircleMember{}
 	for _, m := range members {
-		if m.DeviceID != "" && m.DeviceID != selfID && memberKeyBound(m.DeviceID, m.PublicKey) {
+		if m.DeviceID != "" && memberKeyBound(m.DeviceID, m.PublicKey) {
 			pending[m.DeviceID] = m
 		}
 	}

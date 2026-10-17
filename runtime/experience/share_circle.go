@@ -50,6 +50,8 @@ type CircleInvite struct {
 	CreatorPK   string `json:"creator_public_key"`
 	CreatorID   string `json:"creator_device_id"`
 	Endpoint    string `json:"endpoint,omitempty"`
+	// CircleCreatorID is the circle's creator; CreatorID is the member who made this invite.
+	CircleCreatorID string `json:"circle_creator_id,omitempty"`
 }
 
 func circlesDir(home string) string {
@@ -194,6 +196,8 @@ func createInvite(home string, circleID string, id DeviceIdentity) (CircleInvite
 		CreatorPK:   id.PublicKey,
 		CreatorID:   id.DeviceID,
 		Endpoint:    advertisedListenAddr(),
+
+		CircleCreatorID: c.CreatorDeviceID,
 	}
 	if err := hookMkdirAll(invitesDir(home), 0o700); err != nil {
 		return CircleInvite{}, err
@@ -225,6 +229,13 @@ func acceptInvite(home string, code string, fingerprint string, endpoint string,
 	if err != nil || time.Now().UTC().After(exp) {
 		return Circle{}, errors.New("invite expired")
 	}
+	if !memberKeyBound(invite.CreatorID, invite.CreatorPK) {
+		return Circle{}, errors.New("invite key does not match the inviting device")
+	}
+	creatorID := invite.CircleCreatorID
+	if creatorID == "" {
+		creatorID = invite.CreatorID
+	}
 
 	c, err := loadCircle(home, invite.CircleID)
 	if err != nil {
@@ -232,7 +243,7 @@ func acceptInvite(home string, code string, fingerprint string, endpoint string,
 			ID:              invite.CircleID,
 			Name:            invite.CircleName,
 			GroupKey:        invite.GroupKey,
-			CreatorDeviceID: invite.CreatorID,
+			CreatorDeviceID: creatorID,
 			Members:         []CircleMember{},
 			AllowedFolders:  []string{},
 			PeerEndpoints:   []string{},

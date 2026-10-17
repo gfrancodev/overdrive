@@ -314,7 +314,10 @@ func mergePeerRoster(home, circleID string, incoming []CircleMember) error {
 }
 
 func writeJoinAck(conn net.Conn, circle Circle) error {
-	payload, err := hookJSONMarshal(joinAck{CircleID: circle.ID, Members: circle.Members})
+	payload, err := hookJSONMarshal(joinAck{
+		CircleID: circle.ID, Members: circle.Members,
+		Admissions: circle.Admissions, Revocations: circle.Revocations,
+	})
 	if err != nil {
 		return err
 	}
