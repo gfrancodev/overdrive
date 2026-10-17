@@ -198,6 +198,17 @@ Without configuration, the mesh dashboard uses the built-in **Overdrive** look (
 
 Joining a circle sends this machine's listen address. The other side stores it and answers with its own roster, so both machines can dial each other after accept. If the advertised address is wildcard or loopback and the TCP peer is a LAN address, the stored endpoint uses that LAN IP plus the announced port. Later syncs refresh the same fields.
 
+### Signed membership (2.1+)
+
+The roster a core keeps is changed only by signed proofs, stored next to the member list in the circle file:
+
+- **Admission:** the member who let a device in signs `{circle, device, key, invited_by, added_at}`. The creator signs its own. Any active member can invite.
+- **Revocation:** only the creator signs one. `share circle revoke --with-invitees` also revokes every device the member brought in.
+
+Cores exchange proofs through a separate `roster` request after a sync or catalog exchange with a peer (at most once a minute per peer). A device enters another core's roster only when a member that core already trusts signed its admission; a revocation applies only with the creator's signature. The member list inside sync, catalog, and join responses now refreshes only endpoint, hostname, and last-seen of members a core already knows. A device id is derived from its Ed25519 key, so a known key never changes.
+
+Upgrading: each 2.1 core signs admissions for the members already on its roster, and the creator signs revocations for members already revoked. Review `share circle list` after upgrading and revoke any device you do not recognize. Older cores keep syncing memories with 2.1 cores; a member invited from an older core shows up on 2.1 cores once a 2.1 member vouches for it.
+
 ## Environment variables
 
 | Variable | Default | Purpose |
