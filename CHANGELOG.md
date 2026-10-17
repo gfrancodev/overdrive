@@ -2,13 +2,20 @@
 
 ## Unreleased
 
+## 2.1.0 - 2026-10-17
+
 ### Security
 
+- **Signed circle membership.** A core now adds a device to its member list only with an admission signed by an active member it already trusts, and marks a member revoked only with a revocation signed by the circle creator. Before, any member running a modified core could add devices to, or revoke anyone from (the creator included), the member list of every peer that synced with it. Cores exchange the proofs through a new `roster` request after a sync or catalog exchange; the member list inside sync, catalog, and join responses only refreshes endpoint, hostname, and last-seen of known members.
+- Invites carry the circle creator, so a device invited by another member records the real creator. Cores that joined that way before this release learn it from the member they recorded as creator.
+- `share circle revoke --with-invitees` also revokes every device the member brought in.
+- A sync request with an invalid signature can no longer change a member's endpoint or hostname: the listener verifies it first.
+- **Upgrade note:** each 2.1 core signs admissions for the members already on its list, and the creator signs revocations for members already revoked. Review `share circle list` after upgrading. Older cores keep syncing memories with 2.1 cores, but a member invited from an older core appears on 2.1 cores only once a 2.1 member vouches for it.
 - **A device's key can no longer be swapped by a peer.** A device ID is derived from its Ed25519 key, and the member list that peers exchange during sync, or a join request, is now rejected when the key does not derive the ID. Before, an active member running a modified core could replace another member's key on the peers that synced with it, then sign requests as that member and reach the terminal sessions shared with it. A record without a key no longer adds a member either.
 
 ### Docs
 
-- `SECURITY.md` no longer says the creator alone controls the member list: any member can invite, and the list spreads between members without an end-to-end signature yet.
+- `SECURITY.md` and `docs/EXPERIENCE_ENGINE.md` describe signed membership and what a member can still do: inviting stays open to every member by design.
 
 ### Fixes
 
