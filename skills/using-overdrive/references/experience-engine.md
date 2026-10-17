@@ -236,6 +236,7 @@ overdrive-runtime share circle accept --code <code> --fingerprint <fp> --peer <h
 overdrive-runtime share circle folder-add --circle <circle-id> --folder /abs/path/to/repo
 overdrive-runtime share circle revoke --circle <circle-id> --device <device-id>
 overdrive-runtime share circle revoke --circle <circle-id> --device <device-id> --with-invitees
+overdrive-runtime share circle rekey --circle <circle-id>
 OVERDRIVE_SHARE_LISTEN=127.0.0.1:7741 overdrive-runtime share listen --cwd "$PWD"
 ```
 

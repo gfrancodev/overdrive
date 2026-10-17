@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Security
+
+- **Revoking a member rotates the circle key.** `share circle revoke` now replaces the circle key after revoking, and `share circle rekey` does it on demand; only the creator rotates. The creator seals the new key to each remaining member with HPKE (ML-KEM-768 + X25519) under a key-agreement key each device derives from its identity, and signs the update. A revoked device cannot read anything sealed after the rotation.
+- Cores trade key-agreement records and key updates through a new `keys` exchange, which works for a member that missed a rotation. `share listen` runs the roster and keys exchanges with every peer once a minute, and the creator pushes a new key at once. Receivers accept the previous key for 24 hours.
+- Rotating drops this core's pending invites for the circle, reseals queued chat with the new key, and closes remote terminal links still on the old key (viewers reconnect). Invites carry the key epoch.
+- **Upgrade note:** members whose core predates rotation cannot receive a new key; revoke and rekey name them. Upgrade every member before revoking anyone.
+
 ### Fixes
 
 - Upgrading while the Core runs no longer crashes it. The installer replaced the runtime binary and the TurboVec library by copying over them in place, which truncates a file the running Core has mapped (SIGBUS). It now writes a temporary file and renames it, so the running Core keeps the old file until it restarts.
