@@ -19,6 +19,7 @@
 
 ### Fixes
 
+- The circle file is written atomically (temporary file, then rename). Chat, call signaling, and terminal messages reload it on every delivery, and a read during a write used to drop the message; signed membership writes the file more often, which made this visible as an intermittent lost call.
 - Tray icon on Linux: a whitelabel logo drawn with partial transparency (for example alpha 254) showed as a white square, because the tray library converts colors correctly only at alpha 0 or 255. The tray now makes each logo pixel fully opaque or fully transparent before handing it over.
 
 ## 2.0.3 - 2026-10-17

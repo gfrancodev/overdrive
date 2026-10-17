@@ -273,7 +273,7 @@ func TestShareCircleErrorBranches(t *testing.T) {
 	}
 	hookMkdirAll = os.MkdirAll
 
-	hookWriteFile = func(string, []byte, os.FileMode) error { return errors.New("save fail") }
+	hookRename = func(string, string) error { return errors.New("save fail") }
 	if _, err := createCircle(home, "team", id, priv); err == nil {
 		t.Fatal("create save fail")
 	}

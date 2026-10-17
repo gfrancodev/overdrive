@@ -731,7 +731,7 @@ func TestSaveCircleWriteFailure(t *testing.T) {
 	circle, _ := createCircle(home, "team", id, priv)
 	resetHooksForTest()
 	defer resetHooksForTest()
-	hookWriteFile = func(string, []byte, os.FileMode) error {
+	hookRename = func(string, string) error {
 		return errors.New("circle write fail")
 	}
 	if err := saveCircle(home, circle); err == nil {

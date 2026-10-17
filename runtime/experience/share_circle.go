@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
@@ -87,7 +88,8 @@ func saveCircle(home string, c Circle) error {
 	if err != nil {
 		return err
 	}
-	return hookWriteFile(circlePath(home, c.ID), data, 0o600)
+	// Readers load the circle on every message; a rename never shows them a half-written file.
+	return atomicWriteFile(circlePath(home, c.ID), bytes.NewReader(data), 0o600)
 }
 
 func listCircles(home string) ([]Circle, error) {
