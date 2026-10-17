@@ -211,9 +211,6 @@ func mergeMember(local, incoming CircleMember) CircleMember {
 	if incoming.LastSeen != "" {
 		local.LastSeen = incoming.LastSeen
 	}
-	if incoming.Revoked {
-		local.Revoked = true
-	}
 	if local.AddedAt == "" {
 		local.AddedAt = incoming.AddedAt
 	}
@@ -286,6 +283,8 @@ func refreshPeerEndpoints(circle Circle, selfID string) Circle {
 	return circle
 }
 
+// mergePeerRoster refreshes endpoint, hostname and last-seen hints for members this core already knows. It
+// never adds or revokes a member: that takes the signed proofs in ingestRosterProofs.
 func mergePeerRoster(home, circleID string, incoming []CircleMember) error {
 	circle, err := loadCircle(home, circleID)
 	if err != nil {
@@ -299,7 +298,16 @@ func mergePeerRoster(home, circleID string, incoming []CircleMember) error {
 		if member.DeviceID == "" || member.DeviceID == id.DeviceID {
 			continue
 		}
-		circle = upsertMember(circle, member)
+		if _, known := circle.memberRecord(member.DeviceID); !known {
+			continue
+		}
+		if member.PublicKey != "" && !memberKeyBound(member.DeviceID, member.PublicKey) {
+			continue
+		}
+		circle = upsertMember(circle, CircleMember{
+			DeviceID: member.DeviceID, Endpoint: member.Endpoint, RemoteAddr: member.RemoteAddr,
+			Hostname: member.Hostname, LastSeen: member.LastSeen,
+		})
 	}
 	circle = refreshPeerEndpoints(circle, id.DeviceID)
 	return persistJoinedCircle(home, circle)

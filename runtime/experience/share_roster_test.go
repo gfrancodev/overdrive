@@ -53,25 +53,25 @@ func TestRosterGossipCannotRewriteAMemberKey(t *testing.T) {
 	}
 }
 
-func TestRosterGossipAddsOnlyDevicesWhoseIDMatchesTheirKey(t *testing.T) {
+func TestRosterGossipOnlyRefreshesHintsOfKnownMembers(t *testing.T) {
 	f := newRosterFixture(t)
-	invited, _ := testDevice(t)
-	puppet, _ := testDevice(t)
+	unsigned, _ := testDevice(t)
 	if err := mergePeerRoster(f.home, f.circle.ID, []CircleMember{
-		{DeviceID: invited.DeviceID, PublicKey: invited.PublicKey},
-		{DeviceID: "dev_00112233445566ff", PublicKey: puppet.PublicKey},
-		{DeviceID: "dev_ffeeddccbbaa9988"},
+		{DeviceID: unsigned.DeviceID, PublicKey: unsigned.PublicKey},
+		{DeviceID: f.creator.DeviceID, PublicKey: f.creator.PublicKey, Revoked: true},
+		{DeviceID: f.victim.DeviceID, PublicKey: f.victim.PublicKey, Hostname: "victim-laptop"},
 	}); err != nil {
 		t.Fatal(err)
 	}
 	c := f.reload(t)
-	if _, ok := c.activeMember(invited.DeviceID); !ok {
-		t.Fatal("a member invited elsewhere must still reach this roster")
+	if _, ok := c.memberRecord(unsigned.DeviceID); ok {
+		t.Fatal("gossip without an admission must not add a member")
 	}
-	for _, id := range []string{"dev_00112233445566ff", "dev_ffeeddccbbaa9988"} {
-		if _, ok := c.activeMember(id); ok {
-			t.Fatalf("%s has no key that derives its id and must not become a member", id)
-		}
+	if _, ok := c.activeMember(f.creator.DeviceID); !ok {
+		t.Fatal("an unsigned revoked flag must not revoke anyone")
+	}
+	if m, _ := c.memberRecord(f.victim.DeviceID); m.Hostname != "victim-laptop" {
+		t.Fatal("hints about a known member still refresh")
 	}
 }
 

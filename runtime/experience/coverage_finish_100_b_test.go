@@ -228,8 +228,8 @@ func TestShareStatusBlockedAndSyncPackets(t *testing.T) {
 	}
 	upsertMember(Circle{}, CircleMember{})
 	merged := mergeMember(CircleMember{}, CircleMember{Revoked: true})
-	if !merged.Revoked {
-		t.Fatal("revoked")
+	if merged.Revoked {
+		t.Fatal("an unsigned revoked flag must not carry over")
 	}
 	stamped := stampMemberHostname(Circle{Members: []CircleMember{{DeviceID: "d"}}}, "d", "")
 	if stamped.Members[0].Hostname != "" {
