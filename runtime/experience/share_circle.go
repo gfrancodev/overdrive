@@ -35,6 +35,9 @@ type Circle struct {
 	MemberListSignature string         `json:"member_list_signature"`
 	CreatedAt           string         `json:"created_at"`
 	UpdatedAt           string         `json:"updated_at"`
+
+	Admissions  map[string]MemberAdmission  `json:"admissions,omitempty"`
+	Revocations map[string]MemberRevocation `json:"revocations,omitempty"`
 }
 
 type CircleInvite struct {
