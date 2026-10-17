@@ -22,7 +22,7 @@ It combines architecture-aware discovery, a single authoritative spec, adaptive 
 |------|----------------|
 | **Mesh dashboard** | Chat, voice/video, terminals, and peers on `OVERDRIVE_SHARE_UI` while `share listen` runs; optional [whitelabel](docs/EXPERIENCE_ENGINE.md#mesh-dashboard-whitelabel) via `share/whitelabel.json` (stock Overdrive UI when absent). |
 | **WebRTC calls** | Mesh signaling, STUN by default, optional TURN (`OVERDRIVE_TURN_*`), screen share with Picture-in-Picture where supported. |
-| **Terminals** | Managed sessions, remote attach, context bundles, and shared workspace artifacts for harness handoff. |
+| **Terminals** | Managed sessions, remote attach for devices the owner shared a session with, context bundles, and shared workspace artifacts for harness handoff. |
 | **Production CI** | Node signaling contract tests, Playwright fake-media smoke, SonarCloud, and an 82% Go coverage gate (excl. PTY supervisor). |
 
 ### Highlights (1.3)
@@ -227,7 +227,7 @@ Clone the repo, run `./scripts/install.sh`, and install the plugin from the repo
 
 ## Mesh dashboard in action
 
-With `share listen` running, Overdrive serves the **mesh dashboard** on `OVERDRIVE_SHARE_UI` (by default, the listen port plus one). Two peers on the same circle see encrypted chat, WebRTC voice calls, live terminals, and shared workspace context in the browser. No cloud relay is required on a LAN or VPN.
+With `share listen` running, Overdrive serves the **mesh dashboard** on `OVERDRIVE_SHARE_UI` (by default, the listen port plus one). Two peers on the same circle see circle-encrypted chat, WebRTC voice calls, live terminals their owner shared with them, and shared workspace context in the browser. No cloud relay is required on a LAN or VPN. [SECURITY.md](SECURITY.md#mesh-threat-model) states what the circle key protects and what it does not.
 
 <p align="center">
   <img src="docs/demo/mesh-dashboard.gif" alt="Overdrive mesh dashboard: messages, terminal, and voice call between two peers" width="720">

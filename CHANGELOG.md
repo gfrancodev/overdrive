@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Security
+
+- **Live terminals need a per-session share.** Being an active circle member no longer opens another member's terminal. The host now serves metadata, control requests, and streams only to devices the session owner shared it with: an invite, or a terminal card posted in a direct conversation (the recipient), a custom group (its members), or the circle channel (active members). Owner and host always pass.
+- Removing a participant, or revoking a circle member with `share circle revoke`, deletes its shares and returns any control lease it held to the owner.
+- Live remote streams are re-admitted every 15 seconds and closed when the viewer loses its share or membership, or when private mode is turned on.
+- **Upgrade note:** sessions shared before this release relied on circle membership alone. Upgrade the host and share them again. Viewers do not need to upgrade.
+- The dashboard explains a refused remote attach ("Ask the owner to share this terminal with you.").
+
+### Docs
+
+- `SECURITY.md` now supports 2.0.x and documents the mesh threat model: circle chat is encrypted to the circle, not end to end between two people; there is no forward secrecy; revoking a member does not rotate the circle key.
+
 ## 2.0.1 - 2026-10-16
 
 ### Share mesh dashboard
