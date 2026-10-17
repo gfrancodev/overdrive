@@ -12,7 +12,7 @@
   <strong>Architecture-aware autonomous software engineering that learns from every execution, locally and optionally across your team.</strong>
 </p>
 
-**Current release: 2.0.1.** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
+**Current release: 2.0.2.** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
 
 It combines architecture-aware discovery, a single authoritative spec, adaptive execution, autonomous decision-making, test-driven development, systematic debugging, isolated workspaces, code review, evidence-based verification, and a **local Experience Engine** (SQLite, FTS5, TurboVec, lazy MiniLM) that compounds operational knowledge across runs without a memory-management workflow. **1.2** adds opt-in **shared memory circles**; **2.0** adds the encrypted mesh dashboard on the same circle keys and allowed folders ([demo](#mesh-dashboard-in-action)).
 
@@ -845,6 +845,7 @@ Full notes live in [CHANGELOG.md](CHANGELOG.md). Shipped tags:
 
 | Version | Date | What shipped |
 |---------|------|----------------|
+| [2.0.2](https://github.com/gfrancodev/overdrive/releases/tag/v2.0.2) | 2026-10-17 | Security: live terminals need a per-session share from their owner; revoke closes live streams; mesh threat model in `SECURITY.md`. |
 | [2.0.1](https://github.com/gfrancodev/overdrive/releases/tag/v2.0.1) | 2026-10-16 | Optional mesh whitelabel (`share/whitelabel.json`), remote brand assets, tray icon from `logo`/`favicon`. |
 | [2.0.0](https://github.com/gfrancodev/overdrive/releases/tag/v2.0.0) | 2026-10-16 | Share mesh dashboard: encrypted chat, WebRTC calls, live terminals, tray, MCP, CI coverage gate. Includes the 1.4.0 continuity work (no separate tag). |
 | 1.4.0 | 2026-10-11 | Local continuity (handoffs, standing decisions, harness adapters) and SonarCloud Go coverage. Recorded in the changelog; shipped with 2.0.0. |

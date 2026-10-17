@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2.0.2 - 2026-10-17
+
 ### Security
 
 - **Live terminals need a per-session share.** Being an active circle member no longer opens another member's terminal. The host now serves metadata, control requests, and streams only to devices the session owner shared it with: an invite, or a terminal card posted in a direct conversation (the recipient), a custom group (its members), or the circle channel (active members). Owner and host always pass.
