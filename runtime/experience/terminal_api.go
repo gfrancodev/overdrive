@@ -199,7 +199,7 @@ func serveTerminalSessionMetaSubroute(w http.ResponseWriter, r *http.Request, ct
 
 func serveTerminalParticipants(w http.ResponseWriter, r *http.Request, mgr *TerminalManager, sessionID, participantID string) {
 	if participantID != "" && r.Method == http.MethodDelete {
-		if err := mgr.store.RemoveParticipant(sessionID, participantID); err != nil {
+		if err := mgr.RemoveParticipantAccess(sessionID, participantID); err != nil {
 			writeTerminalError(w, err)
 			return
 		}
@@ -326,7 +326,28 @@ func serveTerminalInvite(w http.ResponseWriter, r *http.Request, home string, mg
 		writeTerminalError(w, errors.New("session has no circle"))
 		return
 	}
+	circle, err := loadCircle(home, circleID)
+	if err != nil {
+		writeTerminalError(w, err)
+		return
+	}
+	if _, ok := circle.activeMember(body.TargetDeviceID); !ok || body.TargetDeviceID == id.DeviceID {
+		writeTerminalError(w, errors.New("invite target is not another active circle member"))
+		return
+	}
+	alreadyShared, err := mgr.store.HasShare(sessionID, body.TargetDeviceID)
+	if err != nil {
+		writeTerminalError(w, err)
+		return
+	}
+	if _, err := mgr.store.GrantShare(sessionID, body.TargetDeviceID, terminalSharePermissionObserve); err != nil {
+		writeTerminalError(w, err)
+		return
+	}
 	if err := publishTerminalMQTT(home, circleID, terminalInviteTopic(circleID, body.TargetDeviceID), "invite", payload); err != nil {
+		if !alreadyShared {
+			_ = mgr.store.RevokeShare(sessionID, body.TargetDeviceID)
+		}
 		writeTerminalError(w, err)
 		return
 	}

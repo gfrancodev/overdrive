@@ -450,6 +450,28 @@ func (m *TerminalManager) DetachSession(sessionID, deviceID string) error {
 	return nil
 }
 
+// RemoveParticipantAccess removes a participant and revokes its device's share, so it cannot reconnect.
+// The owner and host devices keep their access.
+func (m *TerminalManager) RemoveParticipantAccess(sessionID, participantID string) error {
+	sess, err := m.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+	parts, err := m.store.ListParticipants(sessionID)
+	if err != nil {
+		return err
+	}
+	if err := m.store.RemoveParticipant(sessionID, participantID); err != nil {
+		return err
+	}
+	for _, p := range parts {
+		if p.ID == participantID && p.DeviceID != sess.OwnerDeviceID && p.DeviceID != sess.HostDeviceID {
+			revokeTerminalSessionAccess(m.store, sessionID, p.DeviceID, "participant_remove")
+		}
+	}
+	return nil
+}
+
 func (m *TerminalManager) TerminateSession(sessionID, actorDeviceID string) error {
 	s, err := m.GetSession(sessionID)
 	if err != nil {

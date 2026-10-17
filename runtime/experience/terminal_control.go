@@ -149,20 +149,31 @@ func (c *TerminalControl) ValidateWrite(sessionID, deviceID, leaseID string, epo
 	return nil
 }
 
-func revokeTerminalAccessForDevice(home, deviceID string) error {
+// revokeTerminalAccessForDevice removes a revoked circle member from every session of that circle it joined or
+// was shared; an empty circleID covers every circle.
+func revokeTerminalAccessForDevice(home, circleID, deviceID string) error {
 	store, err := newTerminalStore(home)
 	if err != nil {
 		return err
 	}
-	sessions, err := store.ListSessionsByParticipantDevice(deviceID)
+	joined, err := store.ListSessionsByParticipantDevice(deviceID)
 	if err != nil {
 		return err
 	}
-	for _, sid := range sessions {
-		_, epoch, _ := store.GetActiveLease(sid)
-		_, _ = store.grantLeaseCAS(sid, store.sessionOwner(sid), epoch, time.Now().Add(time.Hour).UTC().Format(time.RFC3339))
-		_ = store.audit(sid, deviceID, "circle_revoke", "streams and leases cleared")
-		closeTerminalStreamsForDevice(sid, deviceID)
+	shared, err := store.ListSessionsSharedWithDevice(deviceID)
+	if err != nil {
+		return err
+	}
+	seen := map[string]bool{}
+	for _, sid := range append(joined, shared...) {
+		if seen[sid] {
+			continue
+		}
+		seen[sid] = true
+		if sess, err := store.GetSession(sid); err != nil || (circleID != "" && sess.CircleID != circleID) {
+			continue
+		}
+		revokeTerminalSessionAccess(store, sid, deviceID, "circle_revoke")
 	}
 	return nil
 }

@@ -28,6 +28,10 @@ const (
 	terminalRemoteKeyPrefix = "remote:"
 )
 
+// terminalPeerRecheckEvery bounds how long a revoked share, a revoked member, or private mode leaves a remote
+// stream open: the host re-admits every live peer stream on this interval, whichever process made the change.
+var terminalPeerRecheckEvery = 15 * time.Second
+
 type terminalPeerRequest struct {
 	DeviceID  string `json:"device_id"`
 	CircleID  string `json:"circle_id"`
@@ -79,7 +83,8 @@ func verifyTerminalPeerRequest(pub ed25519.PublicKey, req terminalPeerRequest, n
 	return verifySignature(pub, payload, sig)
 }
 
-// authorizeTerminalPeer admits active circle members to sessions shared with that circle, never private ones.
+// authorizeTerminalPeer admits an active circle member only to a non-private session of that circle that its
+// owner shared with the member's device. Circle membership alone never opens a session.
 func authorizeTerminalPeer(mgr *TerminalManager, circle Circle, req terminalPeerRequest) (TerminalSession, error) {
 	denied := fmt.Errorf("%s", TerminalErrAccessDenied)
 	member, ok := circle.activeMember(req.DeviceID)
@@ -90,17 +95,60 @@ func authorizeTerminalPeer(mgr *TerminalManager, circle Circle, req terminalPeer
 	if err != nil || !verifyTerminalPeerRequest(pub, req, time.Now()) {
 		return TerminalSession{}, denied
 	}
-	sess, err := mgr.GetSession(req.SessionID)
+	return admitTerminalPeerSession(mgr, circle.ID, req.SessionID, req.DeviceID)
+}
+
+// admitTerminalPeerSession checks the session side of a peer request once the member is verified.
+func admitTerminalPeerSession(mgr *TerminalManager, circleID, sessionID, deviceID string) (TerminalSession, error) {
+	denied := fmt.Errorf("%s", TerminalErrAccessDenied)
+	sess, err := mgr.GetSession(sessionID)
 	if err != nil {
 		return TerminalSession{}, fmt.Errorf("%s", TerminalErrSessionNotFound)
 	}
-	if sess.CircleID != circle.ID {
+	if sess.CircleID != circleID {
 		return TerminalSession{}, denied
+	}
+	if deviceID != sess.OwnerDeviceID && deviceID != sess.HostDeviceID {
+		if shared, err := mgr.store.HasShare(sess.ID, deviceID); err != nil || !shared {
+			return TerminalSession{}, denied
+		}
 	}
 	if sess.PrivateMode {
 		return TerminalSession{}, fmt.Errorf("%s", TerminalErrPrivateMode)
 	}
 	return sess, nil
+}
+
+// terminalPeerStillAdmitted re-reads the circle from disk so revocations made by another process count.
+func terminalPeerStillAdmitted(home string, mgr *TerminalManager, req terminalPeerRequest) bool {
+	circle, err := loadCircle(home, req.CircleID)
+	if err != nil {
+		return false
+	}
+	if _, ok := circle.activeMember(req.DeviceID); !ok {
+		return false
+	}
+	_, err = admitTerminalPeerSession(mgr, circle.ID, req.SessionID, req.DeviceID)
+	return err == nil
+}
+
+// watchTerminalPeerAccess closes a live peer stream as soon as its viewer is no longer admitted.
+func watchTerminalPeerAccess(home string, mgr *TerminalManager, req terminalPeerRequest, link *terminalPeerLink, done <-chan struct{}) {
+	ticker := time.NewTicker(terminalPeerRecheckEvery)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			if !terminalPeerStillAdmitted(home, mgr, req) {
+				_ = link.conn.SetWriteDeadline(time.Now().Add(terminalPeerReplyWait))
+				_ = link.Send(mustEncodeFrame(terminalFrameError, 0, []byte(TerminalErrAccessDenied)))
+				_ = link.Close()
+				return
+			}
+		}
+	}
 }
 
 // terminalPeerLink carries sealed lines over one peer connection; writes are serialized.
@@ -240,6 +288,7 @@ func serveTerminalPeerStream(home string, mgr *TerminalManager, link *terminalPe
 	hub := registerTerminalStream(req.SessionID, req.DeviceID, caps)
 	defer unregisterTerminalStreamHub(req.SessionID, req.DeviceID, hub)
 	go terminalBridgeHostOutput(home, req.SessionID, hub)
+	go watchTerminalPeerAccess(home, mgr, req, link, hub.done)
 	ctrl := newTerminalControl(mgr.store, req.DeviceID)
 	errCh := make(chan error, 1)
 	go func() {

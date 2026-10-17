@@ -549,6 +549,11 @@ func postLocalChat(home string, req chatPostRequest) (chatEnvelope, bool, error)
 		return chatEnvelope{}, false, err
 	}
 	conv := resolvePostConversationID(req, id.DeviceID)
+	if req.Type == "terminal_session" {
+		if err := shareTerminalWithConversation(home, circle, id.DeviceID, req.SessionID, conv); err != nil {
+			return chatEnvelope{}, false, err
+		}
+	}
 	body := minimalPayload(req)
 	body.GroupName, body.GroupMembers = groupPayloadMeta(home, circle.ID, conv)
 	payload, err := json.Marshal(body)

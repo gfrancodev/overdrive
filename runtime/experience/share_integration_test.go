@@ -187,6 +187,17 @@ func TestShareRevokeMember(t *testing.T) {
 
 	setupTestEnv(t, home)
 	t.Setenv("OVERDRIVE_HOME", home)
+	store := mustTerminalStore(t, home)
+	if err := store.InsertSession(TerminalSession{
+		ID: "ts_revoke_cli", Name: "x", State: TerminalStateRunning, Mode: TerminalModeManaged,
+		OwnerDeviceID: "dev_owner", HostDeviceID: "dev_owner", CircleID: circle["id"].(string),
+		WorkingDirectory: home, Command: "sh", CreatedAt: terminalNow(), UpdatedAt: terminalNow(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.GrantShare("ts_revoke_cli", deviceB, terminalSharePermissionObserve); err != nil {
+		t.Fatal(err)
+	}
 	stdout, _, code = runCLICapture(t, []string{
 		"share", "circle", "revoke",
 		"--circle", circle["id"].(string),
@@ -206,6 +217,9 @@ func TestShareRevokeMember(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("member not revoked")
+	}
+	if ok, _ := mustTerminalStore(t, home).HasShare("ts_revoke_cli", deviceB); ok {
+		t.Fatal("revoking a member must drop its terminal shares in that circle")
 	}
 }
 

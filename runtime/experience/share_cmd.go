@@ -228,6 +228,7 @@ func cmdCircleRevoke(args []string) error {
 			return err
 		}
 		_ = e.markPeerRevoked(*circleID, *deviceID)
+		_ = revokeTerminalAccessForDevice(e.home, *circleID, *deviceID)
 		return writeJSON(c)
 	})
 }

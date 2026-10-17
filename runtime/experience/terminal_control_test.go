@@ -115,7 +115,7 @@ func TestControlRejectAndRevoke(t *testing.T) {
 	if revoked.HolderDeviceID != "dev_owner" {
 		t.Fatalf("revoke holder %+v", revoked)
 	}
-	if err := revokeTerminalAccessForDevice(home, "dev_peer"); err != nil {
+	if err := revokeTerminalAccessForDevice(home, "", "dev_peer"); err != nil {
 		t.Fatal(err)
 	}
 	closeTerminalStreamsForDevice(sess.ID, "dev_peer")

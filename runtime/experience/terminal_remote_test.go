@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/ed25519"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -55,6 +56,9 @@ func newTerminalRemoteFixture(t *testing.T) terminalRemoteFixture {
 		WorkingDirectory: home, Command: "sh", CreatedAt: terminalNow(), UpdatedAt: terminalNow(),
 	}
 	if err := store.InsertSession(sess); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.GrantShare(sess.ID, viewer.DeviceID, terminalSharePermissionObserve); err != nil {
 		t.Fatal(err)
 	}
 	viewerCircle := circle
@@ -232,4 +236,192 @@ func TestTerminalPeerStreamDeniesNonMember(t *testing.T) {
 	if _, err := openTerminalPeerStream(f.endpoint, f.circle, strangerKey, f.request("stream")); err == nil {
 		t.Fatal("stream with a foreign key must be denied")
 	}
+}
+
+// addUngrantedMember joins a second device to the host's circle without sharing the session with it.
+func (f terminalRemoteFixture) addUngrantedMember(t *testing.T) (terminalPeerRequest, ed25519.PrivateKey) {
+	t.Helper()
+	member, key, err := loadOrCreateIdentity(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	circle, err := loadCircle(f.home, f.circle.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	circle.Members = append(circle.Members, CircleMember{DeviceID: member.DeviceID, PublicKey: member.PublicKey, AddedAt: terminalNow()})
+	if err := saveCircle(f.home, circle); err != nil {
+		t.Fatal(err)
+	}
+	req := f.request("meta")
+	req.DeviceID = member.DeviceID
+	return req, key
+}
+
+func TestAuthorizeTerminalPeerRequiresSessionShare(t *testing.T) {
+	f := newTerminalRemoteFixture(t)
+	mgr, err := getTerminalManager(f.home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, key := f.addUngrantedMember(t)
+	circle, err := loadCircle(f.home, f.circle.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signed, err := signTerminalPeerRequest(key, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := authorizeTerminalPeer(mgr, circle, signed); err == nil || !strings.Contains(err.Error(), string(TerminalErrAccessDenied)) {
+		t.Fatalf("circle member without a share must be denied, got %v", err)
+	}
+	if _, err := mgr.store.GrantShare(f.session.ID, req.DeviceID, terminalSharePermissionObserve); err != nil {
+		t.Fatal(err)
+	}
+	if signed, err = signTerminalPeerRequest(key, req); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := authorizeTerminalPeer(mgr, circle, signed); err != nil {
+		t.Fatalf("shared member must be allowed: %v", err)
+	}
+}
+
+func TestTerminalPeerOpsDenyUngrantedMemberOverShareListener(t *testing.T) {
+	f := newTerminalRemoteFixture(t)
+	req, key := f.addUngrantedMember(t)
+	circle, err := loadCircle(f.home, f.circle.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := callTerminalPeer(f.endpoint, circle, key, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.OK || resp.Session != nil || resp.Error != string(TerminalErrAccessDenied) {
+		t.Fatalf("meta must be denied without leaking the session: %+v", resp)
+	}
+	control := req
+	control.Op, control.ControlOp = "control", "request"
+	if resp, err = callTerminalPeer(f.endpoint, circle, key, control); err != nil || resp.OK {
+		t.Fatalf("control request must be denied: %+v %v", resp, err)
+	}
+	pending, err := mustTerminalStore(t, f.home).PendingControlRequesters(f.session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range pending {
+		if id == req.DeviceID {
+			t.Fatal("denied control request must not be queued")
+		}
+	}
+	if _, err := openTerminalPeerStream(f.endpoint, circle, key, req); err == nil {
+		t.Fatal("stream must be denied without a share")
+	}
+}
+
+func mustTerminalStore(t *testing.T, home string) *TerminalStore {
+	t.Helper()
+	store, err := newTerminalStore(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return store
+}
+
+func TestTerminalParticipantRemovalRevokesShare(t *testing.T) {
+	f := newTerminalRemoteFixture(t)
+	mgr, err := getTerminalManager(f.home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := mgr.AttachSession(f.session.ID, f.viewer.DeviceID, []TerminalCapability{TerminalCapObserve}); err != nil {
+		t.Fatal(err)
+	}
+	parts, err := mgr.store.ListParticipants(f.session.ID)
+	if err != nil || len(parts) != 1 {
+		t.Fatalf("participants %+v %v", parts, err)
+	}
+	rec := httptest.NewRecorder()
+	serveTerminalAPI(rec, httptest.NewRequest(http.MethodDelete, "/api/v1/terminal/sessions/"+f.session.ID+"/participants/"+parts[0].ID, nil), f.home)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("remove participant status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if ok, _ := mgr.store.HasShare(f.session.ID, f.viewer.DeviceID); ok {
+		t.Fatal("removing a participant must revoke its share")
+	}
+	if resp, err := callTerminalPeer(f.endpoint, f.circle, f.viewKey, f.request("meta")); err != nil || resp.OK {
+		t.Fatalf("a removed participant must not reconnect: %+v %v", resp, err)
+	}
+}
+
+func TestTerminalOwnerParticipantRemovalKeepsOwnerControl(t *testing.T) {
+	f := newTerminalRemoteFixture(t)
+	mgr, err := getTerminalManager(f.home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := mgr.AttachSession(f.session.ID, f.host.DeviceID, []TerminalCapability{TerminalCapObserve}); err != nil {
+		t.Fatal(err)
+	}
+	exp := time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
+	if _, err := mgr.store.grantLeaseCAS(f.session.ID, f.host.DeviceID, 0, exp); err != nil {
+		t.Fatal(err)
+	}
+	_, epoch, err := mgr.store.GetActiveLease(f.session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parts, err := mgr.store.ListParticipants(f.session.ID)
+	if err != nil || len(parts) != 1 {
+		t.Fatalf("participants %+v %v", parts, err)
+	}
+	if err := mgr.RemoveParticipantAccess(f.session.ID, parts[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	if lease, now, _ := mgr.store.GetActiveLease(f.session.ID); lease.HolderDeviceID != f.host.DeviceID || now != epoch {
+		t.Fatalf("owner lease must be untouched: %+v epoch %d -> %d", lease, epoch, now)
+	}
+}
+
+func TestWatchTerminalPeerAccessClosesRevokedViewer(t *testing.T) {
+	prev := terminalPeerRecheckEvery
+	terminalPeerRecheckEvery = 20 * time.Millisecond
+	t.Cleanup(func() { terminalPeerRecheckEvery = prev })
+	f := newTerminalRemoteFixture(t)
+	mgr, err := getTerminalManager(f.home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hostSide, viewerSide := net.Pipe()
+	defer viewerSide.Close()
+	viewer := newTerminalPeerLink(viewerSide, nil, f.circle.GroupKey)
+	done := make(chan struct{})
+	defer close(done)
+	go watchTerminalPeerAccess(f.home, mgr, f.request("stream"), newTerminalPeerLink(hostSide, nil, f.circle.GroupKey), done)
+
+	_ = viewerSide.SetReadDeadline(time.Now().Add(150 * time.Millisecond))
+	if _, err := viewer.Recv(); err == nil || !isTimeout(err) {
+		t.Fatalf("an admitted viewer must stay connected, got %v", err)
+	}
+	if err := mgr.store.RevokeShare(f.session.ID, f.viewer.DeviceID); err != nil {
+		t.Fatal(err)
+	}
+	_ = viewerSide.SetReadDeadline(time.Now().Add(3 * time.Second))
+	raw, err := viewer.Recv()
+	if err != nil {
+		t.Fatalf("revoked viewer must be told why: %v", err)
+	}
+	frame, err := decodeTerminalFrame(raw)
+	if err != nil || frame.Type != terminalFrameError || string(frame.Payload) != string(TerminalErrAccessDenied) {
+		t.Fatalf("frame %+v %v", frame, err)
+	}
+	if _, err := viewer.Recv(); err == nil || isTimeout(err) {
+		t.Fatalf("revoked viewer link must be closed, got %v", err)
+	}
+}
+
+func isTimeout(err error) bool {
+	ne, ok := err.(net.Error)
+	return ok && ne.Timeout()
 }
