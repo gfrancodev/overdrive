@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Security
+
+- **A device's key can no longer be swapped by a peer.** A device ID is derived from its Ed25519 key, and the member list that peers exchange during sync, or a join request, is now rejected when the key does not derive the ID. Before, an active member running a modified core could replace another member's key on the peers that synced with it, then sign requests as that member and reach the terminal sessions shared with it. A record without a key no longer adds a member either.
+
+### Docs
+
+- `SECURITY.md` no longer says the creator alone controls the member list: any member can invite, and the list spreads between members without an end-to-end signature yet.
+
 ## 2.0.3 - 2026-10-17
 
 ### Security

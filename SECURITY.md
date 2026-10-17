@@ -34,7 +34,7 @@ This section describes what the share mesh (`share listen`, circles, dashboard, 
 ### Trust boundaries
 
 - **Device identity.** Each core has an Ed25519 key. Peer requests (sync, catalog, terminal) are signed, and a tampered request is rejected. Terminal requests are also rejected outside a two-minute timestamp window.
-- **Circle.** A circle is the set of devices its creator admitted. The creator signs the member list and is the only one who can revoke a member. Every member holds the same symmetric circle key (AES-GCM).
+- **Circle.** Any active member can invite a device, and the member list spreads between members during sync. A device ID is derived from its Ed25519 key, so a peer can add devices to that list but cannot change the key of a device already on it. Only the creator can run `share circle revoke`, but the member list is not yet signed end to end: an active member running a modified core can add devices, or mark members revoked, on the peers that sync with it. Every member holds the same symmetric circle key (AES-GCM).
 - **Live session.** Circle membership does not open a terminal. The host core only serves a session to a device the session owner shared it with (an invite, or a terminal card posted in a chat). See [Live terminals](#live-terminals).
 - **Local dashboard.** The dashboard and its APIs bind to `127.0.0.1` by default. State-changing APIs reject non-loopback callers, cross-site fetches, and foreign `Origin` headers.
 
