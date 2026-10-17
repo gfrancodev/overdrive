@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2.0.3 - 2026-10-17
+
 ### Security
 
 - A terminal card posted in chat grants its shares only after the card is saved, and grants the whole audience in one transaction. If saving the card or granting fails, the post fails and nobody gains access; before, a failed post could leave the session shared with part or all of the audience.
