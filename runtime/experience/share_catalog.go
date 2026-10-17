@@ -182,7 +182,7 @@ func fetchPeerCatalog(home string, endpoint string, circle Circle, id DeviceIden
 	if err := json.Unmarshal([]byte(strings.TrimSpace(line)), &env); err != nil {
 		return CatalogResponse{}, err
 	}
-	plain, err := decryptBatch(circle.GroupKey, env.Ciphertext)
+	plain, err := decryptCircle(circle, env.Ciphertext)
 	if err != nil {
 		return CatalogResponse{}, err
 	}

@@ -102,7 +102,7 @@ func (sl *shareListener) handleConn(conn net.Conn, priv ed25519.PrivateKey) {
 	if err != nil {
 		return
 	}
-	plain, err := decryptBatch(circle.GroupKey, env.Ciphertext)
+	plain, err := decryptCircle(circle, env.Ciphertext)
 	if err != nil {
 		return
 	}
@@ -264,7 +264,7 @@ func doFetchPeerSyncTimed(call peerSyncCall) (SyncResponse, error) {
 	if err := json.Unmarshal([]byte(strings.TrimSpace(line)), &env); err != nil {
 		return SyncResponse{}, err
 	}
-	plain, err := decryptBatch(call.Circle.GroupKey, env.Ciphertext)
+	plain, err := decryptCircle(call.Circle, env.Ciphertext)
 	if err != nil {
 		return SyncResponse{}, err
 	}

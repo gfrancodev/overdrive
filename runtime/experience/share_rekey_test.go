@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -177,5 +179,46 @@ func TestIngestKexRecordsKeepsOnlySignedRecordsOfMembers(t *testing.T) {
 	got = got.ingestKexRecords([]DeviceKexRecord{kexRecordFor(t, f.stale)})
 	if _, ok := got.KexKeys[f.stale.id.DeviceID]; !ok {
 		t.Fatal("a member's own signed record must be kept")
+	}
+}
+
+func TestChatSealedJustBeforeARotationStillDelivers(t *testing.T) {
+	home := meshHome(t)
+	self, _ := testDevice(t)
+	peer, peerPriv := testDevice(t)
+	writeIdentityFile(t, home, self)
+	circle := saveTestCircle(t, home, testCircle(self, peer))
+	seal := func(id, key string) []byte {
+		t.Helper()
+		payload, _ := json.Marshal(chatPayload{Text: "hello"})
+		env, err := signChatEnvelope(peerPriv, chatEnvelope{
+			Version: chatEnvelopeVersion, MessageID: id, MeshID: circle.ID,
+			ConversationID: directConversationID(self.DeviceID, peer.DeviceID),
+			SenderUserID:   "usr_0123456789abcdef", SenderDeviceID: peer.DeviceID,
+			Recipient: self.DeviceID, Type: "text", Timestamp: nowRFC3339(), Payload: payload,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		wire, err := sealChatEnvelope(key, env)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return wire
+	}
+	oldKey := circle.GroupKey
+	inFlight := seal("msg_rotation_in_flight_01", oldKey)
+	rotated := circle.moveToKey(1, base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{7}, 32)))
+	saveTestCircle(t, home, rotated)
+	if ok, err := acceptChatWire(home, inFlight); err != nil || !ok {
+		t.Fatalf("a message sealed before the rotation must still deliver: %v %v", ok, err)
+	}
+	if ok, err := acceptChatWire(home, seal("msg_rotation_after_00001", rotated.GroupKey)); err != nil || !ok {
+		t.Fatalf("a message sealed with the new key must deliver: %v %v", ok, err)
+	}
+	rotated.PreviousKey.ExpiresAt = time.Now().Add(-time.Minute).UTC().Format(time.RFC3339)
+	saveTestCircle(t, home, rotated)
+	if ok, _ := acceptChatWire(home, seal("msg_rotation_too_late_01", oldKey)); ok {
+		t.Fatal("after the grace window the old key must no longer deliver")
 	}
 }

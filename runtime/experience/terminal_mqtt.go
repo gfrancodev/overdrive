@@ -207,7 +207,7 @@ func acceptTerminalWire(home string, body []byte) error {
 	if err != nil {
 		return err
 	}
-	env, err := openTerminalWire(circle.GroupKey, body)
+	env, err := openCircleTerminalWire(circle, body)
 	if err != nil {
 		return err
 	}

@@ -574,7 +574,7 @@ func acceptCallSignalWire(home string, body []byte) error {
 	if err != nil {
 		return err
 	}
-	env, err := openChatWire(circle.GroupKey, body)
+	env, err := openCircleChatWire(circle, body)
 	if err != nil {
 		return err
 	}

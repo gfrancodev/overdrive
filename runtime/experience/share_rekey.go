@@ -249,3 +249,27 @@ func decryptCircle(c Circle, ciphertext string) ([]byte, error) {
 	}
 	return nil, lastErr
 }
+
+func openCircleChatWire(c Circle, body []byte) (chatEnvelope, error) {
+	var lastErr error
+	for _, key := range c.openKeys(time.Now()) {
+		env, err := openChatWire(key, body)
+		if err == nil {
+			return env, nil
+		}
+		lastErr = err
+	}
+	return chatEnvelope{}, lastErr
+}
+
+func openCircleTerminalWire(c Circle, body []byte) (terminalEnvelope, error) {
+	var lastErr error
+	for _, key := range c.openKeys(time.Now()) {
+		env, err := openTerminalWire(key, body)
+		if err == nil {
+			return env, nil
+		}
+		lastErr = err
+	}
+	return terminalEnvelope{}, lastErr
+}

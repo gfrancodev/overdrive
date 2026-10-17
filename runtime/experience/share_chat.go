@@ -652,7 +652,7 @@ func acceptChatWire(home string, body []byte) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	env, err := openChatWire(circle.GroupKey, body)
+	env, err := openCircleChatWire(circle, body)
 	if err != nil {
 		return false, err
 	}

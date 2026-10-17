@@ -127,7 +127,7 @@ func fetchPeerRoster(endpoint string, circle Circle, id DeviceIdentity, priv ed2
 	if err := json.Unmarshal([]byte(strings.TrimSpace(line)), &env); err != nil {
 		return RosterResponse{}, err
 	}
-	plain, err := decryptBatch(circle.GroupKey, env.Ciphertext)
+	plain, err := decryptCircle(circle, env.Ciphertext)
 	if err != nil {
 		return RosterResponse{}, err
 	}
