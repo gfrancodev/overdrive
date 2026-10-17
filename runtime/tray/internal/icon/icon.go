@@ -69,7 +69,24 @@ func FromPath(path string) (png []byte, ico []byte, err error) {
 		return nil, nil, err
 	}
 	nrgba := resize32(img)
-	return encodePNG(nrgba), encodeICO(nrgba), nil
+	return encodePNG(hardAlpha(nrgba)), encodeICO(nrgba), nil
+}
+
+// hardAlpha makes every pixel fully opaque or fully transparent. fyne.io/systray hands Linux trays the low
+// byte of each premultiplied 16-bit channel, which is only right at alpha 0 or 255: a logo drawn at alpha 254
+// otherwise turns white.
+func hardAlpha(src *image.NRGBA) *image.NRGBA {
+	dst := image.NewNRGBA(src.Rect)
+	for y := src.Rect.Min.Y; y < src.Rect.Max.Y; y++ {
+		for x := src.Rect.Min.X; x < src.Rect.Max.X; x++ {
+			c := src.NRGBAAt(x, y)
+			if c.A >= 0x80 {
+				c.A = 0xFF
+				dst.SetNRGBA(x, y, c)
+			}
+		}
+	}
+	return dst
 }
 
 func resize32(src image.Image) *image.NRGBA {
