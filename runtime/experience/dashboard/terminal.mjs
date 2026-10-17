@@ -58,6 +58,12 @@ function terminalSessionApi(sessionId, host, self) {
   return "/api/v1/terminal/sessions/" + id;
 }
 
+// A host answers 403 when its owner has not shared the session with this device.
+function terminalAttachFailureText(status) {
+  if (status === 403) return "Ask the owner to share this terminal with you.";
+  return "Could not attach to session.";
+}
+
 function friendlyTerminalSessionName(sess, fallback) {
   const raw = (sess?.name) || fallback || "";
   const name = String(raw).trim();
@@ -1007,7 +1013,7 @@ function createLiveSessions(deps) {
             this.showEnded("Session ended. Use + to open a new terminal.");
             return;
           }
-          this.statusEl.textContent = "Could not attach to session.";
+          this.statusEl.textContent = terminalAttachFailureText(attachRes.status);
           return;
         }
         const body = await attachRes.json();
@@ -2282,5 +2288,6 @@ export {
   terminalLooksLikeOpaqueToken,
   terminalSessionAttachable,
   terminalSessionEnded,
-  terminalSessionApi
+  terminalSessionApi,
+  terminalAttachFailureText
 };

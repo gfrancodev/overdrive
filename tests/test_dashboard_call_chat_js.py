@@ -1172,6 +1172,22 @@ def test_terminal_session_api_routes_remote_hosts_through_peer_proxy():
     ]
 
 
+def test_terminal_attach_failure_explains_missing_share():
+    out = _node_eval(
+        f"""
+        import {{ terminalAttachFailureText }} from {json.dumps(str(TERMINAL_MJS))};
+        console.log(JSON.stringify([403, 500, 0].map(terminalAttachFailureText)));
+        """
+    )
+    assert json.loads(out) == [
+        "Ask the owner to share this terminal with you.",
+        "Could not attach to session.",
+        "Could not attach to session.",
+    ]
+    text = TERMINAL_MJS.read_text(encoding="utf-8")
+    assert "this.statusEl.textContent = terminalAttachFailureText(attachRes.status);" in text
+
+
 def test_terminal_tab_uses_host_aware_session_api_everywhere():
     text = TERMINAL_MJS.read_text(encoding="utf-8")
     body = text[text.index("  class TermTab {"):text.index("export {")]
