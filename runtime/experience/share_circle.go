@@ -39,6 +39,11 @@ type Circle struct {
 
 	Admissions  map[string]MemberAdmission  `json:"admissions,omitempty"`
 	Revocations map[string]MemberRevocation `json:"revocations,omitempty"`
+
+	KeyEpoch    int                        `json:"key_epoch,omitempty"`
+	PreviousKey *CirclePreviousKey         `json:"previous_key,omitempty"`
+	KeyUpdate   *CircleKeyUpdate           `json:"key_update,omitempty"`
+	KexKeys     map[string]DeviceKexRecord `json:"kex_keys,omitempty"`
 }
 
 type CircleInvite struct {
