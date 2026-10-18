@@ -69,6 +69,14 @@ var dashboardHighlightJS []byte
 //go:embed dashboard/vendor/mermaid.min.js
 var dashboardMermaidJS []byte
 
+// The globe's Three.js is served by the Core so the dashboard works with the WAN off. The version is in the
+// path, so a browser may cache it for good.
+//
+//go:embed dashboard/vendor/three.module.min.js
+var dashboardThreeJS []byte
+
+const dashboardThreePath = "/vendor/three@0.170.0/three.module.min.js"
+
 func assembleDashboardHTML() []byte {
 	page := append([]byte(nil), dashboardShell...)
 	page = bytes.Replace(page, []byte("/*{{xterm.css}}*/"), dashboardXtermCSS, 1)
@@ -213,6 +221,16 @@ func serveDashboardPeers(home string) http.HandlerFunc {
 	}
 }
 
+func serveDashboardThree(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		http.Error(w, methodNotAllowedMsg, http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set(headerContentType, "text/javascript; charset=utf-8")
+	w.Header().Set(headerCacheControl, "public, max-age=31536000, immutable")
+	_, _ = w.Write(dashboardThreeJS)
+}
+
 func serveDashboardContexts(home string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -288,6 +306,7 @@ func serveDashboardIndex(home string) http.HandlerFunc {
 func shareDashboardHandler(home string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/assets/", serveShareAssets(home))
+	mux.HandleFunc(dashboardThreePath, serveDashboardThree)
 	mux.HandleFunc("/logo.png", serveDashboardBrandImage(home, func(c shareUIConfig) string { return c.Logo }))
 	mux.HandleFunc("/favicon.ico", serveDashboardBrandImage(home, func(c shareUIConfig) string {
 		if c.Favicon != "" {
