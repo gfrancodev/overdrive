@@ -13,6 +13,7 @@ const callMjs = join(root, "runtime/experience/dashboard/call.mjs");
 const terminalMjs = join(root, "runtime/experience/dashboard/terminal.mjs");
 const onboardingMjs = join(root, "runtime/experience/dashboard/onboarding.mjs");
 const circleSettingsMjs = join(root, "runtime/experience/dashboard/circle_settings.mjs");
+const connectionMjs = join(root, "runtime/experience/dashboard/connection.mjs");
 
 function fakeEl(id = "node") {
   return {
@@ -163,4 +164,27 @@ test("circle settings helpers explain folders, members and removals", async () =
   const cascade = cs.revokeImpact({ ...plan, cut_off: [] }, circle, true);
   assert.match(cascade.lines[0], /^dev_b and the 1 device it invited \(dev_c\) lose access now/);
   assert.equal(cs.revokeImpact({}, null, false).title, "Remove This device?");
+});
+
+test("connection helpers explain health, peers and the network", async () => {
+  const cn = await import(pathToFileURL(connectionMjs).href);
+  const health = {
+    state: "blocked",
+    capabilities: [
+      { id: "chat", state: "connected" },
+      { id: "memory", state: "blocked", action: "allow_network" },
+      { id: "terminal", state: "blocked", action: "allow_network" },
+    ],
+  };
+  assert.equal(cn.connectionSummary(health), "Experience and Terminals are blocked.");
+  assert.equal(cn.connectionSummary({ state: "connected", capabilities: [{ id: "chat" }], peers: [{ reach: "ok" }] }), "Connected to 1 device.");
+  assert.deepEqual(cn.healthActions(health), ["allow_network"]);
+  assert.equal(cn.healthActionLabel("open_setup"), "Get started");
+  assert.equal(cn.reachText({ reach: "refused", local_only: true }), "Accepts connections only from itself");
+  assert.equal(cn.reachText({ reach: "ok", rtt_ms: 2 }), "Answers in 2 ms");
+  assert.match(cn.networkText({ lan_access: false, listen: "127.0.0.1:7741" }), /^Only this computer/);
+  assert.match(cn.networkText({ lan_access: true, listen: "0.0.0.0:7741" }), /connect to 0\.0\.0\.0:7741/);
+  assert.equal(cn.healthLabel("reconnecting"), "Reconnecting");
+  assert.equal(cn.capabilityTitle("terminal"), "Terminals");
+  assert.equal(cn.diagnosticsText(null), "{}");
 });

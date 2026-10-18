@@ -2505,7 +2505,22 @@
     .action-fill:disabled { opacity: 0.6; cursor: default; }
     .settings-actions { display: flex; gap: 8px; }
     #meshState, #shareListen { margin: 0 0 8px; color: #ffffff; font-size: 13px; }
-    #settings.stack-panel, #nearby.stack-panel { width: min(420px, calc(100% - 32px)); }
+    #settings.stack-panel, #nearby.stack-panel, #health.stack-panel { width: min(420px, calc(100% - 32px)); }
+    /* Connection health: one colour per state, on the menu bar icon and on the rows of the Connection sheet. */
+    .dot.health-connected { background: #4cd964; }
+    .dot.health-degraded, .dot.health-reconnecting { background: #f5b942; }
+    .dot.health-blocked { background: #ff5f57; }
+    .dot.health-offline, .dot.health-checking { background: rgba(255, 255, 255, 0.32); }
+    .menubar .menubar-btn--listen[data-health="degraded"], .menubar .menubar-btn--listen[data-health="reconnecting"] { color: #f5b942; }
+    .menubar .menubar-btn--listen[data-health="blocked"] { color: #ff5f57; }
+    .menubar .menubar-btn--listen[data-health="offline"] { color: rgba(255, 255, 255, 0.45); }
+    #healthBody h2 { margin: 14px 0 6px; font-size: 12px; font-weight: 600; color: #ffffff; }
+    #healthBody .hint { margin: 0 0 8px; line-height: 1.45; }
+    #healthFixes { margin: 0 0 12px; }
+    #healthFixes .action-fill + .action-fill { margin-top: 8px; }
+    #healthStatus:empty, #nearbyNetworkStatus:empty { display: none; }
+    #nearbyNetworkHint { margin: 0 0 12px; }
+    #nearbyNetworkHint .action-fill { margin-top: 0; }
     #stack.stack-panel { width: min(480px, calc(100% - 32px)); }
     #stack .stack-intro { margin: 0 4px 10px; line-height: 1.45; }
     #stack .search { margin: 2px 0 12px; }
