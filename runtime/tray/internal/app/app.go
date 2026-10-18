@@ -27,6 +27,18 @@ type App struct {
 	url    string
 }
 
+// Launch starts the Core when the tray opens (at login) and nothing is serving yet, so the dashboard is ready
+// without a click. A Core that is already up, or a disabled UI, is left alone.
+func (a *App) Launch(ctx context.Context) error {
+	if a == nil || a.Starter == nil {
+		return nil
+	}
+	if _, err := a.Starter.Ensure(ctx); err != nil && !errors.Is(err, boot.ErrUIDisabled) {
+		return err
+	}
+	return nil
+}
+
 // Refresh reads the admin API and returns menu state plus new notices.
 // The first successful peer reading is a baseline and does not notify.
 func (a *App) Refresh(ctx context.Context) (menu.View, []signal.Notice, error) {

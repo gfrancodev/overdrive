@@ -133,6 +133,9 @@ func poll(d *desk) {
 		},
 	}
 	ctx := context.Background()
+	if err := application.Launch(ctx); err != nil {
+		logErr(err)
+	}
 	refresh := func() {
 		view, notes, err := application.Refresh(ctx)
 		if err != nil {

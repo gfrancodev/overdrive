@@ -261,3 +261,33 @@ func TestNoticeTextFromRealTransition(t *testing.T) {
 func srvURL(r *http.Request) string {
 	return "http://" + r.Host + "/"
 }
+
+func TestLaunchStartsTheCoreOnlyWhenItIsDown(t *testing.T) {
+	var spawned int
+	coreUp := false
+	application := &App{Starter: &boot.Starter{
+		Runtime: "/opt/overdrive-runtime", ListenAddr: "127.0.0.1:1", UIAddr: "127.0.0.1:2", Cwd: t.TempDir(),
+		PortOpen: func(string) bool { return coreUp },
+		Probe:    func(context.Context) bool { return coreUp },
+		Spawn: func([]string, []string) error {
+			spawned++
+			return nil
+		},
+	}}
+	if err := application.Launch(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if spawned != 1 {
+		t.Fatalf("opening the tray with the Core down must start it, spawned %d", spawned)
+	}
+	coreUp = true
+	if err := application.Launch(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if spawned != 1 {
+		t.Fatalf("opening the tray with the Core up must not start a second one, spawned %d", spawned)
+	}
+	if err := (&App{}).Launch(context.Background()); err != nil {
+		t.Fatal("a tray without a starter just skips the launch")
+	}
+}
