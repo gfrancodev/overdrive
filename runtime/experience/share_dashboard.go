@@ -42,6 +42,9 @@ var dashboardTerminalJS []byte
 //go:embed dashboard/emojis.json
 var dashboardEmojisJSON []byte
 
+//go:embed dashboard/onboarding.mjs
+var dashboardOnboardingJS []byte
+
 //go:embed dashboard/machines.mjs
 var dashboardMachinesJS []byte
 
@@ -78,6 +81,8 @@ func assembleDashboardHTML() []byte {
 	script = append(script, dashboardTerminalJS...)
 	script = append(script, '\n')
 	script = append(script, dashboardMachinesJS...)
+	script = append(script, '\n')
+	script = append(script, dashboardOnboardingJS...)
 	script = append(script, '\n')
 	script = append(script, dashboardAppJS...)
 	page = bytes.Replace(page, []byte("/*{{xterm.js}}*/"), dashboardXtermJS, 1)

@@ -2782,3 +2782,33 @@
       #enterprise .ent-side { border-left: 0; border-top: 1px solid var(--line); }
     }
   
+    .setup-steps {
+      margin: 0 0 14px;
+      padding: 0 0 0 20px;
+      color: var(--sheet-sub);
+    }
+    .setup-step { margin: 6px 0; }
+    .setup-step.done { color: var(--sheet-sub); text-decoration: line-through; }
+    .setup-step.next { color: var(--sheet-text); font-weight: 600; }
+    .setup-action { display: grid; gap: 8px; margin: 0 0 12px; }
+    .pairing-code {
+      display: block;
+      margin: 12px 0 16px;
+      font: 600 34px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: 0.08em;
+      text-align: center;
+      color: var(--foam);
+    }
+    .machine-row .row-pair {
+      align-self: center;
+      margin: 0 6px 0 auto;
+      padding: 6px 12px;
+      border: 1px solid var(--accent-ring);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--foam);
+      font: inherit;
+      cursor: pointer;
+    }
+    .machine-row .row-pair:hover,
+    .machine-row .row-pair:focus-visible { background: var(--focus-shadow); outline: none; }
