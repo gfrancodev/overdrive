@@ -98,6 +98,10 @@ func (sl *shareListener) handleConn(conn net.Conn, priv ed25519.PrivateKey) {
 	if err := json.Unmarshal([]byte(line), &env); err != nil {
 		return
 	}
+	if env.Kind == pairKind {
+		sl.handlePair(conn, priv, env.Plain)
+		return
+	}
 	circle, err := loadCircle(sl.home, env.CircleID)
 	if err != nil {
 		return
