@@ -81,34 +81,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.0.0
+        with:
+          python-version: "3.12"
+
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
         with:
           go-version: "1.27.2"
           cache-dependency-path: runtime/experience/go.sum
 
-      - name: Detect security file changes
-        id: filter
-        run: |
-          base="${{ github.base_ref }}"
-          git diff --name-only "origin/${base}...HEAD" > /tmp/changed.txt
-          if grep -E '^(runtime/experience/(util|share_protocol|sync_logic|decision_lifetime|span_index|handoff|peer_status|share_call|share_chat|share_chat_groups|terminal_control|terminal_env|terminal_workdir|workspace_sync)\.go|runtime/experience/\.gremlins\.yaml|scripts/mutation\.sh)$' /tmp/changed.txt; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Install gremlins
-        if: steps.filter.outputs.run == 'true'
-        run: |
-          go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
-          go version -m "$(go env GOPATH)/bin/gremlins" | grep -F 'github.com/go-gremlins/gremlins'
-
-      - name: Mutation gate
-        if: steps.filter.outputs.run == 'true'
+      - name: Mutation gate on the lines this pull request changes
         env:
           OVERDRIVE_EMBEDDER: stub
           OVERDRIVE_SKIP_EMBED_DOWNLOAD: "1"
-        run: bash scripts/mutation.sh
+          BASE_REF: ${{ github.base_ref }}
+        run: bash scripts/mutation.sh --base "origin/${BASE_REF}" --workers 3
 
   browser-media:
     name: Browser call smoke
