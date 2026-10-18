@@ -171,7 +171,7 @@ func listCircles(home string) ([]Circle, error) {
 		}
 		var c Circle
 		if json.Unmarshal(data, &c) == nil {
-			out = append(out, c)
+			out = append(out, c.withoutRevokedEndpoints())
 		}
 	}
 	return out, nil

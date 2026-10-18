@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"path/filepath"
 	"testing"
 )
 
@@ -67,5 +68,50 @@ func TestSyncLinesOnlyForDevicesTheCircleStillSyncsWith(t *testing.T) {
 	}
 	if links := dashboardLinks(got); len(links) != 1 || links[0].Name != "192.0.2.13:7741" || links[0].State != "ok" {
 		t.Fatalf("links: %+v", links)
+	}
+}
+
+// The dashboard and the sync loops read circles through listCircles, which decoded the files without the cleanup
+// loadCircle does. A circle revoked before that cleanup existed keeps the removed device's address on disk; on a
+// real Core it kept its sync line, and the tray stayed on "error".
+func TestTheDashboardDropsARemovedDeviceSyncLine(t *testing.T) {
+	f := newRevokeFixture(t)
+	repo := makeTestRepo(t, filepath.Join(t.TempDir(), "proj"), "https://github.com/acme/removed-device.git")
+	circle := withEndpoint(t, f.circle, f.b, "192.0.2.11:7741")
+	circle = withEndpoint(t, circle, f.d, "192.0.2.13:7741")
+	for i := range circle.Members {
+		if circle.Members[i].DeviceID == f.b.id.DeviceID {
+			circle.Members[i].Revoked = true
+		}
+	}
+	circle.PeerEndpoints = []string{"192.0.2.11:7741", "192.0.2.13:7741"}
+	circle.AllowedFolders = []string{repo}
+	if err := saveCircle(f.home, circle); err != nil {
+		t.Fatal(err)
+	}
+	project, err := identifyProject(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, err := newEngine(f.home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.savePeerLines(circle.ID, project.Repository, []string{
+		formatPeerSyncLine("192.0.2.11:7741", "timeout", 0),
+		formatPeerSyncLine("192.0.2.13:7741", "ok", 2),
+	})
+	e.Close()
+
+	listed, err := listCircles(f.home)
+	if err != nil || len(listed) != 1 {
+		t.Fatalf("circles %d, %v", len(listed), err)
+	}
+	if !sameStrings(listed[0].PeerEndpoints, []string{"192.0.2.13:7741"}) {
+		t.Fatalf("listed circles still dial the removed device: %v", listed[0].PeerEndpoints)
+	}
+	links := peerDashboardSnapshot(f.home).Links
+	if len(links) != 1 || links[0].Name != "192.0.2.13:7741" || links[0].State != "ok" {
+		t.Fatalf("dashboard links: %+v", links)
 	}
 }
