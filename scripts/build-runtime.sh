@@ -21,7 +21,22 @@ turbovec_lib_name() {
   esac
 }
 
+host_is_windows() {
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Windows DLLs are built with MSVC on a Windows host. Linking the cdylib for the GNU targets through zig
+# exports only libunwind's dllexport symbols and drops od_tv_* (every Windows DLL from 0.3.0 to 2.2.0).
 rust_target() {
+  if host_is_windows; then
+    case "$1-$2" in
+      windows-amd64) echo "x86_64-pc-windows-msvc"; return ;;
+      windows-arm64) echo "aarch64-pc-windows-msvc"; return ;;
+    esac
+  fi
   case "$1-$2" in
     linux-amd64) echo "x86_64-unknown-linux-gnu" ;;
     linux-arm64) echo "aarch64-unknown-linux-gnu" ;;
@@ -46,6 +61,9 @@ ensure_rust_targets() {
     aarch64-pc-windows-gnu
     aarch64-pc-windows-gnullvm
   )
+  if host_is_windows; then
+    targets+=(x86_64-pc-windows-msvc aarch64-pc-windows-msvc)
+  fi
   for t in "${targets[@]}"; do
     rustup target add "$t" >/dev/null 2>&1 || true
   done
@@ -71,7 +89,9 @@ build_turbovec() {
   echo "Building TurboVec FFI for $goos/$goarch ($target)"
   (
     cd "$FFI"
-    if command -v cargo-zigbuild >/dev/null 2>&1 && command -v zig >/dev/null 2>&1; then
+    if [[ "$target" = *-windows-msvc ]]; then
+      cargo build --release --target "$target"
+    elif command -v cargo-zigbuild >/dev/null 2>&1 && command -v zig >/dev/null 2>&1; then
       cargo zigbuild --release --target "$target"
     elif [[ "$target" = "x86_64-unknown-linux-gnu" ]]; then
       cargo build --release
