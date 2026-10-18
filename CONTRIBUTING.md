@@ -178,17 +178,21 @@ for all supported targets before tagging a release (zero-toolchain plugin instal
 ## Releases
 
 Push a tag on `main` (for example `v1.0.0`) to trigger `.github/workflows/release.yml`.
-The workflow builds all six runtime binaries and TurboVec FFI libraries on GitHub
-runners (ubuntu, macos, windows) and attaches one zip per OS/arch pair:
+The workflow builds the runtime, the TurboVec FFI library, and the tray for all six targets on
+native runners (ubuntu, macos, windows) and attaches two zips per OS/arch pair:
 
-- `overdrive-runtime-linux-amd64.zip`
-- `overdrive-runtime-linux-arm64.zip`
-- `overdrive-runtime-darwin-amd64.zip`
-- `overdrive-runtime-darwin-arm64.zip`
-- `overdrive-runtime-windows-amd64.zip`
-- `overdrive-runtime-windows-arm64.zip`
+- `overdrive-<os>-<arch>.zip`: the install bundle from `scripts/package-platform.sh` (skills,
+  plugin manifests, installers, runtime, TurboVec, and the prebuilt tray). This is what users install.
+- `overdrive-runtime-<os>-<arch>.zip`: the runtime binary and TurboVec library only.
 
-Each zip contains the runtime binary and matching TurboVec library for that target.
+Before publishing, each runner that can execute its target installs the bundle into a temporary home,
+checks that the installed tray is the bundled one and that `status` reports `turbovec_available`, then
+installs it again while a Core runs and checks the Core keeps answering. The macOS tray needs CGO, so it
+only builds on the macOS runner. Windows TurboVec DLLs are built with the MSVC targets on the Windows
+runner; the GNU targets linked through zig drop the `od_tv_*` exports.
+
+To check a release build without publishing, run the workflow manually or push to a `release-check/<name>`
+branch: every bundle is built and verified, and nothing is released.
 
 The repository also ships prebuilt `runtime/bin/` and `runtime/lib/` in git so
 `./scripts/install.sh` works without downloading release assets. Refresh committed

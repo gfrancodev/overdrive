@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Install & boot
+
+- **Release bundles.** Each release now ships `overdrive-<os>-<arch>.zip` with the skills, plugin manifests, installers, runtime, TurboVec library, and a prebuilt tray built on its native runner. Installing from it needs no Go, Rust, or Docker. The workflow installs every bundle it can run, checks TurboVec loads, and upgrades it again while a Core runs before publishing.
+- **The tray starts the Core.** Opening the tray (at login) starts the Core when nothing is serving, so the dashboard is ready without clicking Start.
+- **Restarting or upgrading the Core keeps open terminals.** The new Core adopts session hosts that still answer their session socket instead of killing them; before, every Core restart closed every terminal.
+
+### Fixes
+
+- `install.ps1` replaces the runtime, the DLL, and the tray even while they run, by moving the old file aside.
+
 ## 2.2.1 - 2026-10-17
 
 ### Fixes
