@@ -99,12 +99,17 @@ def test_first_run_creates_a_circle_and_pairs_from_the_dashboard(fresh_pair, pla
         assert code_a == code_b and len(code_a.replace(" ", "")) == 6
 
         assert page_a.locator("#pairingCircleField").is_visible()
+        assert not page_b.locator("#pairingCircleField").is_visible(), "only the member chooses the circle"
+        for page in (page_a, page_b):
+            assert page.locator("#pairingConfirm").is_visible() and page.locator("#pairingCancel").is_visible()
+            assert not page.locator("#pairingClose").is_visible(), "a pairing in progress offers no Close"
         page_a.locator("#pairingConfirm").click()
         page_b.locator("#pairingConfirm").click()
         page_b.wait_for_function(
             "() => document.getElementById('pairingTitle')?.textContent === 'This device joined the circle'",
             timeout=15_000,
         )
+        assert page_b.locator("#pairingClose").is_visible() and not page_b.locator("#pairingConfirm").is_visible()
         with urllib.request.urlopen(b["base"] + "/api/circles", timeout=5) as resp:
             circles = json.loads(resp.read())["circles"]
         assert [c["name"] for c in circles] == ["Squad"]
