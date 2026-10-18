@@ -1,4 +1,5 @@
-# Overdrive release: build all runtime binaries and TurboVec libs, publish platform zips.
+# Overdrive release: build all runtime binaries, TurboVec libs and trays, publish platform zips.
+# A manual run, or a push to a release-check/ branch, builds and verifies every bundle without publishing.
 name: Release
 
 on:
@@ -23,6 +24,7 @@ jobs:
             goarch: amd64
             bin: overdrive-runtime-linux-amd64
             lib: liboverdrive_turbovec_ffi.so
+            native: true
           - runner: ubuntu-latest
             target: linux-arm64
             goos: linux
@@ -35,6 +37,7 @@ jobs:
             goarch: arm64
             bin: overdrive-runtime-darwin-arm64
             lib: liboverdrive_turbovec_ffi.dylib
+            native: true
           - runner: macos-latest
             target: darwin-amd64
             goos: darwin
@@ -47,6 +50,7 @@ jobs:
             goarch: amd64
             bin: overdrive-runtime-windows-amd64.exe
             lib: overdrive_turbovec_ffi.dll
+            native: true
           - runner: windows-latest
             target: windows-arm64
             goos: windows
@@ -80,6 +84,10 @@ jobs:
         shell: bash
         run: bash scripts/build-runtime.sh "${{ matrix.target }}"
 
+      - name: Build tray
+        shell: bash
+        run: bash scripts/build-tray.sh "${{ matrix.target }}"
+
       - name: Verify artifacts
         shell: bash
         run: |
@@ -108,11 +116,54 @@ jobs:
           Copy-Item "runtime/lib/${{ matrix.target }}/${{ matrix.lib }}" "dist/${{ matrix.target }}/"
           Compress-Archive -Path "dist/${{ matrix.target }}" -DestinationPath "dist/overdrive-runtime-${{ matrix.target }}.zip" -Force
 
+      - name: Package install bundle
+        shell: bash
+        env:
+          OVERDRIVE_REQUIRE_TRAY: "1"
+        run: bash scripts/package-platform.sh "${{ matrix.target }}"
+
+      - name: Smoke install from bundle (Unix)
+        if: matrix.native && runner.os != 'Windows'
+        shell: bash
+        run: |
+          smoke="$RUNNER_TEMP/overdrive-smoke"
+          OVERDRIVE_HOME="$smoke/home" OVERDRIVE_BIN_DIR="$smoke/bin" OVERDRIVE_SKILLS_DIR="$smoke/skills" \
+            OVERDRIVE_TRAY_ENABLE=0 OVERDRIVE_EMBEDDER=stub \
+            bash "dist/install-${{ matrix.target }}/scripts/install.sh"
+          cmp "$smoke/bin/overdrive-tray" "dist/install-${{ matrix.target }}/runtime/bin/overdrive-tray-${{ matrix.target }}"
+          OVERDRIVE_HOME="$smoke/home" OVERDRIVE_EMBEDDER=stub "$smoke/bin/overdrive-runtime" status
+
+      - name: Smoke install from bundle (Windows)
+        if: matrix.native && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $smoke = Join-Path $env:RUNNER_TEMP "overdrive-smoke"
+          $env:OVERDRIVE_HOME = Join-Path $smoke "home"
+          $env:OVERDRIVE_BIN_DIR = Join-Path $smoke "bin"
+          $env:OVERDRIVE_SKILLS_DIR = Join-Path $smoke "skills"
+          $env:OVERDRIVE_TRAY_ENABLE = "0"
+          $env:OVERDRIVE_EMBEDDER = "stub"
+          & "dist/install-${{ matrix.target }}/scripts/install.ps1"
+          $tray = Join-Path $env:OVERDRIVE_BIN_DIR "overdrive-tray.exe"
+          if ((Get-FileHash $tray).Hash -ne (Get-FileHash "dist/install-${{ matrix.target }}/runtime/bin/overdrive-tray-${{ matrix.target }}.exe").Hash) { throw "installed tray is not the bundled one" }
+          & (Join-Path $env:OVERDRIVE_BIN_DIR "overdrive-runtime.exe") status
+
+      - name: Zip install bundle (Unix)
+        if: runner.os != 'Windows'
+        run: (cd dist && zip -qr "overdrive-${{ matrix.target }}.zip" "install-${{ matrix.target }}")
+
+      - name: Zip install bundle (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path "dist/install-${{ matrix.target }}" -DestinationPath "dist/overdrive-${{ matrix.target }}.zip" -Force
+
       - name: Upload platform artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: overdrive-runtime-${{ matrix.target }}
-          path: dist/overdrive-runtime-${{ matrix.target }}.zip
+          path: |
+            dist/overdrive-runtime-${{ matrix.target }}.zip
+            dist/overdrive-${{ matrix.target }}.zip
           if-no-files-found: error
 
   release:

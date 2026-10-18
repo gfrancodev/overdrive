@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 import shutil
 import subprocess
 from pathlib import Path
@@ -391,6 +392,45 @@ def test_installer_upgrade_never_rewrites_a_running_core_in_place(tmp_path: Path
         assert path.stat().st_ino != inode, f"{path.name} was rewritten in place"
         assert os.access(path, os.X_OK)
     assert not list(bin_dir.glob("*.tmp*")) and not list(bin_dir.glob("*.new"))
+
+
+def _host_target() -> str:
+    machine = platform.machine().lower()
+    arch = {"x86_64": "amd64", "amd64": "amd64", "aarch64": "arm64", "arm64": "arm64"}[machine]
+    return f"{platform.system().lower()}-{arch}"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="bash bundle installer")
+def test_release_bundle_installs_without_go_or_rust(tmp_path: Path):
+    # The release ships one bundle per platform. Installing it must not need a Go or Rust toolchain:
+    # the tray comes prebuilt inside the bundle.
+    target = _host_target()
+    run("bash", str(ROOT / "scripts" / "build-tray.sh"), target)
+    env = dict(os.environ, OVERDRIVE_REQUIRE_TRAY="1")
+    run("bash", str(ROOT / "scripts" / "package-platform.sh"), target, env=env)
+    bundle = ROOT / "dist" / f"install-{target}"
+    tray = bundle / "runtime" / "bin" / f"overdrive-tray-{target}"
+    assert tray.is_file()
+
+    no_toolchain = tmp_path / "path"
+    no_toolchain.mkdir()
+    for tool in ("bash", "sh", "uname", "tr", "cp", "mv", "rm", "mkdir", "mktemp", "chmod", "find", "cat",
+                 "dirname", "basename", "grep", "sed", "ls", "head", "awk", "cmp", "readlink", "env", "date"):
+        found = shutil.which(tool)
+        if found:
+            (no_toolchain / tool).symlink_to(found)
+    home = tmp_path / "home"
+    bin_dir = tmp_path / "bin"
+    env = {
+        "PATH": str(no_toolchain), "HOME": str(tmp_path), "OVERDRIVE_HOME": str(home),
+        "OVERDRIVE_BIN_DIR": str(bin_dir), "OVERDRIVE_SKILLS_DIR": str(tmp_path / "skills"),
+        "OVERDRIVE_TRAY_ENABLE": "0", "OVERDRIVE_EMBEDDER": "stub",
+    }
+    assert shutil.which("go", path=env["PATH"]) is None and shutil.which("cargo", path=env["PATH"]) is None
+    run("bash", str(bundle / "scripts" / "install.sh"), env=env)
+    assert (bin_dir / "overdrive-tray").read_bytes() == tray.read_bytes()
+    result = json.loads(run(str(bin_dir / "overdrive-runtime"), "status", env=env).stdout)
+    assert result["version"] == PLUGIN_VERSION
 
 
 def test_skills_treat_experience_as_advisory_and_automatic():
