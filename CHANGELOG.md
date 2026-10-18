@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Recover & diagnose
+
+- **Connection health.** The menu bar's network icon shows how this device reaches the circle, and opens a Connection sheet with one line per capability (chat, calls, experience, terminals): connected, partly connected, reconnecting, offline or blocked, why, and the fix. Each device in the circle shows whether it answers, refuses connections, times out or has no route. The Core derives it from the mesh switch, the network choice, the chat link and a TCP connect to each member's listener; nothing new travels between devices.
+- **Devices on the network can connect once you allow it.** The tray and the session hook start the Core on loopback, so before this, devices on other computers could find each other but not connect: no pairing, sync or shared terminals across machines. The Connection sheet, and Nearby, now offer "Allow devices on this network". The Core rebinds on every interface without restarting, remembers the choice in `share/network.json`, and announces it over mDNS so other devices can say "accepts connections only from itself" instead of a bare refusal. "Accept connections only from this computer" closes it again.
+- **Pairing says why it cannot reach a device**, with the same causes and fixes, instead of a raw `connection refused`.
+- **Diagnostics.** Copy diagnostics puts a report on the clipboard: version, platform, network, discovery, chat links, circles (key epoch, members, number of shared folders), nearby devices and connection health. It leaves out keys, invite secrets, tokens, and folder paths or names.
+- **The dashboard needs no internet.** Three.js, which drew the globe, came from a CDN; the Core now serves it (r170, MIT). Chat, peers and local terminals work with the WAN off, and a browser test runs the dashboard with every request off this computer blocked.
+- Local API: `GET /api/connections/health`, `GET /api/diagnostics`, `GET/POST /api/network`. Loopback only.
+
 ### Share & collaborate
 
 - **Shared folders from the dashboard.** Circle settings list the folders this device shares, share another one by its path (or `~/…`) or from the projects this device already recorded experience in, and stop sharing one. A folder must exist, and the disk root or the whole home folder is refused. Stopping a folder ends future exports from it; what other devices already received stays with them. CLI: `share circle folder-remove`.

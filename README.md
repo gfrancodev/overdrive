@@ -641,7 +641,8 @@ The mesh dashboard (`OVERDRIVE_SHARE_UI`, default listen port + 1) is the browse
 |---------|----------|
 | **Allowed folders** | Only paths you add in Circle settings or with `share circle folder-add` export or accept peer recall; remove one there or with `share circle folder-remove`. |
 | **Identity** | Ed25519 device keys bound to device ids; admissions signed by the inviting member and revocations signed by the creator, checked by every core; expiring invites; the circle key rotates on every revocation (HPKE, ML-KEM-768 + X25519). |
-| **Transport** | TCP batches (`encryptBatch` + wire envelope); bind with `OVERDRIVE_SHARE_LISTEN=0.0.0.0:7741`. |
+| **Transport** | TCP batches (`encryptBatch` + wire envelope). The Core accepts only its own computer until you allow devices on the network in the dashboard's Connection sheet (or bind with `OVERDRIVE_SHARE_LISTEN=0.0.0.0:7741`). |
+| **Connection health** | The dashboard says per capability (chat, calls, experience, terminals) whether it works, why not, and the fix; Copy diagnostics gives a report without keys, tokens or folder names. Works with the WAN off. |
 | **Indexes** | Local `experience-v2.tvim` plus peer index `experience-v2-peer.tvim`. |
 | **Hooks** | `sessionStart` syncs peer deltas and prints `share status`; `sessionEnd` runs consolidation. |
 

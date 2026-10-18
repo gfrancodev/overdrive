@@ -213,6 +213,12 @@ From the dashboard, Pair on a Nearby device runs a numeric-comparison exchange o
 
 Circle settings in the dashboard manage what a device shares and who is in the circle. `GET/POST/DELETE /api/circles/{id}/folders` lists, adds and removes allowed folders; the list also suggests projects this device recorded experience in. A folder must be an existing directory given by its full path or `~/…`, and neither the disk root nor the home folder. `GET /api/circles/{id}/members/{device}/revoke` previews a removal (`targets`, `invitees`, `cut_off`, `next_epoch`; `?with_invitees=1` adds the invitees), and `POST` with `{"with_invitees": bool}` revokes and rotates like `share circle revoke`. Only the creator may remove. The circle view carries `key_epoch`, `key_rotated_at`, `previous_key_until` and, per member, `receives_keys`.
 
+### Connection health and network access (2.3+)
+
+`GET /api/connections/health` reports, per capability (`chat`, `calls`, `memory`, `terminal`), a `state` (`connected`, `degraded`, `reconnecting`, `offline`, `blocked`), a `cause`, a `detail`, a `fix` and an `action` the dashboard can run (`resume_mesh`, `allow_network`, `share_folder`, `open_setup`), plus each member with how it answered a TCP connect (`ok`, `refused`, `timeout`, `unreachable`, `no_address`, `self_address`). Probes are cached for ten seconds. `GET /api/diagnostics` adds version, platform, discovery, chat links and per-circle counts, without keys, tokens or folder paths.
+
+`GET/POST /api/network` reads and sets whether devices on the network may connect (`{"lan_access": true}`). The choice is stored in `share/network.json` and wins over the address the Core was started with: allowing turns a loopback bind into `0.0.0.0` on the same port, closing turns any bind into `127.0.0.1`. A running Core rebinds without restarting and announces `net=lan` or `net=local` over mDNS.
+
 ### Circle key rotation (2.2+)
 
 `share circle revoke` rotates the circle key after revoking; `share circle rekey --circle <id>` rotates it on demand. Only the creator rotates. Each device derives an HPKE key-agreement key (ML-KEM-768 + X25519) from its Ed25519 identity and publishes it signed; the creator seals the new key to each remaining member and signs the update. Cores trade key-agreement records and the latest update through a `keys` exchange that is not sealed with the circle key, so a member that missed a rotation can still catch up. `share listen` runs the roster and keys exchanges with every peer once a minute, and the creator pushes a new key to every member right after rotating. Receivers accept the previous key for 24 hours. Rotating drops this core's pending invites for the circle and reseals queued chat. Members whose core predates rotation are named on stderr; each gets the current key once it upgrades and syncs.
@@ -231,7 +237,7 @@ Upgrading: each 2.1 core signs admissions for the members already on its roster,
 | `OVERDRIVE_ORT_URL` | ORT 1.18.1 release for `GOOS/GOARCH` | Override ORT archive download |
 | `OVERDRIVE_SKIP_EMBED_DOWNLOAD` | unset | Set `1` to disable lazy downloads |
 | `OVERDRIVE_TURBOVEC_LIB` | bundled / `~/.overdrive/lib` | TurboVec FFI path |
-| `OVERDRIVE_SHARE_LISTEN` | unset | TCP bind for circle sync, for example `0.0.0.0:7741` |
+| `OVERDRIVE_SHARE_LISTEN` | unset | TCP bind for circle sync, for example `0.0.0.0:7741`. A choice made in the Connection sheet (`share/network.json`) wins over it |
 | `OVERDRIVE_SHARE_UI` | listen port + 1 on wildcard binds | Peer page bind, or `off` |
 | `OVERDRIVE_TURN_URLS` | unset | Comma-separated TURN/TURNS URLs. Without them, mesh calls use STUN only and fail across NAT |
 | `OVERDRIVE_TURN_USERNAME` | unset | TURN username when `OVERDRIVE_TURN_URLS` is set |
