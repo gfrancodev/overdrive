@@ -95,6 +95,9 @@ jobs:
           test -s "runtime/lib/${{ matrix.target }}/${{ matrix.lib }}"
           test "$(wc -c < "runtime/bin/${{ matrix.bin }}")" -gt 100000
           test "$(wc -c < "runtime/lib/${{ matrix.target }}/${{ matrix.lib }}")" -gt 10000
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            python scripts/verify_windows_dll.py "runtime/lib/${{ matrix.target }}/${{ matrix.lib }}"
+          fi
 
       - name: Package platform zip (Unix)
         if: runner.os != 'Windows'

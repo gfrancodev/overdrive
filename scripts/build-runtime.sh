@@ -90,7 +90,8 @@ build_turbovec() {
   (
     cd "$FFI"
     if [[ "$target" = *-windows-msvc ]]; then
-      cargo build --release --target "$target"
+      # Static CRT: a clean Windows install may not have the Visual C++ runtime the DLL would otherwise need.
+      RUSTFLAGS="${RUSTFLAGS:-} -C target-feature=+crt-static" cargo build --release --target "$target"
     elif command -v cargo-zigbuild >/dev/null 2>&1 && command -v zig >/dev/null 2>&1; then
       cargo zigbuild --release --target "$target"
     elif [[ "$target" = "x86_64-unknown-linux-gnu" ]]; then
