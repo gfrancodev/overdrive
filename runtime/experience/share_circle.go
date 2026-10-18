@@ -51,7 +51,7 @@ type CircleInvite struct {
 	CircleName  string `json:"circle_name"`
 	Code        string `json:"code"`
 	Fingerprint string `json:"fingerprint"`
-	GroupKey    string `json:"group_key"`
+	GroupKey    string `json:"group_key,omitempty"`
 	ExpiresAt   string `json:"expires_at"`
 	CreatorPK   string `json:"creator_public_key"`
 	CreatorID   string `json:"creator_device_id"`
@@ -59,6 +59,10 @@ type CircleInvite struct {
 	// CircleCreatorID is the circle's creator; CreatorID is the member who made this invite.
 	CircleCreatorID string `json:"circle_creator_id,omitempty"`
 	KeyEpoch        int    `json:"key_epoch,omitempty"`
+	// Version 2 invites carry a one-time Secret instead of the circle key; the key travels sealed to the
+	// joiner (see joinWithInviteToken).
+	Version int    `json:"version,omitempty"`
+	Secret  string `json:"secret,omitempty"`
 }
 
 func circlesDir(home string) string {
@@ -194,12 +198,17 @@ func createInvite(home string, circleID string, id DeviceIdentity) (CircleInvite
 	}
 	code := randomToken(6)
 	fp := hashHex([]byte(c.ID + code))[:12]
+	secret := make([]byte, 24)
+	if _, err := hookRandRead(secret); err != nil {
+		return CircleInvite{}, err
+	}
 	invite := CircleInvite{
 		CircleID:    c.ID,
 		CircleName:  c.Name,
 		Code:        code,
 		Fingerprint: fp,
-		GroupKey:    c.GroupKey,
+		Version:     2,
+		Secret:      base64.RawURLEncoding.EncodeToString(secret),
 		ExpiresAt:   time.Now().UTC().Add(inviteTTL()).Format(time.RFC3339),
 		CreatorPK:   id.PublicKey,
 		CreatorID:   id.DeviceID,
@@ -240,6 +249,9 @@ func acceptInvite(home string, code string, fingerprint string, endpoint string,
 	}
 	if !memberKeyBound(invite.CreatorID, invite.CreatorPK) {
 		return Circle{}, errors.New("invite key does not match the inviting device")
+	}
+	if invite.Version >= 2 {
+		return joinWithInviteToken(home, invite, endpoint, id, priv)
 	}
 	creatorID := invite.CircleCreatorID
 	if creatorID == "" {

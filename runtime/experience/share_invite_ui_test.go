@@ -77,8 +77,11 @@ func TestCircleInviteIssueCopiesConnectionJSON(t *testing.T) {
 	if exp.Before(window.Add(-time.Minute)) || exp.After(window.Add(time.Minute)) {
 		t.Fatal("expiry is not the existing invite deadline")
 	}
-	if issued.Invite.Code == "" || issued.Invite.CircleID == "" || issued.Invite.Fingerprint == "" || issued.Invite.GroupKey == "" {
+	if issued.Invite.Code == "" || issued.Invite.CircleID == "" || issued.Invite.Fingerprint == "" || issued.Invite.Secret == "" {
 		t.Fatal("connection json incomplete")
+	}
+	if issued.Invite.GroupKey != "" || strings.Contains(rec.Body.String(), "group_key") {
+		t.Fatal("the connection json must not carry the circle key")
 	}
 	if issued.Invite.Fingerprint != hashHex([]byte(issued.Invite.CircleID + issued.Invite.Code))[:12] {
 		t.Fatal("fingerprint")
@@ -128,7 +131,8 @@ func TestCircleInviteIssueReusesExistingCircle(t *testing.T) {
 
 func TestCircleJoinRegistersDevice(t *testing.T) {
 	homeA := t.TempDir()
-	setupTestEnv(t, homeA)
+	sl, _ := startShareListenerForTest(t, homeA)
+	defer sl.Close()
 	issued := issueInviteForTest(t, homeA)
 
 	homeB := t.TempDir()
@@ -153,7 +157,11 @@ func TestCircleJoinRegistersDevice(t *testing.T) {
 	if !body.OK || body.CircleID != issued.Invite.CircleID || body.Name == "" || body.Error != "" {
 		t.Fatal("join result")
 	}
-	if strings.Contains(rec.Body.String(), issued.Invite.GroupKey) || strings.Contains(rec.Body.String(), "group_key") {
+	circleA, err := loadCircle(homeA, issued.Invite.CircleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(rec.Body.String(), circleA.GroupKey) || strings.Contains(rec.Body.String(), "group_key") {
 		t.Fatal("join response leaked invite material")
 	}
 	idB, _, err := loadOrCreateIdentity(homeB)
