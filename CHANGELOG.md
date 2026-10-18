@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2.2.0 - 2026-10-17
+
 ### Security
 
 - **Revoking a member rotates the circle key.** `share circle revoke` now replaces the circle key after revoking, and `share circle rekey` does it on demand; only the creator rotates. The creator seals the new key to each remaining member with HPKE (ML-KEM-768 + X25519) under a key-agreement key each device derives from its identity, and signs the update. A revoked device cannot read anything sealed after the rotation.
