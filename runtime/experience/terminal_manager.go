@@ -213,7 +213,13 @@ func (m *TerminalManager) watchSessionHost(sessionID string, cmd *exec.Cmd) {
 	}
 }
 
-func (m *TerminalManager) reapOrphanHosts() {
+// adoptedHostPollEvery is how often the Core checks that a host it adopted (not its child) is still alive.
+var adoptedHostPollEvery = 5 * time.Second
+
+// recoverSessionHosts runs when a Core starts. A session host outlives the Core that spawned it (own process
+// group), so a host whose pid is alive and whose socket answers the session token is adopted back and the
+// terminal stays open. Any other host left by a previous Core is terminated and its session marked failed.
+func (m *TerminalManager) recoverSessionHosts() {
 	rows, err := m.store.db.Query(`SELECT id, host_pid FROM terminal_sessions WHERE state IN ('RUNNING','STARTING')`)
 	if err != nil {
 		return
@@ -238,11 +244,48 @@ func (m *TerminalManager) reapOrphanHosts() {
 		if tracked || r.pid <= 1 {
 			continue
 		}
+		if processAlive(r.pid) && m.hostAnswers(r.id) {
+			go m.watchAdoptedHost(r.id, r.pid)
+			continue
+		}
 		if processAlive(r.pid) {
 			terminateProcess(r.pid)
 		}
 		removeStaleSessionSocket(m.home, r.id)
 		_ = m.store.UpdateSessionState(r.id, TerminalStateFailed, "session host restarted", nil)
+	}
+}
+
+// hostAnswers proves the process behind a session is its host, not a recycled pid: it holds the IPC token.
+func (m *TerminalManager) hostAnswers(sessionID string) bool {
+	sock, tok, err := m.sessionIPC(sessionID)
+	if err != nil || sock == "" || tok == "" {
+		return false
+	}
+	resp, err := DialSessionHost(sock, tok, terminalIPCRequest{Op: "ping"})
+	return err == nil && resp.OK
+}
+
+// watchAdoptedHost stands in for cmd.Wait on a host this Core did not spawn: once the process is gone, a
+// session still marked live is failed, as watchSessionHost does for children.
+func (m *TerminalManager) watchAdoptedHost(sessionID string, pid int) {
+	ticker := time.NewTicker(adoptedHostPollEvery)
+	defer ticker.Stop()
+	for range ticker.C {
+		cur, err := m.store.GetSession(sessionID)
+		if err != nil {
+			return
+		}
+		switch cur.State {
+		case TerminalStateCreated, TerminalStateStarting, TerminalStateRunning:
+		default:
+			return
+		}
+		if !processAlive(pid) {
+			_ = m.store.UpdateSessionState(sessionID, TerminalStateFailed, "session host exited", nil)
+			removeStaleSessionSocket(m.home, sessionID)
+			return
+		}
 	}
 }
 
@@ -400,7 +443,7 @@ func getTerminalManager(home string) (*TerminalManager, error) {
 	if err != nil {
 		return nil, err
 	}
-	m.reapOrphanHosts()
+	m.recoverSessionHosts()
 	terminalMgrMap[home] = m
 	return m, nil
 }
