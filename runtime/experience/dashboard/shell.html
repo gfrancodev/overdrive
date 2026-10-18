@@ -485,7 +485,10 @@
         <button type="button" class="action-fill" id="setupPairNearby">Pair with a nearby device</button>
         <button type="button" class="action-row" id="setupUseConnection">Use a connection code</button>
       </div>
-      <p class="hint" id="setupFolderRow" hidden>Choose a project folder to share in Circle settings. Nothing is shared until you do.</p>
+      <div class="setup-action" id="setupFolderRow" hidden>
+        <p class="hint">Nothing from this device reaches the circle until you share a project folder.</p>
+        <button type="button" class="action-fill" id="setupShareFolder">Choose a folder</button>
+      </div>
       <p class="hint" id="setupDone" hidden>Everything is set up: chat, calls, shared memory and live terminals are ready.</p>
       <output class="hint" id="setupStatus"></output>
     </div>
@@ -528,8 +531,43 @@
       </div>
       <h2>Listen</h2>
       <p id="shareListen"></p>
-      <h2>Shared folders</h2>
-      <ul id="shareFolders"></ul>
+      <section id="circleManage" hidden>
+        <h2>Shared folders</h2>
+        <p class="hint">Only experience recorded inside these folders reaches the circle.</p>
+        <div class="card" id="circleFolders"></div>
+        <div class="setup-action">
+          <label class="connection-field">
+            <span>Share another folder</span>
+            <input type="text" id="folderPath" autocomplete="off" spellcheck="false" placeholder="/home/me/project or ~/project">
+          </label>
+          <button type="button" class="action-fill" id="folderAddButton">Share folder</button>
+        </div>
+        <div class="card" id="folderSuggestionRows" aria-label="Projects on this device" hidden></div>
+        <output class="hint" id="folderStatus"></output>
+        <h2>Members</h2>
+        <div class="card" id="circleMembers"></div>
+        <p class="hint" id="circleRemoveHint" hidden></p>
+        <h2>Key</h2>
+        <p class="hint" id="circleKey"></p>
+      </section>
+    </div>
+  </dialog>
+  <dialog class="stack-panel" id="revoke" aria-labelledby="revokeTitle" hidden>
+    <div class="sheet-head">
+      <div>
+        <h2 id="revokeTitle">Remove device?</h2>
+      </div>
+      <button type="button" class="close" id="revokeClose" aria-label="Close"></button>
+    </div>
+    <div class="sheet-body">
+      <ul class="revoke-impact" id="revokeImpact"></ul>
+      <label class="check-field" id="revokeInviteesField" hidden>
+        <input type="checkbox" id="revokeInvitees">
+        <span id="revokeInviteesText">Also remove the devices it invited</span>
+      </label>
+      <button type="button" class="action-fill danger" id="revokeConfirm">Remove device</button>
+      <button type="button" class="action-row" id="revokeCancel">Cancel</button>
+      <output class="hint" id="revokeStatus"></output>
     </div>
   </dialog>
 <main id="enterprise" hidden>

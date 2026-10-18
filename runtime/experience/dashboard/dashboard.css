@@ -2477,8 +2477,32 @@
     #meshPause:hover, #meshResume:hover { background: rgba(255, 255, 255, 0.2); }
     #meshPause:focus-visible, #meshResume:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.8); outline-offset: 2px; }
     #settingsBody h2 { margin: 14px 0 6px; font-size: 12px; font-weight: 600; color: #ffffff; }
-    #shareFolders { margin: 0; padding-left: 18px; color: #ffffff; font-size: 13px; }
-    #shareFolders li { margin: 4px 0; overflow-wrap: anywhere; }
+    #circleManage .card { margin: 0 0 8px; }
+    #circleManage .hint { margin: 0 0 8px; }
+    #folderStatus:empty, #revokeStatus:empty { display: none; }
+    .connection-field input { padding-left: 12px; }
+    .row-action {
+      flex: 0 0 auto;
+      padding: 5px 11px;
+      border: 1px solid var(--accent-ring);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--foam);
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .row-action:hover, .row-action:focus-visible { background: var(--focus-shadow); outline: none; }
+    .row-action.danger { border-color: rgba(255, 95, 87, 0.6); color: #ff8a80; }
+    .row-action.danger:hover, .row-action.danger:focus-visible { background: rgba(255, 95, 87, 0.16); }
+    #revoke.stack-panel { z-index: 6; width: min(420px, calc(100% - 32px)); }
+    .revoke-impact { margin: 0 0 12px; padding-left: 18px; font-size: 13px; line-height: 1.45; color: var(--sheet-text); }
+    .revoke-impact li { margin: 0 0 6px; }
+    .check-field { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; font-size: 13px; cursor: pointer; }
+    .stack-panel .check-field input { width: auto; padding: 0; box-shadow: none; }
+    .action-fill.danger { background: #d70015; }
+    .action-fill.danger:hover { background: #b80012; }
+    .action-fill:disabled { opacity: 0.6; cursor: default; }
     .settings-actions { display: flex; gap: 8px; }
     #meshState, #shareListen { margin: 0 0 8px; color: #ffffff; font-size: 13px; }
     #settings.stack-panel, #nearby.stack-panel { width: min(420px, calc(100% - 32px)); }

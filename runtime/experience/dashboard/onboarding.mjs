@@ -82,7 +82,7 @@ async function readJSONResponse(res) {
   }
 }
 
-function createOnboarding({ onCircleChange, openNearby, openConnection } = {}) {
+function createOnboarding({ onCircleChange, openNearby, openConnection, openFolders } = {}) {
   const byId = (id) => document.getElementById(id);
   const dismissed = new Set();
   let shownPairing = "";
@@ -280,6 +280,7 @@ function createOnboarding({ onCircleChange, openNearby, openConnection } = {}) {
   byId("setupCreateCircle")?.addEventListener("click", () => { createCircle().catch(() => {}); });
   byId("setupPairNearby")?.addEventListener("click", () => { closeSetup(); if (openNearby) openNearby(); });
   byId("setupUseConnection")?.addEventListener("click", () => { closeSetup(); if (openConnection) openConnection(); });
+  byId("setupShareFolder")?.addEventListener("click", () => { closeSetup(); if (openFolders) openFolders(); });
   byId("setupOpen")?.addEventListener("click", openSetup);
   byId("activeCircle")?.addEventListener("change", (event) => setActiveCircle(event.target.value));
   byId("pairingConfirm")?.addEventListener("click", () => { pairingAction("confirm").catch(() => {}); });
