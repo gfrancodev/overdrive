@@ -202,6 +202,31 @@ jobs:
             dist/overdrive-${{ matrix.target }}.zip
           if-no-files-found: error
 
+  # A release-check push closes a milestone: mutate every runtime line changed since main.
+  mutation:
+    name: Mutation
+    if: startsWith(github.ref, 'refs/heads/release-check/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.0.0
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: "1.27.2"
+          cache-dependency-path: runtime/experience/go.sum
+
+      - name: Mutation gate on the lines changed since main
+        env:
+          OVERDRIVE_EMBEDDER: stub
+          OVERDRIVE_SKIP_EMBED_DOWNLOAD: "1"
+        run: bash scripts/mutation.sh --base origin/main --workers 3
+
   release:
     name: Publish GitHub Release
     needs: build

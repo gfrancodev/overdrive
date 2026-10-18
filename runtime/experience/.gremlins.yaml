@@ -1,8 +1,0 @@
-unleash:
-  dry-run: false
-  tags: overdrive_fake_ort
-  workers: 2
-  timeout-coefficient: 4
-  test-cpu: 1
-  threshold-efficacy: 85
-  threshold-mcover: 0

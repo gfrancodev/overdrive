@@ -124,11 +124,25 @@ cd runtime/experience
 go test -tags=overdrive_fake_ort -cover ./...
 ```
 
-CI runs that package test on every pull request. Mutation testing with
-`scripts/mutation.sh` (gremlins, config in `runtime/experience/.gremlins.yaml`)
-runs when the security files change: redact, signature verification, folder
-export, decision lifetime, span bounds, handoff, and per-peer status. The gate
-is 100% killed mutants on those predicates and 85% efficacy on that file set.
+CI runs that package test on every pull request. Mutation testing,
+`scripts/mutation.sh`, mutates the runtime lines a change touched (conditions,
+`&&`/`||`, arithmetic, `++`/`--`, `!`, `true`/`false`) and runs, for each
+mutant, only the tests that execute that line, from a per-test coverage map.
+It runs on pull requests against their base and on every `release-check/**`
+push against `main`, which is how a milestone ends. The gate is 85% efficacy:
+killed mutants over killed plus surviving ones. Mutants no test reaches are
+listed apart; read them as untested code.
+
+```bash
+scripts/mutation.sh                      # lines changed since origin/main
+scripts/mutation.sh --base feat/x        # since another ref
+scripts/mutation.sh --files pairing.go   # whole files
+```
+
+Tests that start a terminal get a real session host: `TestMain` lets the test
+binary act as one, and the hosts are stopped when the suite ends. A host keeps
+its socket under the home, so such tests need a short home (`shortTempHome`);
+a Unix socket path stops at about 104 bytes.
 
 CI enforces Go coverage via `scripts/go-coverage-gate.sh` (≥82%, excluding `terminal_host.go`).
 
