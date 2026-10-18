@@ -2840,15 +2840,18 @@
       text-align: center;
       color: var(--foam);
     }
+    .machine-row.nearby-row { grid-template-columns: 48px minmax(0, 1fr) auto; }
     .machine-row .row-pair {
       align-self: center;
-      margin: 0 6px 0 auto;
+      margin: 0;
       padding: 6px 12px;
       border: 1px solid var(--accent-ring);
       border-radius: 999px;
       background: transparent;
       color: var(--foam);
       font: inherit;
+      font-size: 13px;
+      font-weight: 500;
       cursor: pointer;
     }
     .machine-row .row-pair:hover,

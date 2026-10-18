@@ -1408,7 +1408,10 @@ def test_chat_boot_survives_widget_restore_and_toast_closes_before_dock():
     out = _node_eval(
         f"""
         import {{ createMeshChat }} from {json.dumps(str(CHAT_MJS))};
-        const style = {{}};
+        const style = {{
+          setProperty(name, value) {{ this[name] = value; }},
+          getPropertyValue(name) {{ return this[name] || ""; }},
+        }};
         const classList = {{
           _s: new Set(),
           add(name) {{ this._s.add(name); }},
@@ -1425,6 +1428,8 @@ def test_chat_boot_survives_widget_restore_and_toast_closes_before_dock():
           getBoundingClientRect() {{ return {{ left: 8, top: 72, width: 320, height: 480 }}; }},
         }};
         const els = {{ messages: panel }};
+        globalThis.innerWidth = 1440;
+        globalThis.innerHeight = 900;
         globalThis.document = {{
           getElementById(id) {{ return els[id] || null; }},
           addEventListener() {{}},
@@ -1441,10 +1446,16 @@ def test_chat_boot_survives_widget_restore_and_toast_closes_before_dock():
           peerAlive() {{ return false; }},
           getData() {{ return {{}}; }},
         }});
-        console.log(panel.style.width + " " + panel.style.height);
+        console.log(JSON.stringify({{
+          vars: [style["--chat-w"], style["--chat-h"], style["--chat-left"], style["--chat-top"]],
+          inline: [style.width, style.height, style.left, style.top].filter(Boolean),
+          positioned: classList.contains("is-positioned"),
+        }}));
         """
     )
-    assert out == "360px 520px"
+    # The saved size and place go to CSS variables. Inline left/top/width/height beat any stylesheet, so the call
+    # layout that docks this window could not place it, and a window once dragged vanished beside the call.
+    assert json.loads(out) == {"vars": ["360px", "520px", "12px", "80px"], "inline": [], "positioned": True}
 
 
 def test_mesh_call_signaling_node_runner():

@@ -1,11 +1,13 @@
-/* Live mesh chat: a frosted desktop widget on the globe, clear of the menu bar and the dock. */
+/* Live mesh chat: a frosted desktop widget on the globe, clear of the menu bar and the dock. Where the person
+   dragged or resized it lives in --chat-left, --chat-top, --chat-w and --chat-h, never in inline left/top/width/height,
+   so a layout that docks the window (a call) still places it. */
 .chat-widget {
   position: absolute;
   z-index: 3;
   top: 84px;
   right: 16px;
-  width: min(332px, calc(100vw - 32px));
-  height: min(340px, calc(100dvh - 84px - 124px));
+  width: var(--chat-w, min(332px, calc(100vw - 32px)));
+  height: var(--chat-h, min(340px, calc(100dvh - 84px - 124px)));
   display: flex;
   flex-direction: column;
   border-radius: 16px;
@@ -30,8 +32,8 @@
 }
 .chat-widget[hidden] { display: none; }
 .chat-widget.expanded {
-  width: min(720px, calc(100vw - 32px));
-  height: min(calc(100dvh - 84px - 124px), 680px);
+  width: var(--chat-w, min(720px, calc(100vw - 32px)));
+  height: var(--chat-h, min(calc(100dvh - 84px - 124px), 680px));
 }
 .chat-widget.expanded .chat-pane {
   flex-direction: row;
@@ -96,7 +98,9 @@
 .chat-widget.is-dragging .chat-head { cursor: grabbing; }
 .chat-widget.is-dragging { transition: none; }
 .chat-widget.is-positioned {
+  top: var(--chat-top, 84px);
   right: auto;
+  left: var(--chat-left, auto);
 }
 .chat-drag-grip {
   flex: 0 0 auto;
@@ -1631,7 +1635,8 @@
   font-weight: 500;
 }
 @media (max-width: 760px) {
-  .chat-widget {
+  .chat-widget,
+  .chat-widget.is-positioned {
     top: 78px;
     right: 10px;
     left: 10px;
@@ -2150,9 +2155,9 @@ body.chat-media-modal-open { overflow: hidden; }
   order: 2;
   flex: 0 0 220px;
   width: 220px;
-  height: auto;
+  height: 100%;
   max-height: 100%;
-  align-self: flex-start;
+  align-self: stretch;
   padding: 12px 12px 14px;
   gap: 10px;
   overflow-x: hidden;

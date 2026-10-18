@@ -287,7 +287,7 @@ function createOnboarding({ onCircleChange, openNearby, openConnection, openFold
   byId("pairingCancel")?.addEventListener("click", () => { pairingAction("cancel").catch(() => {}); });
   byId("pairingClose")?.addEventListener("click", closePairing);
 
-  return { activeCircleId, refreshCircles, refreshSetup, pollPairings, startPairing, openSetup };
+  return { activeCircleId, refreshCircles, refreshSetup, pollPairings, startPairing, openSetup, closeSetup };
 }
 
 export {

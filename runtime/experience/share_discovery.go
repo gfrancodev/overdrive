@@ -17,6 +17,9 @@ import (
 const (
 	overdriveDNSSDService = "_overdrive._tcp"
 	overdriveDNSSDDomain  = "local."
+	// nearbyFreshFor is how long one announcement keeps a device on the nearby list. Discovery browses every few
+	// seconds, so a device still announcing is never this old; one that went away drops off instead of piling up.
+	nearbyFreshFor = 2 * time.Minute
 )
 
 // discoveredPeer is a LAN announcement. Recording one does not join a circle.
@@ -54,6 +57,10 @@ type discoveryIgnoreFile struct {
 }
 
 var discoveryMu sync.Mutex
+
+// discoveryBrowsers counts the browse loops still running, so a test can let the last one finish writing to its
+// home before the home is removed.
+var discoveryBrowsers sync.WaitGroup
 
 func discoveredPath(home string) string {
 	return shareDir(home) + "/discovered.json"
@@ -232,8 +239,9 @@ func noteDiscoveredPeer(home string, peer discoveredPeer) error {
 	if discoveryIgnored(home, peer.DeviceID) {
 		return nil
 	}
+	now := meshNow()
 	if peer.LastSeen == "" {
-		peer.LastSeen = nowRFC3339()
+		peer.LastSeen = now.UTC().Format(time.RFC3339)
 	}
 	discoveryMu.Lock()
 	file, err := loadDiscovered(home)
@@ -241,17 +249,13 @@ func noteDiscoveredPeer(home string, peer discoveredPeer) error {
 		discoveryMu.Unlock()
 		return err
 	}
-	replaced := false
-	for i := range file.Peers {
-		if file.Peers[i].DeviceID == peer.DeviceID {
-			file.Peers[i] = peer
-			replaced = true
-			break
+	kept := make([]discoveredPeer, 0, len(file.Peers)+1)
+	for _, p := range file.Peers {
+		if p.DeviceID != peer.DeviceID && discoveryFresh(p, now) {
+			kept = append(kept, p)
 		}
 	}
-	if !replaced {
-		file.Peers = append(file.Peers, peer)
-	}
+	file.Peers = append(kept, peer)
 	err = saveDiscovered(home, file)
 	discoveryMu.Unlock()
 	if err != nil {
@@ -312,10 +316,11 @@ func listDiscoveredPeers(home string) ([]discoveredPeer, error) {
 	if file.Peers == nil {
 		return []discoveredPeer{}, nil
 	}
+	now := meshNow()
 	byID := make(map[string]discoveredPeer, len(file.Peers))
 	for _, peer := range file.Peers {
 		id := strings.TrimSpace(peer.DeviceID)
-		if id == "" {
+		if id == "" || !discoveryFresh(peer, now) {
 			continue
 		}
 		prev, ok := byID[id]
@@ -328,6 +333,11 @@ func listDiscoveredPeers(home string) ([]discoveredPeer, error) {
 		out = append(out, peer)
 	}
 	return out, nil
+}
+
+func discoveryFresh(peer discoveredPeer, now time.Time) bool {
+	seen, err := time.Parse(time.RFC3339, peer.LastSeen)
+	return err == nil && now.Sub(seen) <= nearbyFreshFor
 }
 
 func discoveryIgnored(home, deviceID string) bool {
@@ -416,8 +426,14 @@ func existingDeviceID(home string) string {
 	return id.DeviceID
 }
 
+// discoveryOff is OVERDRIVE_DISCOVERY=off: the Core neither announces nor browses on the local network. Test
+// Cores run with it, so they don't turn up as nearby devices on the network of whoever runs the tests.
+func discoveryOff() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("OVERDRIVE_DISCOVERY")), "off")
+}
+
 func startDiscovery(home string, epoch uint64) error {
-	if !meshAllowsDiscovery() || !meshEpochOpen(epoch) {
+	if discoveryOff() || !meshAllowsDiscovery() || !meshEpochOpen(epoch) {
 		return nil
 	}
 	ann, err := localDiscoveryAnnouncement(home)
@@ -438,7 +454,11 @@ func startDiscovery(home string, epoch uint64) error {
 		_ = srv.Shutdown()
 		return nil
 	}
-	go browseLoop(ctx, home)
+	discoveryBrowsers.Add(1)
+	go func() {
+		defer discoveryBrowsers.Done()
+		browseLoop(ctx, home)
+	}()
 	return nil
 }
 

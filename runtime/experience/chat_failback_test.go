@@ -106,6 +106,10 @@ func TestHostingTheChatAloneIsNotConnected(t *testing.T) {
 	if c.State != healthDegraded || c.Cause != "chat_alone" || c.Detail != "This device hosts the circle's chat, but no other device is on it." {
 		t.Fatalf("alone: %+v", c)
 	}
+	// The chat is up, so calls are not "out of reach": they just have no one to ring yet.
+	if calls := capability(t, h, "calls"); calls.Detail != "Calls start over the circle's chat, and no other device is on it yet." {
+		t.Fatalf("calls while the chat is alone: %+v", calls)
+	}
 	in.Chat = map[string]chatLinkState{"c1": {Connected: true, HostID: "dev_self", Hosted: true, Guests: 1}}
 	if c = capability(t, deriveConnectionHealth(in), "chat"); c.State != healthConnected || c.Detail != "This device hosts the circle's chat for 1 other device." {
 		t.Fatalf("with a guest: %+v", c)

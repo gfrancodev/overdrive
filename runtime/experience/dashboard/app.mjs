@@ -990,10 +990,22 @@
       if (hours < 48) return hours + " h ago";
       return Math.round(hours / 24) + " d ago";
     }
+    // A peer's last connection comes from a throwaway source port, so only its host says anything, and only when
+    // it differs from the address the peer listens on.
+    const seenFrom = (peer) => {
+      const host = (addr) => String(addr || "").replace(/:\d+$/, "").replace(/^\[|\]$/g, "");
+      const from = host(peer.remote_addr);
+      return from && from !== host(peer.endpoint) ? "seen from " + from : "";
+    }
     function peerDetails(peer, data) {
       const parts = [peer.endpoint || "no endpoint"];
-      if (peer.self && data.platform) parts.push(data.platform);
-      if (peer.remote_addr) parts.push("seen " + peer.remote_addr);
+      if (peer.self) {
+        if (data.platform) parts.push(data.platform);
+        parts.push("this device");
+        return parts;
+      }
+      const from = seenFrom(peer);
+      if (from) parts.push(from);
       const when = relativeTime(peer.last_seen);
       if (when) parts.push(when);
       return parts;
@@ -1333,12 +1345,21 @@
     const discoveryName = (peer) => {
       return peer.display_name || peer.friendly_name || peer.device_id || "Device";
     }
+    // The sheet already says these devices are not in the circle, so the line under the name tells apart the
+    // devices of one person: the computer's own name.
+    const discoveryDetail = (peer) => {
+      const name = discoveryName(peer);
+      const computer = String(peer.friendly_name || "").trim();
+      const parts = [computer && computer !== name ? computer : "Not in the circle"];
+      if (peer.local_only) parts.push("accepts connections only from itself");
+      return parts.join(" · ");
+    }
     function discoveredCell(peer) {
-      const cell = el("div", "machine-row static");
+      const cell = el("div", "machine-row static nearby-row");
       const tile = el("span", "device discovered");
       tile.appendChild(macIcon());
       const text = el("span", "machine-copy");
-      text.append(el("b", "", discoveryName(peer)), el("small", "", peer.local_only ? "Not in the circle · accepts connections only from itself" : "Not in the circle"));
+      text.append(el("b", "", discoveryName(peer)), el("small", "", discoveryDetail(peer)));
       const pair = el("button", "row-pair", "Pair");
       pair.type = "button";
       pair.setAttribute("aria-label", "Pair with " + discoveryName(peer));
@@ -1346,7 +1367,7 @@
         ev.stopPropagation();
         if (onboarding && peer.device_id) onboarding.startPairing(peer.device_id).catch(() => {});
       });
-      cell.append(tile, text, pair, el("span", "check-slot"));
+      cell.append(tile, text, pair);
       const name = discoveryName(peer);
       return machineRowShell(cell, rowForgetButton("Forget " + name, () => forgetNearbyPeer(peer)));
     }
@@ -2547,6 +2568,7 @@
         meshChat.collapse();
         return;
       }
+      onboarding?.closeSetup();
       connectionPanel?.close();
       hidePopover();
       closeStack();
@@ -2564,6 +2586,7 @@
         closeNearby();
         return;
       }
+      onboarding?.closeSetup();
       connectionPanel?.close();
       hidePopover();
       closeStack();
@@ -2580,6 +2603,7 @@
         closeSettings();
         return;
       }
+      onboarding?.closeSetup();
       connectionPanel?.close();
       hidePopover();
       closeStack();

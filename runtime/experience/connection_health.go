@@ -402,6 +402,10 @@ func callsHealth(in healthInputs, chat capabilityHealth) capabilityHealth {
 	case healthReconnecting:
 		out.Detail = "Calls wait for the circle's chat to reconnect."
 	default:
+		if chat.Cause == "chat_alone" {
+			out.Detail = "Calls start over the circle's chat, and no other device is on it yet."
+			break
+		}
 		out.Detail = "Calls start over the circle's chat, which is out of reach."
 	}
 	return out

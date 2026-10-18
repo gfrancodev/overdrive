@@ -2775,8 +2775,8 @@ function createMeshChat(deps) {
       const raw = localStorage.getItem(WIDGET_SIZE_KEY);
       if (!raw) return;
       const size = JSON.parse(raw);
-      if (size.width) panel.style.width = size.width;
-      if (size.height) panel.style.height = size.height;
+      if (size.width) panel.style.setProperty("--chat-w", size.width);
+      if (size.height) panel.style.setProperty("--chat-h", size.height);
     } catch (error_) {
       globalThis.console?.debug?.(error_);
       }
@@ -2794,9 +2794,8 @@ function createMeshChat(deps) {
       const left = Math.min(maxL, Math.max(8, pos.left));
       const top = Math.min(maxT, Math.max(72, pos.top));
       panel.classList.add("is-positioned");
-      panel.style.right = "auto";
-      panel.style.left = left + "px";
-      panel.style.top = top + "px";
+      panel.style.setProperty("--chat-left", left + "px");
+      panel.style.setProperty("--chat-top", top + "px");
     } catch (error_) {
       globalThis.console?.debug?.(error_);
       }
@@ -2825,8 +2824,8 @@ function createMeshChat(deps) {
       const maxT = Math.max(72, globalThis.innerHeight - h - 8);
       const left = Math.min(maxL, Math.max(8, startL + (ev.clientX - startX)));
       const top = Math.min(maxT, Math.max(72, startT + (ev.clientY - startY)));
-      panel.style.left = left + "px";
-      panel.style.top = top + "px";
+      panel.style.setProperty("--chat-left", left + "px");
+      panel.style.setProperty("--chat-top", top + "px");
     }
     function onUp() {
       panel.classList.remove("is-dragging");
@@ -2837,12 +2836,13 @@ function createMeshChat(deps) {
     handle.addEventListener("pointerdown", (ev) => {
       if (ev.button !== 0) return;
       if (ev.target.closest("button, a, input, textarea, select")) return;
+      // During a call the window is docked beside it and does not move on its own.
+      if (document.getElementById("meshLive")?.classList.contains("call-joined")) return;
       ev.preventDefault();
       const rect = panel.getBoundingClientRect();
       panel.classList.add("is-positioned", "is-dragging");
-      panel.style.right = "auto";
-      panel.style.left = rect.left + "px";
-      panel.style.top = rect.top + "px";
+      panel.style.setProperty("--chat-left", rect.left + "px");
+      panel.style.setProperty("--chat-top", rect.top + "px");
       startX = ev.clientX;
       startY = ev.clientY;
       startL = rect.left;
@@ -2876,8 +2876,8 @@ function createMeshChat(deps) {
       splitDrag = false;
       const w = Math.max(280, Math.min(globalThis.innerWidth - 24, startW + (ev.clientX - startX)));
       const h = Math.max(168, Math.min(globalThis.innerHeight - 100, startH + (ev.clientY - startY)));
-      panel.style.width = w + "px";
-      panel.style.height = h + "px";
+      panel.style.setProperty("--chat-w", w + "px");
+      panel.style.setProperty("--chat-h", h + "px");
     }
     function onUp(ev) {
       document.removeEventListener("pointermove", onMove);
@@ -2893,7 +2893,9 @@ function createMeshChat(deps) {
         return;
       }
       try {
-        localStorage.setItem(WIDGET_SIZE_KEY, JSON.stringify({ width: panel.style.width, height: panel.style.height }));
+        const width = panel.style.getPropertyValue("--chat-w");
+        const height = panel.style.getPropertyValue("--chat-h");
+        localStorage.setItem(WIDGET_SIZE_KEY, JSON.stringify({ width, height }));
       } catch (error_) {
       globalThis.console?.debug?.(error_);
       }

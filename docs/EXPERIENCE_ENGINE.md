@@ -239,6 +239,7 @@ Upgrading: each 2.1 core signs admissions for the members already on its roster,
 | `OVERDRIVE_TURBOVEC_LIB` | bundled / `~/.overdrive/lib` | TurboVec FFI path |
 | `OVERDRIVE_SHARE_LISTEN` | unset | TCP bind for circle sync, for example `0.0.0.0:7741`. A choice made in the Connection sheet (`share/network.json`) wins over it |
 | `OVERDRIVE_SHARE_UI` | listen port + 1 on wildcard binds | Peer page bind, or `off` |
+| `OVERDRIVE_DISCOVERY` | unset | `off` keeps the Core off mDNS: it neither announces itself nor lists nearby devices. The test suites set it so test Cores don't appear on the developer's network |
 | `OVERDRIVE_TURN_URLS` | unset | Comma-separated TURN/TURNS URLs. Without them, mesh calls use STUN only and fail across NAT |
 | `OVERDRIVE_TURN_USERNAME` | unset | TURN username when `OVERDRIVE_TURN_URLS` is set |
 | `OVERDRIVE_TURN_CREDENTIAL` | unset | TURN credential |
@@ -268,7 +269,7 @@ export OVERDRIVE_TURN_CREDENTIAL="$TURN_PASSWORD"
 overdrive-runtime share listen --cwd /path/to/repo
 ```
 
-When `OVERDRIVE_TURN_URLS` is set, the dashboard hides `#callNatHint`. Without TURN, mesh calls still work on the same LAN; STUN alone does not traverse restrictive NAT between different networks.
+Without TURN, the dashboard shows `#callNatHint` only after a call could not connect; with `OVERDRIVE_TURN_URLS` set it never does. Without TURN, mesh calls still work on the same LAN; STUN alone does not traverse restrictive NAT between different networks.
 
 `status` JSON includes `embedder` (`stub|hashed|minilm`) and `embedder_dim` (256 or 384). When embedding dimension changes, the runtime rebuilds `experience-v2.tvim` from active memories.
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- **Nearby lists the devices that are there.** Every device ever announced stayed on the list for good; a developer's machine collected hundreds, because each test Core announced itself on the local network under the name of whoever ran the tests. Nearby now shows the devices heard in the last two minutes and forgets the rest, and the test suites keep their Cores off mDNS (`OVERDRIVE_DISCOVERY=off`). Under each name, Nearby now shows the computer's own name, which tells apart the devices of one person.
+- **Pair is no longer under the forget button** in Nearby: the row had one column too few, and Pair spilled under the ✕.
+- **The messages window no longer vanishes beside a call.** Once dragged or resized, it kept its place in inline styles, which the call layout that docks it could not override; the conversation slid out of view and left an empty pane. The window keeps its place in CSS variables now. The call column runs the window's full height.
+- The call setup no longer offers Stage, which has nothing on it before the call, and says "Video call" for a video call. The relay (TURN) advice shows only after a call could not connect, in plain words.
+- The globe labels this computer "this device" instead of how long ago it last synced, and drops the throwaway port a peer last connected from.
+- Opening Messages, Nearby or Settings from the dock closes Get started, which stayed on top of them.
+- With no other device on the circle's chat, the Connection sheet says calls have no one to ring yet, not that the chat is out of reach.
+
 ## 2.3.0-rc.2 - 2026-10-18
 
 Second release candidate for 2.3.0. The [cross-host check](docs/runbook-results/2.3.0-rc.1-2026-10-18.md) of rc.1 found chat messages lost when the device hosting a circle's chat restarted.

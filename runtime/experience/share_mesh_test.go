@@ -134,6 +134,7 @@ func waitUntil(t *testing.T, limit time.Duration, ok func() bool) {
 
 func armDiscovery(t *testing.T, home string) {
 	t.Helper()
+	t.Setenv("OVERDRIVE_DISCOVERY", "")
 	meshRT.mu.Lock()
 	meshRT.initLocked()
 	meshRT.armed = true
@@ -146,6 +147,11 @@ func armDiscovery(t *testing.T, home string) {
 	if !discoveryAdvertising() {
 		t.Fatal("discovery is not advertising")
 	}
+	// A device on the real network can be heard and recorded in this home right up to the end of the test.
+	t.Cleanup(func() {
+		stopMeshServices()
+		discoveryBrowsers.Wait()
+	})
 }
 
 func TestMeshElectBrokerCreatorThenNextDevice(t *testing.T) {
@@ -270,12 +276,13 @@ func TestMeshIgnoreAnnouncementCreatesNoMember(t *testing.T) {
 
 func TestMeshListDiscoveredPeersDedupesByDeviceID(t *testing.T) {
 	home := meshHome(t)
+	withMeshClock(t, time.Date(2026, 1, 1, 0, 1, 0, 0, time.UTC))
 	const id = "dev_0011223344556679"
 	discoveryMu.Lock()
 	file := discoveredFile{
 		Peers: []discoveredPeer{
-			{DeviceID: id, DisplayName: "Ada", LastSeen: "2020-01-01T00:00:00Z"},
 			{DeviceID: id, DisplayName: "Ada", LastSeen: "2026-01-01T00:00:00Z"},
+			{DeviceID: id, DisplayName: "Ada", LastSeen: "2026-01-01T00:00:30Z"},
 		},
 	}
 	if err := saveDiscovered(home, file); err != nil {
@@ -287,7 +294,7 @@ func TestMeshListDiscoveredPeersDedupesByDeviceID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(found) != 1 || found[0].LastSeen != "2026-01-01T00:00:00Z" {
+	if len(found) != 1 || found[0].LastSeen != "2026-01-01T00:00:30Z" {
 		t.Fatalf("deduped %+v", found)
 	}
 }

@@ -10,6 +10,10 @@ import pytest
 
 pytest_plugins = []
 
+# The Cores the tests start stay off the local network's mDNS. Without this every run announced a new device,
+# under the name of whoever ran it, to everyone on the network.
+os.environ.setdefault("OVERDRIVE_DISCOVERY", "off")
+
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "playwright: browser smoke tests (Playwright + Chromium)")

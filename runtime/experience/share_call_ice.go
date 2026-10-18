@@ -9,7 +9,7 @@ import (
 const (
 	defaultSTUNURL = "stun:stun.l.google.com:19302"
 	callPipNote    = "Screen mini player works best in Chrome or Edge (Picture-in-Picture). Safari and Firefox use the draggable overlay."
-	callNatNote    = "Calls use STUN on the circle mesh. Set OVERDRIVE_TURN_URLS when peers are behind NAT."
+	callNatNote    = "Devices on different networks need a relay (TURN) server to call each other. Set OVERDRIVE_TURN_URLS on each device."
 )
 
 type rtcIceServer struct {

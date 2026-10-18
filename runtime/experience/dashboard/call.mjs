@@ -276,7 +276,7 @@ const SCREEN_PIP_LIMITATION =
   "Screen mini player works best in Chrome or Edge (Picture-in-Picture). Safari and Firefox use the draggable overlay.";
 
 const CALL_NAT_NOTE =
-  "Calls use STUN on the circle mesh. Set OVERDRIVE_TURN_URLS when peers are behind NAT.";
+  "Devices on different networks need a relay (TURN) server to call each other. Set OVERDRIVE_TURN_URLS on each device.";
 
 function meshIceServers(cfg) {
   const fallback = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -522,13 +522,17 @@ function createMeshCall(deps) {
     return data;
   }
 
+  // The relay advice only helps once a call could not connect, so it waits for that, and never shows with TURN set.
+  function syncNatHint(failed) {
+    const nat = $("callNatHint");
+    if (nat) nat.hidden = !failed || readCallRuntime().turnConfigured === true;
+  }
+
   function syncCallRuntimeHints() {
     const cfg = readCallRuntime();
     const nat = $("callNatHint");
-    if (nat) {
-      nat.hidden = cfg.turnConfigured === true;
-      nat.textContent = cfg.natNote || CALL_NAT_NOTE;
-    }
+    if (nat) nat.textContent = cfg.natNote || CALL_NAT_NOTE;
+    syncNatHint(false);
     const pip = $("callPip");
     if (pip) pip.title = cfg.pipNote || SCREEN_PIP_LIMITATION;
   }
@@ -572,6 +576,7 @@ function createMeshCall(deps) {
     const camField = $("callCamField");
     if (camField) camField.hidden = phase !== "setup" || callMode !== "video";
     if (phase === "idle") stickyNotice = "";
+    if (phase === "idle" || phase === "setup") syncNatHint(false);
     if (phase !== "error") {
       setError(phaseStickyNotice(phase, listenOnly, stickyNotice));
     }
@@ -796,15 +801,18 @@ function createMeshCall(deps) {
     if (node) node.textContent = "00:00";
   }
 
+  function syncCallLabel() {
+    const label = $("callVoiceLabel");
+    if (!label) return;
+    const multi = peerConnections.size > 1 || groupPeerIDs.length > 1;
+    if (callMode === "video") label.textContent = multi ? "Group video" : "Video call";
+    else label.textContent = multi ? "Group voice" : "Voice call";
+  }
+
   function syncCallModeUI() {
     const voice = $("callVoiceOnly");
-    const label = $("callVoiceLabel");
     const grid = $("callRemoteGrid");
-    const multi = peerConnections.size > 1 || groupPeerIDs.length > 1;
-    if (label) {
-      if (callMode === "video") label.textContent = multi ? "Group video" : "Video call";
-      else label.textContent = multi ? "Group voice" : "Voice call";
-    }
+    syncCallLabel();
     if (voice) {
       const remote = $("callRemoteVideo");
       const hasRemoteVideo = Boolean(remote?.srcObject && !remote.hidden);
@@ -897,6 +905,7 @@ function createMeshCall(deps) {
     $("callMute").hidden = inbound;
     $("callCamera").hidden = inbound;
     $("callScreen").hidden = inbound;
+    $("callFocus").hidden = inbound;
     tones.start(role);
   }
 
@@ -974,7 +983,9 @@ function createMeshCall(deps) {
     setPhase("setup");
     setVisible(true);
     setStatus(wantVideo ? "Check your camera and microphone" : "Check your microphone");
-    ["callAccept", "callDecline", "callEnd", "callMute", "callCamera", "callScreen", "callChatToggle"].forEach((id) => {
+    syncCallLabel();
+    // Nothing is on the stage before the call starts, so there is nothing to focus yet.
+    ["callAccept", "callDecline", "callEnd", "callMute", "callCamera", "callScreen", "callChatToggle", "callFocus"].forEach((id) => {
       const btn = $(id);
       if (btn) btn.hidden = true;
     });
@@ -1068,7 +1079,9 @@ function createMeshCall(deps) {
       if (stream) attachRemoteStream(remotePeerID, stream);
     };
     pc.onconnectionstatechange = () => {
-      if (pc?.connectionState === "failed") setStatus("Connection failed");
+      if (pc?.connectionState !== "failed") return;
+      setStatus("Connection failed");
+      syncNatHint(true);
     };
     peerConnections.set(remotePeerID, pc);
     const stream = await ensureMedia(wantVideo);
