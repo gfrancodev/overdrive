@@ -234,6 +234,7 @@ overdrive-runtime share circle create --name "team"
 overdrive-runtime share circle invite --circle <circle-id>
 overdrive-runtime share circle accept --code <code> --fingerprint <fp> --peer <host:port>
 overdrive-runtime share circle folder-add --circle <circle-id> --folder /abs/path/to/repo
+overdrive-runtime share circle folder-remove --circle <circle-id> --folder /abs/path/to/repo
 overdrive-runtime share circle revoke --circle <circle-id> --device <device-id>
 overdrive-runtime share circle revoke --circle <circle-id> --device <device-id> --with-invitees
 overdrive-runtime share circle rekey --circle <circle-id>

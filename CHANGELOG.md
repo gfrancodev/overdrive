@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Share & collaborate
+
+- **Shared folders from the dashboard.** Circle settings list the folders this device shares, share another one by its path (or `~/…`) or from the projects this device already recorded experience in, and stop sharing one. A folder must exist, and the disk root or the whole home folder is refused. Stopping a folder ends future exports from it; what other devices already received stays with them. CLI: `share circle folder-remove`.
+- **Remove a device from the dashboard.** On the creator, each member has Remove. Before anything happens, the Core says who loses access, which devices that one invited (they can go too), and which members run a core that cannot receive the new key. Removing then revokes, rotates the circle key and clears the device's terminal access, as `share circle revoke` does.
+- **Key status.** Circle settings show how many times the circle key changed and when, until when the previous key is still accepted, and which members need an update to receive new keys.
+- Local API: `GET/POST/DELETE /api/circles/{id}/folders`, `GET/POST /api/circles/{id}/members/{device}/revoke` (GET previews). Loopback only, and none returns key material.
+- Dashboard sheets showed controls that were meant to be hidden: all three pairing buttons at once, the circle picker with a single circle, and the circle field on the joining device.
+
 ### Pair & trust
 
 - **Pair from the dashboard.** Each device under Nearby has Pair. Both screens show a 6-digit code derived from both identities, both key-agreement keys and a commit-then-reveal nonce exchange, so a device in the middle gets one guess in a million. Nothing joins until both people confirm; the member picks the circle after comparing. The member then signs the admission and seals the circle key, at its current epoch, to the joiner's key-agreement key.
