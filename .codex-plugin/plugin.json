@@ -2,7 +2,7 @@
   "name": "overdrive",
   "displayName": "Overdrive",
   "description": "Architecture-aware autonomous software engineering with local experience learning and opt-in shared memory circles",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "author": {
     "name": "Kubbi",
     "email": "contact@gfrancodev.com"

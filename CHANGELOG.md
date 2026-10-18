@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.3.1 - 2026-10-18
+
+### Fixes
+
+- **A device removed before 2.3.0 is no longer dialed.** 2.3.0 dropped revoked members' addresses only where a circle is loaded on its own; the dashboard and the sync loops read every circle through a listing that skipped that step. In a circle revoked before 2.3.0 the removed device stayed among the endpoints, was still dialed, and kept the tray on "Status: error". The listing drops those addresses too.
+
 ## 2.3.0 - 2026-10-18
 
 Zero-Friction Experience: install from one bundle, pair two devices by comparing a code, share folders from the dashboard, and see why a connection fails and fix it there. A three-core suite and a [cross-host check](docs/runbook-results/2.3.0-rc.2-2026-10-18.md) on three Docker hosts validate it end to end.
