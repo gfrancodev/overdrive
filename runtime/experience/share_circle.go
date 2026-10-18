@@ -87,7 +87,35 @@ func loadCircle(home, circleID string) (Circle, error) {
 	if err := json.Unmarshal(data, &c); err != nil {
 		return Circle{}, err
 	}
-	return c, nil
+	return c.withoutRevokedEndpoints(), nil
+}
+
+// withoutRevokedEndpoints drops the addresses of revoked members from the endpoints this device syncs with.
+// A revocation marked the member but left its address there, so sync, catalog and roster exchanges kept
+// dialing the removed device. The list is a local hint, outside the signed member list.
+func (c Circle) withoutRevokedEndpoints() Circle {
+	revoked := map[string]bool{}
+	for _, m := range c.Members {
+		if m.Revoked {
+			revoked[strings.TrimSpace(m.Endpoint)] = true
+		}
+	}
+	for _, m := range c.Members {
+		if !m.Revoked {
+			delete(revoked, strings.TrimSpace(m.Endpoint))
+		}
+	}
+	if len(revoked) == 0 {
+		return c
+	}
+	kept := make([]string, 0, len(c.PeerEndpoints))
+	for _, endpoint := range c.PeerEndpoints {
+		if !revoked[strings.TrimSpace(endpoint)] {
+			kept = append(kept, endpoint)
+		}
+	}
+	c.PeerEndpoints = kept
+	return c
 }
 
 func saveCircle(home string, c Circle) error {

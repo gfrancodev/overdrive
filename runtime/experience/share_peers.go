@@ -283,7 +283,7 @@ func refreshPeerEndpoints(circle Circle, selfID string) Circle {
 		add(endpoint)
 	}
 	circle.PeerEndpoints = out
-	return circle
+	return circle.withoutRevokedEndpoints()
 }
 
 // mergePeerRoster refreshes endpoint, hostname and last-seen hints for members this core already knows. It

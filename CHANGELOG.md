@@ -15,6 +15,7 @@
 - The call setup no longer offers Stage, which has nothing on it before the call, and says "Video call" for a video call. The relay (TURN) advice shows only after a call could not connect, in plain words.
 - The globe labels this computer "this device" instead of how long ago it last synced, and drops the throwaway port a peer last connected from.
 - **Hover follows the theme.** Filled buttons turned the default blue on hover and press under any whitelabel theme, and a few focus rings, the terminal split and window controls, and the composer's drop highlight kept the default cyan. They derive from the theme's accent and live colors now (`--accent-hover`, `--accent-press`). Six theme variables also defaulted to themselves (`--live: var(--live)`), a cycle that left them invalid whenever a theme omitted that token; they have real defaults.
+- **A removed device is no longer dialed.** Revoking a member left its address among the endpoints the Core syncs with, so sync, the catalog and roster exchanges kept dialing it, and its last sync line, a timeout, kept the tray on "Status: error" for good. Revoked members' addresses are dropped, also from circles saved before this fix, and the dashboard shows sync results only for devices still in the circle.
 - Opening Messages, Nearby or Settings from the dock closes Get started, which stayed on top of them.
 - With no other device on the circle's chat, the Connection sheet says calls have no one to ring yet, not that the chat is out of reach.
 

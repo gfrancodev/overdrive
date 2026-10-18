@@ -1,0 +1,71 @@
+package main
+
+import (
+	"net/http"
+	"testing"
+)
+
+func withEndpoint(t *testing.T, c Circle, dev proofDevice, endpoint string) Circle {
+	t.Helper()
+	for i := range c.Members {
+		if c.Members[i].DeviceID == dev.id.DeviceID {
+			c.Members[i].Endpoint = endpoint
+			return c
+		}
+	}
+	t.Fatalf("%s is not a member", dev.id.DeviceID)
+	return c
+}
+
+// A revocation marked the member but kept its address among the endpoints, so sync, catalog and roster exchanges
+// went on dialing the removed device, and its last sync line (a timeout) kept the tray on "error" for good.
+func TestARemovedDeviceIsNoLongerDialed(t *testing.T) {
+	f := newRevokeFixture(t)
+	circle := withEndpoint(t, f.circle, f.b, "192.0.2.11:7741")
+	circle = withEndpoint(t, circle, f.d, "192.0.2.13:7741")
+	// A peer added by address alone, with no member behind it, is kept.
+	circle.PeerEndpoints = []string{"192.0.2.11:7741", "192.0.2.13:7741", "192.0.2.99:7741"}
+	if err := saveCircle(f.home, circle); err != nil {
+		t.Fatal(err)
+	}
+	revokeCall(t, f.home, http.MethodPost, f.memberPath(f.b), map[string]bool{}, http.StatusOK)
+	loaded, err := loadCircle(f.home, circle.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sameStrings(loaded.PeerEndpoints, []string{"192.0.2.13:7741", "192.0.2.99:7741"}) {
+		t.Fatalf("endpoints after the removal: %v", loaded.PeerEndpoints)
+	}
+	refreshed := refreshPeerEndpoints(loaded, f.circle.CreatorDeviceID)
+	if !sameStrings(refreshed.PeerEndpoints, []string{"192.0.2.13:7741", "192.0.2.99:7741"}) {
+		t.Fatalf("a refresh brought the removed device back: %v", refreshed.PeerEndpoints)
+	}
+}
+
+func TestAnAddressAnActiveMemberStillUsesStays(t *testing.T) {
+	c := Circle{
+		Members: []CircleMember{
+			{DeviceID: "dev_old", Endpoint: "192.0.2.20:7741", Revoked: true},
+			{DeviceID: "dev_new", Endpoint: "192.0.2.20:7741"},
+		},
+		PeerEndpoints: []string{"192.0.2.20:7741"},
+	}
+	if got := c.withoutRevokedEndpoints().PeerEndpoints; !sameStrings(got, []string{"192.0.2.20:7741"}) {
+		t.Fatalf("the computer paired again lost its address: %v", got)
+	}
+}
+
+func TestSyncLinesOnlyForDevicesTheCircleStillSyncsWith(t *testing.T) {
+	lines := []string{
+		"- 192.0.2.11:7741: " + peerLineTimeout,
+		"- 192.0.2.13:7741: " + peerLineOKPrefix + "3" + peerLineOKSuffix,
+		"a line that is not a sync result",
+	}
+	got := currentPeerLines(lines, []string{" 192.0.2.13:7741 "})
+	if !sameStrings(got, lines[1:]) {
+		t.Fatalf("lines kept: %v", got)
+	}
+	if links := dashboardLinks(got); len(links) != 1 || links[0].Name != "192.0.2.13:7741" || links[0].State != "ok" {
+		t.Fatalf("links: %+v", links)
+	}
+}

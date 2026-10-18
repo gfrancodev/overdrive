@@ -247,7 +247,7 @@ func collectCircleDashboardActivity(e *Engine, circle peerDashboardCircle, seen 
 			continue
 		}
 		seen[project.Repository] = true
-		events = append(events, e.loadPeerLines(circle.ID, project.Repository)...)
+		events = append(events, currentPeerLines(e.loadPeerLines(circle.ID, project.Repository), circle.PeerEndpoints)...)
 		for _, memory := range e.listDecisionMemories(project) {
 			if line := decisionLine(memory); line != "" {
 				decisions = append(decisions, clipUILine(line))
@@ -262,6 +262,23 @@ func collectCircleDashboardActivity(e *Engine, circle peerDashboardCircle, seen 
 		}
 	}
 	return events, decisions, handoffs
+}
+
+// currentPeerLines keeps the sync lines of devices the circle still syncs with. The last line for a removed
+// device stayed for good, since no sync round ever replaced it: a timeout the tray reported as an error.
+func currentPeerLines(lines, endpoints []string) []string {
+	current := map[string]bool{}
+	for _, endpoint := range endpoints {
+		current[strings.TrimSpace(endpoint)] = true
+	}
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if name, _, _, ok := parsePeerSyncLine(line); ok && !current[strings.TrimSpace(name)] {
+			continue
+		}
+		out = append(out, line)
+	}
+	return out
 }
 
 func attachDashboardActivity(home string, dash *peerDashboard) {
