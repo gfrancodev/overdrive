@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Tray
+
+- **Restart Overdrive.** The tray restarts the Core in one click, to load the runtime an update installed: it stops the Core, waits until its ports are free, and starts it again. Open terminals stay open. A Core that does not stop is left running rather than doubled.
+- A Core stopped from the tray no longer stays behind as a zombie process until the tray exits: the tray, its parent, now waits for it.
+
 ### Fixes
 
 - **Nearby lists the devices that are there.** Every device ever announced stayed on the list for good; a developer's machine collected hundreds, because each test Core announced itself on the local network under the name of whoever ran the tests. Nearby now shows the devices heard in the last two minutes and forgets the rest, and the test suites keep their Cores off mDNS (`OVERDRIVE_DISCOVERY=off`). Under each name, Nearby now shows the computer's own name, which tells apart the devices of one person.

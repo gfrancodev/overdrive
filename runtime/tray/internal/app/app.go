@@ -4,6 +4,7 @@ package app
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/gfrancodev/overdrive/runtime/tray/internal/boot"
 	"github.com/gfrancodev/overdrive/runtime/tray/internal/coreclient"
@@ -15,6 +16,9 @@ import (
 type Opener interface {
 	Open(rawURL string) error
 }
+
+// restartWait bounds how long a restart waits for the Core to let go of its ports before starting it again.
+var restartWait = 15 * time.Second
 
 // App talks to one Core client. It keeps running when the Core is stopped.
 type App struct {
@@ -107,9 +111,27 @@ func (a *App) Activate(ctx context.Context, action string) error {
 		}
 		_, err := a.Starter.Ensure(ctx)
 		return err
+	case menu.ActionRestart:
+		return a.restart(ctx)
 	default:
 		return nil
 	}
+}
+
+// restart stops the Core, waits until its ports are free, and starts it again. A Core that does not stop is
+// left running, never doubled.
+func (a *App) restart(ctx context.Context) error {
+	if a.Starter == nil {
+		return errors.New("core start is unavailable")
+	}
+	if _, err := a.Client.Stop(ctx); err != nil {
+		return err
+	}
+	if err := a.Starter.AwaitDown(ctx, restartWait); err != nil {
+		return err
+	}
+	_, err := a.Starter.Ensure(ctx)
+	return err
 }
 
 // OpenUI loads GET /api/core/ui and opens that URL.

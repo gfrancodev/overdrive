@@ -18,5 +18,11 @@ func Spawn(argv []string, extra []string) error {
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	return cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	// The tray is the Core's parent: without a wait, each Core it started and that later stopped stayed behind
+	// as a zombie until the tray exited.
+	go func() { _ = cmd.Wait() }()
+	return nil
 }

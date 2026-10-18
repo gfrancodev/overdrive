@@ -22,6 +22,12 @@ const (
 
 var ErrUIDisabled = errors.New("share ui is off")
 
+// ErrStillRunning is a Core that kept its ports after it was asked to stop.
+var ErrStillRunning = errors.New("the Core did not stop")
+
+// awaitDownEvery is how often AwaitDown checks whether the Core let go of its ports.
+const awaitDownEvery = 100 * time.Millisecond
+
 // Starter launches `overdrive-runtime share listen` when the loopback Core is down.
 type Starter struct {
 	Runtime    string
@@ -72,6 +78,31 @@ func (s *Starter) Ensure(ctx context.Context) (bool, error) {
 	}
 	s.lastSpawn = time.Now()
 	return true, nil
+}
+
+// AwaitDown waits until nothing serves the Core's ports, for a restart. Once the Core is down the guard against a
+// second spawn within seconds no longer applies: it covers a Core still binding its ports, not one that exited.
+func (s *Starter) AwaitDown(ctx context.Context, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for {
+		s.mu.Lock()
+		up := s.registered(ctx)
+		if !up {
+			s.lastSpawn = time.Time{}
+		}
+		s.mu.Unlock()
+		if !up {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return ErrStillRunning
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(awaitDownEvery):
+		}
+	}
 }
 
 func (s *Starter) disabled() bool {

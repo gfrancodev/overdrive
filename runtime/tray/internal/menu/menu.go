@@ -29,6 +29,7 @@ const (
 	ActionPreferences = "preferences"
 	ActionStop        = "stop"
 	ActionStart       = "start"
+	ActionRestart     = "restart"
 )
 
 // Link is a peer arc state. "sync" on the admin status is not a sync-in-progress flag.
@@ -51,6 +52,7 @@ type View struct {
 	Messages   Item
 	MeshToggle Item
 	Prefs      Item
+	Restart    Item
 	Power      Item
 }
 
@@ -96,6 +98,9 @@ func Build(in Input) View {
 		view.Power = item("Stop Overdrive", true, ActionStop)
 	}
 	view.Prefs = item("Preferences", in.CanOpen && in.Connected && !in.HTTPError, ActionPreferences)
+	// Restart loads the runtime on disk, after an update, without a Stop and a Start: a Core that answers, even
+	// with an error, can be restarted.
+	view.Restart = item("Restart Overdrive", in.Connected, ActionRestart)
 	return view
 }
 

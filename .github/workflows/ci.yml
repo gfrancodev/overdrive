@@ -56,6 +56,10 @@ jobs:
           go test -tags=overdrive_fake_ort -covermode=atomic -coverprofile=coverage.out ./...
           ../../scripts/go-coverage-gate.sh coverage.out
 
+      - name: Run tray tests
+        working-directory: runtime/tray
+        run: go test ./...
+
       - name: Dashboard JS coverage (lcov for Sonar)
         run: ./scripts/generate-dashboard-js-lcov.sh
 

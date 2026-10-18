@@ -230,7 +230,7 @@ unzip overdrive-linux-amd64.zip
 ./install-linux-amd64/scripts/install.sh      # Windows: .\install-windows-amd64\scripts\install.ps1
 ```
 
-The tray registers itself to start at login and starts the Core, so the dashboard is ready without a command. Re-running a newer bundle upgrades in place, even while the Core runs, and keeps open terminals.
+The tray registers itself to start at login and starts the Core, so the dashboard is ready without a command. Re-running a newer bundle upgrades in place, even while the Core runs, and keeps open terminals. The running Core keeps the previous version until you pick **Restart Overdrive** in the tray.
 
 ### From a checkout
 

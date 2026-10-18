@@ -38,6 +38,7 @@ type desk struct {
 	messages *systray.MenuItem
 	toggle   *systray.MenuItem
 	prefs    *systray.MenuItem
+	restart  *systray.MenuItem
 	power    *systray.MenuItem
 }
 
@@ -55,6 +56,7 @@ func newDesk() *desk {
 	d.toggle = d.item("Pause Mesh")
 	d.prefs = d.item("Preferences")
 	systray.AddSeparator()
+	d.restart = d.item("Restart Overdrive")
 	d.power = d.item("Start Overdrive")
 	return d
 }
@@ -88,6 +90,7 @@ func (d *desk) Apply(view menu.View) {
 	d.set(d.messages, view.Messages.Title, view.Messages.Action)
 	d.set(d.toggle, view.MeshToggle.Title, view.MeshToggle.Action)
 	d.set(d.prefs, view.Prefs.Title, view.Prefs.Action)
+	d.set(d.restart, view.Restart.Title, view.Restart.Action)
 	d.set(d.power, view.Power.Title, view.Power.Action)
 }
 

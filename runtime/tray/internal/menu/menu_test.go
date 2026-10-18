@@ -80,3 +80,20 @@ func TestMessagesWithoutCountStayDisabled(t *testing.T) {
 		t.Fatalf("%+v", known.Messages)
 	}
 }
+
+func TestRestartIsOfferedWhileTheCoreAnswers(t *testing.T) {
+	for name, in := range map[string]Input{
+		"running":    {Connected: true, Mesh: "running"},
+		"paused":     {Connected: true, Mesh: "paused"},
+		"http error": {Connected: true, HTTPError: true},
+	} {
+		view := Build(in)
+		if view.Restart.Title != "Restart Overdrive" || !view.Restart.Enabled || view.Restart.Action != ActionRestart {
+			t.Fatalf("%s: restart %+v", name, view.Restart)
+		}
+	}
+	// With the Core down there is nothing to restart; Start Overdrive covers it.
+	if view := Build(Input{}); view.Restart.Enabled || view.Restart.Action != "" || view.Restart.Title != "Restart Overdrive" {
+		t.Fatalf("down: restart %+v", view.Restart)
+	}
+}
