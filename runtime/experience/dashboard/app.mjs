@@ -190,6 +190,7 @@
     let meshID = "";
     let selfID = "";
     let onboarding = null;
+    let circleSettings = null;
     let discovered = [];
     let discoveredOutsideCircle = [];
     const NEARBY_HIDDEN_KEY = "overdriveNearbyHidden";
@@ -373,6 +374,7 @@
     document.getElementById("nearbyConnection").addEventListener("click", () => openManualConnection("joinJSON"));
     document.getElementById("setup").addEventListener("click", (ev) => ev.stopPropagation());
     document.getElementById("pairing").addEventListener("click", (ev) => ev.stopPropagation());
+    document.getElementById("revoke").addEventListener("click", (ev) => ev.stopPropagation());
     document.getElementById("chips").addEventListener("change", () => {
       selectedDevice = document.getElementById("chips").value;
       if (lastData) renderDock(lastData);
@@ -438,6 +440,7 @@
       if (messages && !messages.hidden) closeMessages();
       else if (live && !live.hidden) liveSessions.hidePanel();
       else if (!document.getElementById("nearby").hidden) closeNearby();
+      else if (!document.getElementById("revoke").hidden) circleSettings?.closeRemoval();
       else if (!document.getElementById("settings").hidden) closeSettings();
       else if (!find.hidden) closeFind();
       else if (!stack.hidden) closeStack();
@@ -2537,8 +2540,10 @@
       document.getElementById("nearbyApp").setAttribute("aria-pressed", "false");
     }
     function closeSettings() {
+      // A removal confirmation stands in for the settings sheet, so it closes with it.
+      circleSettings?.closeRemoval(false);
       const panel = document.getElementById("settings");
-      if (!panel || panel.hidden) return;
+      if (!panel) return;
       panel.hidden = true;
       document.getElementById("settingsApp").setAttribute("aria-pressed", "false");
     }
@@ -2603,7 +2608,7 @@
     }
     function openSettings() {
       const panel = document.getElementById("settings");
-      if (!panel.hidden) {
+      if (!panel.hidden || !document.getElementById("revoke").hidden) {
         closeSettings();
         return;
       }
@@ -2615,6 +2620,7 @@
       if (drawerKind) toggleDrawer(drawerKind);
       panel.hidden = false;
       document.getElementById("settingsApp").setAttribute("aria-pressed", "true");
+      circleSettings?.refresh().catch(() => {});
     }
     function renderDiscovered() {
       const box = document.getElementById("discoveredPeers");
@@ -2755,24 +2761,9 @@
     }
     function renderSettings(peers) {
       const listen = document.getElementById("shareListen");
-      const folders = document.getElementById("shareFolders");
       if (listen) listen.textContent = peers.listen || "Not listening";
-      if (!folders) return;
-      folders.replaceChildren();
-      const circles = peers.circles || [];
-      if (!circles.length) {
-        folders.appendChild(el("li", "", "No shared folders"));
-        return;
-      }
-      circles.forEach((circle) => {
-        const list = circle.folders || [];
-        if (!list.length) {
-          folders.appendChild(el("li", "", (circle.name || "Circle") + ": no folders"));
-          return;
-        }
-        list.forEach((folder) => folders.appendChild(el("li", "", (circle.name ? circle.name + ": " : "") + folder)));
-      });
     }
+    const settingsOpen = () => !document.getElementById("settings").hidden;
     async function postMesh(path) {
       const res = await fetch(path, { method: "POST" });
       if (!res.ok) return;
@@ -2842,13 +2833,33 @@
     else if (initialDrawer === "nearby") openNearby();
     else if (initialDrawer === "settings") openSettings();
     onboarding = createOnboarding({
-      onCircleChange: () => { refresh().catch(() => {}); },
+      onCircleChange: () => {
+        refresh().catch(() => {});
+        if (settingsOpen()) circleSettings?.refresh().catch(() => {});
+      },
       openNearby,
       openConnection: () => openManualConnection("joinJSON"),
+      openFolders: () => {
+        if (!settingsOpen()) openSettings();
+        document.getElementById("folderPath")?.focus({ preventScroll: true });
+      },
     });
+    circleSettings = createCircleSettings({
+      activeCircleId: () => onboarding.activeCircleId(),
+      listRow,
+      icon,
+      onChange: () => {
+        onboarding.refreshCircles().then(() => onboarding.refreshSetup()).catch(() => {});
+        refresh().catch(() => {});
+      },
+    });
+    if (settingsOpen()) circleSettings.refresh().catch(() => {});
     onboarding.refreshCircles().then(() => onboarding.refreshSetup()).catch(() => {});
     setInterval(() => { onboarding.pollPairings().catch(() => {}); }, 1000);
-    setInterval(() => { onboarding.refreshCircles().then(() => onboarding.refreshSetup()).catch(() => {}); }, 5000);
+    setInterval(() => {
+      onboarding.refreshCircles().then(() => onboarding.refreshSetup()).catch(() => {});
+      if (settingsOpen()) circleSettings.refresh().catch(() => {});
+    }, 5000);
     loadInviteRule().catch(() => {});
     refresh().catch(() => {});
     setInterval(() => { refresh().catch(() => {}); }, 3000);
