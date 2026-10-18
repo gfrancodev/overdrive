@@ -191,6 +191,7 @@
     let selfID = "";
     let onboarding = null;
     let circleSettings = null;
+    let connectionPanel = null;
     let discovered = [];
     let discoveredOutsideCircle = [];
     const NEARBY_HIDDEN_KEY = "overdriveNearbyHidden";
@@ -439,6 +440,7 @@
       const live = document.getElementById("liveSessions");
       if (messages && !messages.hidden) closeMessages();
       else if (live && !live.hidden) liveSessions.hidePanel();
+      else if (connectionPanel?.isOpen()) connectionPanel.close();
       else if (!document.getElementById("nearby").hidden) closeNearby();
       else if (!document.getElementById("revoke").hidden) circleSettings?.closeRemoval();
       else if (!document.getElementById("settings").hidden) closeSettings();
@@ -817,7 +819,6 @@
         },
         onClose: () => closeMenubarTzCombobox()
       });
-      bindMenubarPopover(document.getElementById("barListen"), document.getElementById("barListenPopover"));
 
       const fsBtn = document.getElementById("barFullscreen");
       function syncFullscreenUi() {
@@ -1337,7 +1338,7 @@
       const tile = el("span", "device discovered");
       tile.appendChild(macIcon());
       const text = el("span", "machine-copy");
-      text.append(el("b", "", discoveryName(peer)), el("small", "", "Not in the circle"));
+      text.append(el("b", "", discoveryName(peer)), el("small", "", peer.local_only ? "Not in the circle · accepts connections only from itself" : "Not in the circle"));
       const pair = el("button", "row-pair", "Pair");
       pair.type = "button";
       pair.setAttribute("aria-label", "Pair with " + discoveryName(peer));
@@ -1356,49 +1357,12 @@
       const size = Math.min(54, Math.max(36, Math.floor((room - 16 * slots) / slots)));
       dock.style.setProperty("--size", size + "px");
     }
-    function renderMenubarListen(data) {
-      const field = document.getElementById("barListenField");
-      const btn = document.getElementById("barListen");
-      const addrEl = document.getElementById("barListenPopAddr");
-      const uiEl = document.getElementById("barListenPopUi");
-      const listen = data?.listen ? String(data.listen).trim() : "";
-      if (!field || !btn) return;
-      if (!listen) {
-        field.hidden = true;
-        delete btn.dataset.listen;
-        btn.setAttribute("aria-label", "Not listening");
-        btn.title = "Not listening";
-        if (addrEl) addrEl.textContent = "";
-        if (uiEl) {
-          uiEl.hidden = true;
-          uiEl.textContent = "";
-        }
-        return;
-      }
-      field.hidden = false;
-      const summary = "Listening on " + listen;
-      btn.dataset.listen = listen;
-      btn.setAttribute("aria-label", summary);
-      btn.title = summary;
-      if (addrEl) addrEl.textContent = listen;
-      const ui = data.ui ? String(data.ui).trim() : "";
-      if (uiEl) {
-        if (ui) {
-          uiEl.hidden = false;
-          uiEl.textContent = "Dashboard UI at " + ui;
-        } else {
-          uiEl.hidden = true;
-          uiEl.textContent = "";
-        }
-      }
-    }
     function renderMenubar(data, members, circle) {
       const links = members.filter((peer) => !peer.self && !peer.revoked && peer.endpoint).length;
       const text = (id, value) => { document.getElementById(id).textContent = value; };
       text("barCircle", circle ? (circle.name || "LAN") : "No circle");
       text("barMachines", plural(members.length, "machine"));
       text("barLinks", plural(links, "link"));
-      renderMenubarListen(data);
       text("barPulse", humanEvent((data.events || [])[0]) || (data.hostname ? "station " + data.hostname : "circle atlas"));
       const anyLive = members.some((peer) => !peer.self && alive(peer));
       document.querySelector(".menubar .pulse .led").className = "led " + (anyLive ? "live" : "on");
@@ -2551,9 +2515,11 @@
       closeMessages();
       closeNearby();
       closeSettings();
+      connectionPanel?.close();
       liveSessions.hidePanel();
     }
     function showLiveTerminal() {
+      connectionPanel?.close();
       hidePopover();
       closeStack();
       closeFind();
@@ -2581,6 +2547,7 @@
         meshChat.collapse();
         return;
       }
+      connectionPanel?.close();
       hidePopover();
       closeStack();
       closeFind();
@@ -2597,6 +2564,7 @@
         closeNearby();
         return;
       }
+      connectionPanel?.close();
       hidePopover();
       closeStack();
       closeFind();
@@ -2612,6 +2580,7 @@
         closeSettings();
         return;
       }
+      connectionPanel?.close();
       hidePopover();
       closeStack();
       closeFind();
@@ -2854,6 +2823,26 @@
       },
     });
     if (settingsOpen()) circleSettings.refresh().catch(() => {});
+    connectionPanel = createConnectionPanel({
+      listRow,
+      onOpen: () => {
+        hidePopover();
+        closeStack();
+        closeFind();
+        closeMessages();
+        closeNearby();
+        closeSettings();
+        closeMenubarPopovers();
+        if (drawerKind) toggleDrawer(drawerKind);
+      },
+      openFolders: () => {
+        if (!settingsOpen()) openSettings();
+        document.getElementById("folderPath")?.focus({ preventScroll: true });
+      },
+      openSetup: () => onboarding.openSetup(),
+    });
+    connectionPanel.refresh().catch(() => {});
+    setInterval(() => { connectionPanel.refresh().catch(() => {}); }, 10000);
     onboarding.refreshCircles().then(() => onboarding.refreshSetup()).catch(() => {});
     setInterval(() => { onboarding.pollPairings().catch(() => {}); }, 1000);
     setInterval(() => {

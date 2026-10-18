@@ -32,7 +32,7 @@
     <div class="status">
       <span class="pulse"><i class="led live"></i><span id="barPulse"></span></span>
       <div class="menubar-field menubar-field--listen" id="barListenField" hidden>
-        <button type="button" class="menubar-btn menubar-btn--listen" id="barListen" aria-haspopup="dialog" aria-expanded="false" aria-controls="barListenPopover" title="Network listen">
+        <button type="button" class="menubar-btn menubar-btn--listen" id="barListen" aria-haspopup="dialog" aria-expanded="false" aria-controls="health" title="Connection">
           <svg class="icon-listen" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
             <path fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" d="M1.5 4.6a7.5 7.5 0 0 1 9 0"></path>
             <path fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" d="M3.3 6.8a4.2 4.2 0 0 1 5.4 0"></path>
@@ -40,11 +40,6 @@
             <circle cx="6" cy="10.1" r="0.75" fill="currentColor" stroke="none"></circle>
           </svg>
         </button>
-        <dialog class="menubar-popover menubar-popover--info" id="barListenPopover" aria-labelledby="barListenPopTitle" hidden>
-          <p class="menubar-popover__title" id="barListenPopTitle">Listening</p>
-          <p class="menubar-popover__mono" id="barListenPopAddr"></p>
-          <p class="menubar-popover__hint" id="barListenPopUi" hidden></p>
-        </dialog>
       </div>
       <div class="menubar-field menubar-field--datetime" id="barDateTimeField">
         <button type="button" class="menubar-chip menubar-chip--datetime" id="barDateTimeBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="barDateTimePopover" title="Date and time">
@@ -460,6 +455,11 @@
     </div>
     <div class="sheet-body">
       <p class="hint">Seen via mDNS on your LAN. Pair with one to join its circle or add it to yours: both screens show a code you compare first.</p>
+      <div class="setup-action" id="nearbyNetworkHint" hidden>
+        <p class="hint">Devices on the network can't connect to this one yet. Allow it before pairing, or the circle can't reach this device afterwards.</p>
+        <button type="button" class="action-fill" id="nearbyAllowNetwork">Allow devices on this network</button>
+        <output class="hint" id="nearbyNetworkStatus"></output>
+      </div>
       <div class="card" id="discoveredPeers"></div>
       <button type="button" class="action-fill" id="nearbyConnection">Add with a connection</button>
     </div>
@@ -531,6 +531,7 @@
       </div>
       <h2>Listen</h2>
       <p id="shareListen"></p>
+      <button type="button" class="action-row" id="settingsHealth">Connection and network</button>
       <section id="circleManage" hidden>
         <h2>Shared folders</h2>
         <p class="hint">Only experience recorded inside these folders reaches the circle.</p>
@@ -568,6 +569,26 @@
       <button type="button" class="action-fill danger" id="revokeConfirm">Remove device</button>
       <button type="button" class="action-row" id="revokeCancel">Cancel</button>
       <output class="hint" id="revokeStatus"></output>
+    </div>
+  </dialog>
+  <dialog class="stack-panel" id="health" aria-labelledby="healthTitle" hidden>
+    <div class="sheet-head">
+      <div>
+        <h2 id="healthTitle">Connection</h2>
+        <p class="sheet-sub" id="healthSummary"></p>
+      </div>
+      <button type="button" class="close" id="healthClose" aria-label="Close"></button>
+    </div>
+    <div class="sheet-body" id="healthBody">
+      <div class="setup-action" id="healthFixes" hidden></div>
+      <div class="card" id="healthCaps"></div>
+      <h2>This device</h2>
+      <p class="hint" id="healthNetwork"></p>
+      <button type="button" class="action-row" id="networkToggle" hidden>Allow devices on this network</button>
+      <h2>Devices in the circle</h2>
+      <div class="card" id="healthPeers"></div>
+      <button type="button" class="action-row" id="healthCopy">Copy diagnostics</button>
+      <output class="hint" id="healthStatus"></output>
     </div>
   </dialog>
 <main id="enterprise" hidden>

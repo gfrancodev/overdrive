@@ -48,6 +48,9 @@ var dashboardOnboardingJS []byte
 //go:embed dashboard/circle_settings.mjs
 var dashboardCircleSettingsJS []byte
 
+//go:embed dashboard/connection.mjs
+var dashboardConnectionJS []byte
+
 //go:embed dashboard/machines.mjs
 var dashboardMachinesJS []byte
 
@@ -96,6 +99,8 @@ func assembleDashboardHTML() []byte {
 	script = append(script, dashboardOnboardingJS...)
 	script = append(script, '\n')
 	script = append(script, dashboardCircleSettingsJS...)
+	script = append(script, '\n')
+	script = append(script, dashboardConnectionJS...)
 	script = append(script, '\n')
 	script = append(script, dashboardAppJS...)
 	page = bytes.Replace(page, []byte("/*{{xterm.js}}*/"), dashboardXtermJS, 1)
