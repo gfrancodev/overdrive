@@ -3,39 +3,10 @@
 package main
 
 /*
-#cgo darwin CFLAGS: -x objective-c
 #cgo darwin LDFLAGS: -framework Cocoa
-#import <Cocoa/Cocoa.h>
-#import <stdlib.h>
+#include <stdlib.h>
 
-extern void overdriveTrayNotifyClick(void);
-
-@interface OverdriveTrayNote : NSObject <NSUserNotificationCenterDelegate>
-@end
-
-@implementation OverdriveTrayNote
-- (BOOL)userNotificationCenter:(NSUserNotificationCenter *)center shouldPresentNotification:(NSUserNotification *)notification {
-    return YES;
-}
-- (void)userNotificationCenter:(NSUserNotificationCenter *)center didActivateNotification:(NSUserNotification *)notification {
-    overdriveTrayNotifyClick();
-}
-@end
-
-static OverdriveTrayNote *overdriveNote;
-
-static void overdrivePostNote(const char *title, const char *body) {
-    if (overdriveNote == nil) {
-        overdriveNote = [OverdriveTrayNote new];
-        [[NSUserNotificationCenter defaultUserNotificationCenter] setDelegate:overdriveNote];
-    }
-    NSUserNotification *note = [NSUserNotification new];
-    note.title = [NSString stringWithUTF8String:title];
-    note.informativeText = [NSString stringWithUTF8String:body];
-    note.hasActionButton = YES;
-    note.actionButtonTitle = @"Open";
-    [[NSUserNotificationCenter defaultUserNotificationCenter] deliverNotification:note];
-}
+void overdrivePostNote(const char *title, const char *body);
 */
 import "C"
 import (
