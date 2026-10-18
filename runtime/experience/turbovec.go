@@ -72,15 +72,27 @@ func loadTurboVecLib(home string) bool {
 		if err != nil {
 			return
 		}
-		purego.RegisterLibFunc(&tvOpen, lib, "od_tv_open")
-		purego.RegisterLibFunc(&tvClose, lib, "od_tv_close")
-		purego.RegisterLibFunc(&tvAdd, lib, "od_tv_add")
-		purego.RegisterLibFunc(&tvRemove, lib, "od_tv_remove")
-		purego.RegisterLibFunc(&tvSearch, lib, "od_tv_search")
-		purego.RegisterLibFunc(&tvSync, lib, "od_tv_sync")
-		tvLoaded = tvOpen != nil
+		tvLoaded = bindTurboVecFuncs(lib)
 	})
 	return tvLoaded
+}
+
+// bindTurboVecFuncs binds the FFI. purego panics on a missing symbol, and a library that loads without
+// od_tv_* (a mislinked build) must leave TurboVec off, as a missing library does, instead of crashing.
+func bindTurboVecFuncs(lib uintptr) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			tvOpen, tvClose, tvAdd, tvRemove, tvSearch, tvSync = nil, nil, nil, nil, nil, nil
+			ok = false
+		}
+	}()
+	purego.RegisterLibFunc(&tvOpen, lib, "od_tv_open")
+	purego.RegisterLibFunc(&tvClose, lib, "od_tv_close")
+	purego.RegisterLibFunc(&tvAdd, lib, "od_tv_add")
+	purego.RegisterLibFunc(&tvRemove, lib, "od_tv_remove")
+	purego.RegisterLibFunc(&tvSearch, lib, "od_tv_search")
+	purego.RegisterLibFunc(&tvSync, lib, "od_tv_sync")
+	return tvOpen != nil
 }
 
 func openTurboVec(home string, dim int) *TurboVecIndex {
