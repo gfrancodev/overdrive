@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Install & boot
+
+- **Release bundles.** Each release now ships `overdrive-<os>-<arch>.zip` with the skills, plugin manifests, installers, runtime, TurboVec library, and a prebuilt tray built on its native runner. Installing from it needs no Go, Rust, or Docker. The workflow installs every bundle it can run, checks TurboVec loads, and upgrades it again while a Core runs before publishing.
+- **The tray starts the Core.** Opening the tray (at login) starts the Core when nothing is serving, so the dashboard is ready without clicking Start.
+- **Restarting or upgrading the Core keeps open terminals.** The new Core adopts session hosts that still answer their session socket instead of killing them; before, every Core restart closed every terminal.
+
+### Fixes
+
+- **Windows:** every TurboVec DLL since 0.3.0 was linked without its `od_tv_*` exports, and the runtime panicked on any command that opened the engine. The DLLs are now built with MSVC, and a library missing those symbols leaves TurboVec off instead of crashing.
+- **macOS:** the tray never compiled: its notification code is Objective-C but was compiled as C.
+- `install.ps1` replaces the runtime, the DLL, and the tray even while they run, by moving the old file aside.
+
 ## 2.2.0 - 2026-10-17
 
 ### Security

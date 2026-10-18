@@ -158,7 +158,20 @@ The executor is expected to inspect reality instead of blindly following a prewr
 
 ## Installation
 
-Overdrive ships with plugin metadata for Cursor, Claude Code, and Codex. When published, releases will be available at [https://github.com/gfrancodev/overdrive](https://github.com/gfrancodev/overdrive). Clone the repository, install the skills, and load the plugin from your checkout.
+### From a release bundle (no toolchain)
+
+Each [release](https://github.com/gfrancodev/overdrive/releases) has one bundle per platform, `overdrive-<os>-<arch>.zip` (`linux`, `darwin`, `windows` × `amd64`, `arm64`). It holds the skills, the plugin manifests, the runtime, the TurboVec library, and the prebuilt tray. Installing it needs no Go, Rust, or Docker:
+
+```bash
+unzip overdrive-linux-amd64.zip
+./install-linux-amd64/scripts/install.sh      # Windows: .\install-windows-amd64\scripts\install.ps1
+```
+
+The tray registers itself to start at login and starts the Core, so the dashboard is ready without a command. Re-running a newer bundle upgrades in place, even while the Core runs, and keeps open terminals.
+
+### From a checkout
+
+Overdrive ships with plugin metadata for Cursor, Claude Code, and Codex. Clone the repository, install the skills, and load the plugin from your checkout. Without a prebuilt tray in `runtime/bin/`, the installer builds the tray with Go if Go is installed.
 
 ```bash
 git clone https://github.com/gfrancodev/overdrive.git
