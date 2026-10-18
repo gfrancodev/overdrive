@@ -433,3 +433,15 @@ def test_no_em_dash_in_package_markdown():
         if em in p.read_text(encoding='utf-8'):
             offenders.append(str(p.relative_to(ROOT)))
     assert not offenders, f'em dash found in: {offenders}'
+
+
+def test_committed_windows_dlls_export_turbovec_without_the_vc_runtime():
+    # Every Windows DLL from 0.3.0 to 2.2.0 shipped without od_tv_* exports, so Windows never had TurboVec.
+    import subprocess
+    import sys
+    dlls = sorted(str(p) for p in (ROOT / 'runtime/lib').glob('windows-*/overdrive_turbovec_ffi.dll'))
+    assert dlls
+    result = subprocess.run([sys.executable, '-I', str(ROOT / 'scripts/verify_windows_dll.py'), *dlls],
+                            capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout
+
