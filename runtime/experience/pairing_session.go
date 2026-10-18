@@ -532,11 +532,8 @@ func confirmPairing(home, sessionID, circleID string) (pairingView, error) {
 	if err != nil {
 		return pairingView{}, err
 	}
-	welcome, admitted, err := buildPairingWelcome(sessionID, circle, id, priv, peer)
+	welcome, err := admitWithWelcome(home, circle.ID, sessionID, id, priv, peer)
 	if err != nil {
-		return pairingView{}, err
-	}
-	if err := persistJoinedCircle(home, admitted); err != nil {
 		return pairingView{}, err
 	}
 	pairings.Lock()
@@ -715,20 +712,25 @@ func memberHandleInvite(home string, id DeviceIdentity, priv ed25519.PrivateKey,
 	if !hmac.Equal([]byte(want), []byte(m.Proof)) {
 		return pairReply{Error: "invite not found"}
 	}
-	circle, err := loadCircle(home, invite.CircleID)
+	welcome, err := admitWithWelcome(home, invite.CircleID, m.SessionID, id, priv, m.Joiner)
 	if err != nil {
-		return pairReply{Error: "invite not found"}
-	}
-	if _, ok := circle.activeMember(id.DeviceID); !ok {
-		return pairReply{Error: "invite not found"}
-	}
-	welcome, admitted, err := buildPairingWelcome(m.SessionID, circle, id, priv, m.Joiner)
-	if err != nil {
-		return pairReply{Error: "could not admit this device"}
-	}
-	if err := persistJoinedCircle(home, admitted); err != nil {
 		return pairReply{Error: "could not admit this device"}
 	}
 	_ = hookRemove(filepath.Join(invitesDir(home), invite.Code+".json"))
 	return pairReply{OK: true, State: string(pairingJoined), Welcome: &welcome}
+}
+
+// admitWithWelcome admits the joiner into the current state of the circle on disk and returns the sealed
+// welcome built from that same state.
+func admitWithWelcome(home, circleID, sessionID string, id DeviceIdentity, priv ed25519.PrivateKey, joiner pairingPeer) (pairingWelcome, error) {
+	var welcome pairingWelcome
+	_, err := updateCircle(home, circleID, func(circle Circle) (Circle, error) {
+		if _, ok := circle.activeMember(id.DeviceID); !ok {
+			return circle, errors.New("this device is not in that circle")
+		}
+		w, admitted, err := buildPairingWelcome(sessionID, circle, id, priv, joiner)
+		welcome = w
+		return vouchMembers(admitted, id, priv), err
+	})
+	return welcome, err
 }

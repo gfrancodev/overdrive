@@ -149,15 +149,16 @@ func fetchPeerRoster(endpoint string, circle Circle, id DeviceIdentity, priv ed2
 // applyPeerRoster takes a verified roster response. The device this core records as creator may name another
 // creator: cores that joined through another member before invites carried the creator recorded that member.
 func applyPeerRoster(home, circleID string, resp RosterResponse) error {
-	circle, err := loadCircle(home, circleID)
+	id, priv, err := loadOrCreateIdentity(home)
 	if err != nil {
 		return err
 	}
-	if resp.DeviceID == circle.CreatorDeviceID && resp.CreatorDeviceID != "" {
-		circle.CreatorDeviceID = resp.CreatorDeviceID
-	}
-	circle = ingestRosterProofs(circle, resp.Members, resp.Admissions, resp.Revocations)
-	if err := persistJoinedCircle(home, circle); err != nil {
+	if _, err := updateCircle(home, circleID, func(circle Circle) (Circle, error) {
+		if resp.DeviceID == circle.CreatorDeviceID && resp.CreatorDeviceID != "" {
+			circle.CreatorDeviceID = resp.CreatorDeviceID
+		}
+		return vouchMembers(ingestRosterProofs(circle, resp.Members, resp.Admissions, resp.Revocations), id, priv), nil
+	}); err != nil {
 		return err
 	}
 	return mergePeerRoster(home, circleID, resp.Members)

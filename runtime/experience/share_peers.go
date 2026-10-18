@@ -286,31 +286,29 @@ func refreshPeerEndpoints(circle Circle, selfID string) Circle {
 // mergePeerRoster refreshes endpoint, hostname and last-seen hints for members this core already knows. It
 // never adds or revokes a member: that takes the signed proofs in ingestRosterProofs.
 func mergePeerRoster(home, circleID string, incoming []CircleMember) error {
-	circle, err := loadCircle(home, circleID)
+	id, priv, err := loadOrCreateIdentity(home)
 	if err != nil {
 		return err
 	}
-	id, _, err := loadOrCreateIdentity(home)
-	if err != nil {
-		return err
-	}
-	for _, member := range incoming {
-		if member.DeviceID == "" || member.DeviceID == id.DeviceID {
-			continue
+	_, err = updateCircle(home, circleID, func(circle Circle) (Circle, error) {
+		for _, member := range incoming {
+			if member.DeviceID == "" || member.DeviceID == id.DeviceID {
+				continue
+			}
+			if _, known := circle.memberRecord(member.DeviceID); !known {
+				continue
+			}
+			if member.PublicKey != "" && !memberKeyBound(member.DeviceID, member.PublicKey) {
+				continue
+			}
+			circle = upsertMember(circle, CircleMember{
+				DeviceID: member.DeviceID, Endpoint: member.Endpoint, RemoteAddr: member.RemoteAddr,
+				Hostname: member.Hostname, LastSeen: member.LastSeen,
+			})
 		}
-		if _, known := circle.memberRecord(member.DeviceID); !known {
-			continue
-		}
-		if member.PublicKey != "" && !memberKeyBound(member.DeviceID, member.PublicKey) {
-			continue
-		}
-		circle = upsertMember(circle, CircleMember{
-			DeviceID: member.DeviceID, Endpoint: member.Endpoint, RemoteAddr: member.RemoteAddr,
-			Hostname: member.Hostname, LastSeen: member.LastSeen,
-		})
-	}
-	circle = refreshPeerEndpoints(circle, id.DeviceID)
-	return persistJoinedCircle(home, circle)
+		return vouchMembers(refreshPeerEndpoints(circle, id.DeviceID), id, priv), nil
+	})
+	return err
 }
 
 func writeJoinAck(conn net.Conn, circle Circle) error {

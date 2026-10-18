@@ -141,20 +141,19 @@ func applyPeerKeys(home, circleID string, resp KeysResponse) error {
 // applyKeysMaterial stores the key-agreement records of known members and moves this device to a newer key
 // the creator handed it.
 func applyKeysMaterial(home, circleID string, records []DeviceKexRecord, update *CircleKeyUpdate) error {
-	circle, err := loadCircle(home, circleID)
-	if err != nil {
-		return err
-	}
 	id, priv, err := loadOrCreateIdentity(home)
 	if err != nil {
 		return err
 	}
-	circle = circle.ingestKexRecords(records).extendKeyUpdate(id, priv)
 	adopted := false
-	if update != nil {
-		circle, adopted = circle.adoptKeyUpdate(*update, id, priv)
-	}
-	if err := persistJoinedCircle(home, circle); err != nil {
+	circle, err := updateCircle(home, circleID, func(circle Circle) (Circle, error) {
+		circle = circle.ingestKexRecords(records).extendKeyUpdate(id, priv)
+		if update != nil {
+			circle, adopted = circle.adoptKeyUpdate(*update, id, priv)
+		}
+		return vouchMembers(circle, id, priv), nil
+	})
+	if err != nil {
 		return err
 	}
 	if adopted {
@@ -221,15 +220,13 @@ func resealOutbox(home, circleID, oldKey, newKey string) error {
 // rotateCircleKey, on the creator, moves the circle to a new key, drops the old invites, reseals the outbox
 // and pushes the update to every member it can reach. It returns the members left without the new key.
 func rotateCircleKey(home, circleID string, id DeviceIdentity, priv ed25519.PrivateKey) (Circle, []string, error) {
-	circle, err := loadCircle(home, circleID)
+	var cutOff []string
+	rotated, err := updateCircle(home, circleID, func(circle Circle) (Circle, error) {
+		rotated, left, err := rekeyCircle(circle, id, priv)
+		cutOff = left
+		return rotated, err
+	})
 	if err != nil {
-		return Circle{}, nil, err
-	}
-	rotated, cutOff, err := rekeyCircle(circle, id, priv)
-	if err != nil {
-		return Circle{}, nil, err
-	}
-	if err := saveCircle(home, rotated); err != nil {
 		return Circle{}, nil, err
 	}
 	afterKeyRotation(home, rotated)

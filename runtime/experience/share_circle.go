@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -100,6 +101,26 @@ func saveCircle(home string, c Circle) error {
 	}
 	// Readers load the circle on every message; a rename never shows them a half-written file.
 	return atomicWriteFile(circlePath(home, c.ID), bytes.NewReader(data), 0o600)
+}
+
+var circleLocks sync.Map
+
+// updateCircle loads a circle, applies fn and saves the result under a per-circle lock, so two writers in this
+// process never save a copy older than the one already on disk (a roster refresh undoing a key adoption, say).
+// fn must not call updateCircle for the same circle.
+func updateCircle(home, circleID string, fn func(Circle) (Circle, error)) (Circle, error) {
+	lock, _ := circleLocks.LoadOrStore(circlePath(home, circleID), &sync.Mutex{})
+	mu := lock.(*sync.Mutex)
+	mu.Lock()
+	defer mu.Unlock()
+	c, err := loadCircle(home, circleID)
+	if err != nil {
+		return Circle{}, err
+	}
+	if c, err = fn(c); err != nil {
+		return Circle{}, err
+	}
+	return c, saveCircle(home, c)
 }
 
 func listCircles(home string) ([]Circle, error) {
@@ -309,59 +330,49 @@ func acceptInvite(home string, code string, fingerprint string, endpoint string,
 }
 
 func revokeMember(home, circleID, deviceID string, actor DeviceIdentity, priv ed25519.PrivateKey) (Circle, error) {
-	c, err := loadCircle(home, circleID)
-	if err != nil {
-		return Circle{}, err
-	}
-	if c.CreatorDeviceID != actor.DeviceID {
-		return Circle{}, errors.New("only circle creator can revoke members")
-	}
-	if deviceID == c.CreatorDeviceID {
-		return Circle{}, errors.New("the circle creator cannot be revoked")
-	}
-	found := false
-	for i, m := range c.Members {
-		if m.DeviceID == deviceID {
-			c.Members[i].Revoked = true
-			found = true
+	return updateCircle(home, circleID, func(c Circle) (Circle, error) {
+		if c.CreatorDeviceID != actor.DeviceID {
+			return Circle{}, errors.New("only circle creator can revoke members")
 		}
-	}
-	if !found {
-		return Circle{}, errors.New("member not found")
-	}
-	c = c.signRevocationFor(deviceID, priv)
-	if err := c.signMemberList(priv); err != nil {
-		return Circle{}, err
-	}
-	if err := saveCircle(home, c); err != nil {
-		return Circle{}, err
-	}
-	return c, nil
+		if deviceID == c.CreatorDeviceID {
+			return Circle{}, errors.New("the circle creator cannot be revoked")
+		}
+		found := false
+		for i, m := range c.Members {
+			if m.DeviceID == deviceID {
+				c.Members[i].Revoked = true
+				found = true
+			}
+		}
+		if !found {
+			return Circle{}, errors.New("member not found")
+		}
+		c = c.signRevocationFor(deviceID, priv)
+		if err := c.signMemberList(priv); err != nil {
+			return Circle{}, err
+		}
+		return c, nil
+	})
 }
 
 func addAllowedFolder(home, circleID, folder string, actor DeviceIdentity) (Circle, error) {
-	c, err := loadCircle(home, circleID)
-	if err != nil {
-		return Circle{}, err
-	}
-	if _, ok := c.activeMember(actor.DeviceID); !ok {
-		return Circle{}, errors.New("not a circle member")
-	}
-	abs, err := hookFilepathAbs(folder)
-	if err != nil {
-		return Circle{}, err
-	}
-	abs, err = filepath.EvalSymlinks(abs)
-	if err != nil {
-		abs, _ = hookFilepathAbs(folder)
-	}
-	if !containsString(c.AllowedFolders, abs) {
-		c.AllowedFolders = append(c.AllowedFolders, abs)
-	}
-	if err := saveCircle(home, c); err != nil {
-		return Circle{}, err
-	}
-	return c, nil
+	return updateCircle(home, circleID, func(c Circle) (Circle, error) {
+		if _, ok := c.activeMember(actor.DeviceID); !ok {
+			return Circle{}, errors.New("not a circle member")
+		}
+		abs, err := hookFilepathAbs(folder)
+		if err != nil {
+			return Circle{}, err
+		}
+		abs, err = filepath.EvalSymlinks(abs)
+		if err != nil {
+			abs, _ = hookFilepathAbs(folder)
+		}
+		if !containsString(c.AllowedFolders, abs) {
+			c.AllowedFolders = append(c.AllowedFolders, abs)
+		}
+		return c, nil
+	})
 }
 
 func folderAllowed(c Circle, projectRoot string) bool {
