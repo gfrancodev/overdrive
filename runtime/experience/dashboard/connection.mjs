@@ -68,7 +68,7 @@ function connectionSummary(health) {
 function networkText(network) {
   if (!network) return "";
   if (!network.lan_access) {
-    return "Only this computer can connect to Overdrive here (" + network.listen + "). Devices on the network can see it but can't connect.";
+    return "Only this computer can pair, sync experience or open terminals with Overdrive here (" + network.listen + "). Devices on the network see it but can't do those. Circle chat, open only to members, still crosses the network.";
   }
   return "Devices on this network connect to " + (network.address || network.listen) + ". Only circle members get in, and pairing still needs the code confirmed on both screens.";
 }
@@ -190,7 +190,7 @@ function createConnectionPanel({ listRow, onOpen, openFolders, openSetup } = {})
       setStatus(body.error || "Could not change who can connect.", statusId);
       return;
     }
-    setStatus(lanAccess ? "Devices on this network can connect now. Your system may ask to allow Overdrive through its firewall." : "Only this computer can connect now.", statusId);
+    setStatus(lanAccess ? "Devices on this network can connect now. Your system may ask to allow Overdrive through its firewall." : "Only this computer can pair, sync or open terminals with this device now.", statusId);
     await refresh();
   }
   async function runAction(action) {
