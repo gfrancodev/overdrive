@@ -14,18 +14,11 @@ func attachTerminalTraySignals(home string, dash *peerDashboard) {
 	if err != nil {
 		return
 	}
-	sessions, err := mgr.ListSessions(200)
+	active, err := activeTerminalCount(mgr)
 	if err != nil {
 		return
 	}
 	store := mgr.store
-	active := 0
-	for _, s := range sessions {
-		switch s.State {
-		case TerminalStateRunning, TerminalStateStarting, TerminalStateDetached, TerminalStateCreated:
-			active++
-		}
-	}
 	dash.TerminalActiveCount = active
 	id, _, err := loadOrCreateIdentity(home)
 	if err != nil {
@@ -33,6 +26,22 @@ func attachTerminalTraySignals(home string, dash *peerDashboard) {
 	}
 	dash.TerminalControlID = latestTerminalControlRequestID(store, id.DeviceID)
 	dash.TerminalInviteID = latestTerminalInviteSignalID(store, id.DeviceID)
+}
+
+// activeTerminalCount is the sessions on this device that are open or about to be.
+func activeTerminalCount(mgr *TerminalManager) (int, error) {
+	sessions, err := mgr.ListSessions(200)
+	if err != nil {
+		return 0, err
+	}
+	active := 0
+	for _, s := range sessions {
+		switch s.State {
+		case TerminalStateRunning, TerminalStateStarting, TerminalStateDetached, TerminalStateCreated:
+			active++
+		}
+	}
+	return active, nil
 }
 
 func latestTerminalControlRequestID(store *TerminalStore, ownerDeviceID string) string {

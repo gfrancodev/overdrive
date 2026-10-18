@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/base64"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -176,5 +177,26 @@ func TestPairingRoutesAreLocalOnly(t *testing.T) {
 	}
 	if rec := inviteHTTP(t, home, http.MethodPost, "/api/pairing/sessions", "127.0.0.1:9", []byte(`{"device_id":"dev_0011223344556677"}`)); rec.Code != http.StatusNotFound {
 		t.Fatalf("pairing with a device that is not nearby must say so, got %d", rec.Code)
+	}
+}
+
+func TestPairingSaysWhyTheOtherDeviceCannotBeReached(t *testing.T) {
+	home := t.TempDir()
+	setupTestEnv(t, home)
+	port := freeTCPPort(t)
+	if err := noteDiscoveredPeer(home, discoveredPeer{DeviceID: "dev_0011223344556677", FriendlyName: "studio", Host: "127.0.0.1", Port: port, LocalOnly: true}); err != nil {
+		t.Fatal(err)
+	}
+	rec := inviteHTTP(t, home, http.MethodPost, "/api/pairing/sessions", "127.0.0.1:9", []byte(`{"device_id":"dev_0011223344556677"}`))
+	want := "Could not reach studio. studio accepts connections only from itself. On studio, open Connection and allow devices on this network."
+	if rec.Code != http.StatusBadGateway || !strings.Contains(rec.Body.String(), want) {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+	if err := noteDiscoveredPeer(home, discoveredPeer{DeviceID: "dev_0011223344556677", FriendlyName: "studio", Host: "127.0.0.1", Port: port}); err != nil {
+		t.Fatal(err)
+	}
+	rec = inviteHTTP(t, home, http.MethodPost, "/api/pairing/sessions", "127.0.0.1:9", []byte(`{"device_id":"dev_0011223344556677"}`))
+	if want = "Could not reach studio. Overdrive on studio isn't accepting connections."; rec.Code != http.StatusBadGateway || !strings.Contains(rec.Body.String(), want) {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 }

@@ -119,6 +119,8 @@ type meshRuntime struct {
 	gone            map[string]map[string]bool
 	links           map[string]*circleLink
 	recovering      map[string]bool
+	// linkErr is why the last attempt to reach a circle's chat failed, until one succeeds.
+	linkErr map[string]string
 }
 
 var meshRT meshRuntime
@@ -136,6 +138,54 @@ func (m *meshRuntime) initLocked() {
 	if m.recovering == nil {
 		m.recovering = map[string]bool{}
 	}
+	if m.linkErr == nil {
+		m.linkErr = map[string]string{}
+	}
+}
+
+// chatLinkState is how this device reaches one circle's chat: through which host, or why not.
+type chatLinkState struct {
+	Connected  bool   `json:"connected"`
+	HostID     string `json:"host_id,omitempty"`
+	Recovering bool   `json:"recovering,omitempty"`
+	LastError  string `json:"last_error,omitempty"`
+}
+
+func noteChatLinkResult(circleID string, err error) {
+	meshRT.mu.Lock()
+	defer meshRT.mu.Unlock()
+	meshRT.initLocked()
+	if err == nil {
+		delete(meshRT.linkErr, circleID)
+		return
+	}
+	meshRT.linkErr[circleID] = err.Error()
+}
+
+func chatLinkStates() map[string]chatLinkState {
+	meshRT.mu.Lock()
+	defer meshRT.mu.Unlock()
+	meshRT.initLocked()
+	out := map[string]chatLinkState{}
+	for id, link := range meshRT.links {
+		if link == nil {
+			continue
+		}
+		out[id] = chatLinkState{Connected: link.client != nil, HostID: link.hostID}
+	}
+	for id := range meshRT.recovering {
+		st := out[id]
+		st.Recovering = true
+		out[id] = st
+	}
+	for id, msg := range meshRT.linkErr {
+		st := out[id]
+		if !st.Connected {
+			st.LastError = msg
+		}
+		out[id] = st
+	}
+	return out
 }
 
 func meshServicesArmed() bool {
@@ -662,10 +712,11 @@ func recoverCircleMeshOnce(home string, circle Circle, self DeviceIdentity, priv
 	return host, nil
 }
 
-func recoverCircleMesh(home string, circle Circle, self DeviceIdentity, priv ed25519.PrivateKey) (string, error) {
+func recoverCircleMesh(home string, circle Circle, self DeviceIdentity, priv ed25519.PrivateKey) (host string, err error) {
 	if !meshAllowsChat() {
 		return "", nil
 	}
+	defer func() { noteChatLinkResult(circle.ID, err) }()
 	limit := len(circle.Members) + 1
 	if limit < 1 {
 		limit = 1
@@ -833,6 +884,7 @@ func stopMeshServices() {
 	meshRT.mu.Lock()
 	meshRT.endpoints = map[string]string{}
 	meshRT.gone = map[string]map[string]bool{}
+	meshRT.linkErr = map[string]string{}
 	meshRT.home = ""
 	meshRT.mqttPort = 0
 	meshRT.mu.Unlock()

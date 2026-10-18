@@ -328,6 +328,9 @@ func shareDashboardHandler(home string) http.Handler {
 	registerCircleInviteRoutes(mux, home)
 	registerCircleAPIRoutes(mux, home)
 	registerPairingRoutes(mux, home)
+	registerNetworkRoutes(mux, home)
+	registerConnectionHealthRoutes(mux, home)
+	registerDiagnosticsRoutes(mux, home)
 	mux.HandleFunc("/hook", serveDashboardHook(home))
 	mux.HandleFunc("/", serveDashboardIndex(home))
 	return mux

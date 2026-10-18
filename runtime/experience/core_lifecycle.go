@@ -70,6 +70,7 @@ func meshTransportsOpen() bool {
 
 func resetCoreLifecycle() {
 	stopMeshServices()
+	setListenOverride("")
 	meshMu.Lock()
 	srv := coreDashboardServer
 	meshPausedFlag = false
@@ -184,8 +185,8 @@ func finishCoreStop() {
 		coreStopped = true
 		srv := coreDashboardServer
 		meshMu.Unlock()
-		if shareListenerInst != nil {
-			shareListenerInst.Close()
+		if sl := currentShareListener(); sl != nil {
+			sl.Close()
 		}
 		if srv != nil {
 			_ = srv.Close()
