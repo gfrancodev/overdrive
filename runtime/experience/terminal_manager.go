@@ -187,6 +187,9 @@ func (m *TerminalManager) spawnSessionHost(sess TerminalSession, opts terminalCr
 	if err := cmd.Start(); err != nil {
 		return err
 	}
+	if hookSessionHostStarted != nil {
+		hookSessionHostStarted(cmd.Process.Pid)
+	}
 	m.mu.Lock()
 	m.hosts[sess.ID] = cmd
 	m.mu.Unlock()

@@ -127,6 +127,18 @@ func gitRun(t *testing.T, dir string, args ...string) {
 	}
 }
 
+// shortTempHome is a home for tests that start a real session host: its socket lives under the home, and a
+// Unix socket path stops at about 104 bytes, which t.TempDir() with a long test name passes.
+func shortTempHome(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "od")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return dir
+}
+
 func freeTCPPort(t *testing.T) int {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")

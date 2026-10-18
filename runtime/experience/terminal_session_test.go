@@ -295,7 +295,7 @@ func TestTerminalE2E11EventsReplayReadOnly(t *testing.T) {
 }
 
 func TestTerminalE2E13CreateResizeParticipantsAndContext(t *testing.T) {
-	home := t.TempDir()
+	home := shortTempHome(t)
 	setupTestEnv(t, home)
 	closeTerminalDBs()
 	resetStreamGrantsForTests()

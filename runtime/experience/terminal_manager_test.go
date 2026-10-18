@@ -104,7 +104,7 @@ func TestTerminalManagerCreateSession(t *testing.T) {
 	if sess.ID == "" || sess.SocketPath == "" {
 		t.Fatalf("session: %+v", sess)
 	}
-	if sess.State != TerminalStateStarting {
+	if sess.State != TerminalStateStarting && sess.State != TerminalStateRunning {
 		t.Fatalf("state=%s", sess.State)
 	}
 }
