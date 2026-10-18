@@ -302,9 +302,9 @@ def test_package_platform_tree_is_slim(tmp_path):
     assert list(out.rglob('*.go')) == []
     assert not (out / 'runtime/experience').exists()
     assert not (out / 'examples').exists()
-    bins = list((out / 'runtime/bin').glob('*'))
-    assert len(bins) == 1
-    assert bins[0].name == f'overdrive-runtime-{target}'
+    bins = sorted(p.name for p in (out / 'runtime/bin').glob('*'))
+    # Only this platform's runtime, plus its prebuilt tray when one was built.
+    assert bins in ([f'overdrive-runtime-{target}'], [f'overdrive-runtime-{target}', f'overdrive-tray-{target}'])
 
 
 def test_session_hook_routes_to_using_overdrive():
