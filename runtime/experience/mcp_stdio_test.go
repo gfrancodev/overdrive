@@ -65,8 +65,64 @@ func TestReadWriteMCPFrame(t *testing.T) {
 	if err := writeMCPFrame(bufio.NewWriter(&enc), body); err != nil {
 		t.Fatal(err)
 	}
-	got, err := readMCPFrame(bufio.NewReader(&enc))
-	if err != nil || !bytes.Equal(got, body) {
-		t.Fatalf("frame roundtrip: %v %q", err, got)
+	got, lines, err := readMCPMessage(bufio.NewReader(&enc))
+	if err != nil || lines || !bytes.Equal(got, body) {
+		t.Fatalf("frame roundtrip: %v %v %q", err, lines, got)
 	}
+}
+
+// The MCP stdio transport sends one JSON-RPC message per line; that is what Claude Desktop, Cursor, VS Code and
+// Zed speak. The server answers each on its own line, without headers.
+func TestServeMCPAnswersClientsThatSendOneMessagePerLine(t *testing.T) {
+	in := strings.Join([]string{
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{}}}`,
+		`{"jsonrpc":"2.0","method":"notifications/initialized"}`,
+		``,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`,
+	}, "\n")
+	var out bytes.Buffer
+	if err := serveMCP(strings.NewReader(in), &out, t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "Content-Length") {
+		t.Fatalf("a line client got headers: %q", out.String())
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("want two answers, got %q", out.String())
+	}
+	for i, line := range lines {
+		var resp struct {
+			ID     int            `json:"id"`
+			Result map[string]any `json:"result"`
+		}
+		if err := json.Unmarshal([]byte(line), &resp); err != nil || resp.ID != i+1 || resp.Result == nil {
+			t.Fatalf("answer %d: %q %v", i+1, line, err)
+		}
+	}
+	if !strings.Contains(lines[1], `"recall"`) {
+		t.Fatalf("tools/list: %s", lines[1])
+	}
+}
+
+// Every tool must carry an inputSchema of type object: clients that validate the protocol drop a tools/list
+// answer that lacks one.
+func TestMCPToolsDescribeTheirArguments(t *testing.T) {
+	for _, tool := range mcpTools() {
+		schema, ok := tool["inputSchema"].(map[string]any)
+		if !ok || schema["type"] != "object" {
+			t.Fatalf("%v has no object inputSchema", tool["name"])
+		}
+		props, _ := schema["properties"].(map[string]any)
+		for _, req := range asStrings(schema["required"]) {
+			if _, ok := props[req]; !ok {
+				t.Fatalf("%v requires %q but does not describe it", tool["name"], req)
+			}
+		}
+	}
+}
+
+func asStrings(v any) []string {
+	out, _ := v.([]string)
+	return out
 }
