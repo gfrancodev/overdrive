@@ -30,6 +30,8 @@ func startRosterCore(t *testing.T, name string) rosterCore {
 		t.Fatal(err)
 	}
 	t.Cleanup(sl.Close)
+	// Runs before the home is removed: a roster fetch started by a key adoption may still be writing to it.
+	t.Cleanup(rosterPulls.Wait)
 	return rosterCore{home: home, id: id, priv: priv, endpoint: endpoint}
 }
 

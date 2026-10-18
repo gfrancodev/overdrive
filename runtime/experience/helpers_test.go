@@ -84,6 +84,7 @@ func mustJSON(t *testing.T, stdout string) map[string]any {
 
 func setupTestEnv(t *testing.T, home string) {
 	t.Helper()
+	t.Cleanup(rosterPulls.Wait)
 	resetRuntimeGlobals()
 	t.Setenv("OVERDRIVE_HOME", home)
 	t.Setenv("OVERDRIVE_EMBEDDER", "stub")

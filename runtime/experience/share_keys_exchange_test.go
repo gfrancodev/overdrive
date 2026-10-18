@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestKeysExchangeCarriesTheNewKeyToAMember(t *testing.T) {
@@ -140,6 +141,39 @@ func TestRevokeRotatesTheKeyForEveryoneElse(t *testing.T) {
 	if leaves.circle(t, circle.ID).GroupKey == got.GroupKey {
 		t.Fatal("the revoked device must not receive the new key")
 	}
+}
+
+// A member that gets the new key learns at once who was removed: until then it would still treat the removed
+// device as a member, and that device still holds the previous key, accepted for a day.
+func TestMembersThatGetTheNewKeyLearnTheRemovalRightAway(t *testing.T) {
+	setupTestEnv(t, t.TempDir())
+	creator := startRosterCore(t, "creator")
+	stays := startRosterCore(t, "stays")
+	leaves := startRosterCore(t, "leaves")
+	circle, err := createCircle(creator.home, "team", creator.id, creator.priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stays.join(t, creator, circle.ID)
+	leaves.join(t, creator, circle.ID)
+	for _, c := range []rosterCore{stays, leaves} {
+		if err := c.pullKeys(t, creator, circle.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := stays.pullRoster(t, creator, circle.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := stays.circle(t, circle.ID).activeMember(leaves.id.DeviceID); !ok {
+		t.Fatal("setup: the member should know the device that leaves")
+	}
+	if _, _, err := revokeAndRotate(creator.home, circle.ID, []string{leaves.id.DeviceID}, creator.id, creator.priv); err != nil {
+		t.Fatal(err)
+	}
+	waitUntil(t, 5*time.Second, func() bool {
+		_, active := stays.circle(t, circle.ID).activeMember(leaves.id.DeviceID)
+		return !active
+	})
 }
 
 func TestRekeyCommandRotatesAndNamesMembersLeftBehind(t *testing.T) {

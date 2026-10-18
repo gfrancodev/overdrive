@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -158,8 +159,38 @@ func applyKeysMaterial(home, circleID string, records []DeviceKexRecord, update 
 	}
 	if adopted {
 		afterKeyRotation(home, circle)
+		rosterPulls.Add(1)
+		go func() {
+			defer rosterPulls.Done()
+			pullCreatorRoster(home, circle.ID)
+		}()
 	}
 	return nil
+}
+
+// rosterPulls counts the roster fetches still running in the background, so a test can let them finish before
+// its home is removed.
+var rosterPulls sync.WaitGroup
+
+// pullCreatorRoster fetches the creator's roster at once. A new key follows a change in the circle, usually a
+// removal; waiting for the next exchange would leave the removed device a member here for up to a minute while
+// it still holds the previous key.
+func pullCreatorRoster(home, circleID string) {
+	id, priv, err := loadOrCreateIdentity(home)
+	if err != nil {
+		return
+	}
+	circle, err := loadCircle(home, circleID)
+	if err != nil || circle.CreatorDeviceID == id.DeviceID {
+		return
+	}
+	creator, ok := circle.activeMember(circle.CreatorDeviceID)
+	if !ok || strings.TrimSpace(creator.Endpoint) == "" {
+		return
+	}
+	if resp, err := fetchPeerRoster(creator.Endpoint, circle, id, priv); err == nil {
+		_ = applyPeerRoster(home, circle.ID, resp)
+	}
 }
 
 // afterKeyRotation runs once this core holds a new circle key: invites it issued carry the old key and are
