@@ -82,8 +82,10 @@ func list(path string) ([]mutant, error) {
 		case *ast.FuncDecl:
 			fn = v
 		case *ast.GenDecl:
-			// Constants and types are not behavior worth mutating; their values are checked where they are used.
-			return v.Tok != token.CONST && v.Tok != token.TYPE && v.Tok != token.IMPORT
+			// Constants, types and package-level values are not behavior worth mutating, and coverage does not
+			// instrument them: their values are checked where they are used. Only a var inside a function is.
+			inFunc := fn != nil && fn.Pos() <= v.Pos() && v.Pos() < fn.End()
+			return inFunc && v.Tok == token.VAR
 		case *ast.BinaryExpr:
 			if v.Op == token.ADD && (stringy(v.X) || stringy(v.Y)) {
 				return true
