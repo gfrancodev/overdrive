@@ -753,6 +753,7 @@ func TestMeshDuplicateDeliveryKeepsOneRow(t *testing.T) {
 
 func TestMeshBrokerDropResendsAndDedups(t *testing.T) {
 	home := meshHome(t)
+	immediateFailover(t)
 	creator, creatorPriv := testDevice(t)
 	self, selfPriv := testDevice(t)
 	writeIdentityFile(t, home, self)
@@ -808,6 +809,19 @@ func TestMeshBrokerDropResendsAndDedups(t *testing.T) {
 	if host != self.DeviceID {
 		t.Fatalf("elected %s", host)
 	}
+	// This device hosts the chat with no one else on it: publishing would reach no one, so the chat waits.
+	if left, err := loadOutbox(home, circle.ID); err != nil || len(left) != 2 {
+		t.Fatalf("chat must stay queued while no other device is on it: %d %v", len(left), err)
+	}
+	addr, ok := meshEndpoint(self.DeviceID)
+	if !ok {
+		t.Fatal("missing broker address")
+	}
+	guest, err := dialMeshClient(home, circle, creator, creatorPriv, self.DeviceID, addr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { closePaho(guest) })
 	waitUntil(t, 4*time.Second, func() bool {
 		mu.Lock()
 		defer mu.Unlock()

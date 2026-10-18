@@ -204,7 +204,7 @@ func TestTheChatHostCountsTheOtherDevicesOnIt(t *testing.T) {
 	}
 }
 
-func TestChatFailBackLeavesLinksThatAreDownOrRecovering(t *testing.T) {
+func TestChatFailBackRebuildsALinkThatIsDownAndLeavesOneBeingRecovered(t *testing.T) {
 	home := meshHome(t)
 	creator, creatorPriv := testDevice(t)
 	self, _ := testDevice(t)
@@ -224,20 +224,24 @@ func TestChatFailBackLeavesLinksThatAreDownOrRecovering(t *testing.T) {
 		meshRT.recovering = map[string]bool{}
 		meshRT.mu.Unlock()
 	})
-	for _, link := range []struct {
-		name       string
-		client     *pahomqtt.Client
-		recovering bool
-	}{{"down", nil, false}, {"recovering", stale, true}} {
-		meshRT.mu.Lock()
-		meshRT.initLocked()
-		meshRT.links[circle.ID] = &circleLink{client: link.client, hostID: self.DeviceID}
-		meshRT.recovering[circle.ID] = link.recovering
-		meshRT.mu.Unlock()
-		chatFailBack(home)
-		if st := chatLinkStates()[circle.ID]; st.HostID != self.DeviceID {
-			t.Fatalf("%s: recovery owns this link, fail-back moved it: %+v", link.name, st)
-		}
+
+	meshRT.mu.Lock()
+	meshRT.initLocked()
+	meshRT.links[circle.ID] = &circleLink{client: stale, hostID: self.DeviceID}
+	meshRT.recovering[circle.ID] = true
+	meshRT.mu.Unlock()
+	chatFailBack(home)
+	if st := chatLinkStates()[circle.ID]; st.HostID != self.DeviceID {
+		t.Fatalf("recovery owns this link, fail-back moved it: %+v", st)
+	}
+
+	meshRT.mu.Lock()
+	meshRT.links[circle.ID] = &circleLink{hostID: self.DeviceID}
+	meshRT.recovering[circle.ID] = false
+	meshRT.mu.Unlock()
+	chatFailBack(home)
+	if st := chatLinkStates()[circle.ID]; !st.Connected || st.HostID != creator.DeviceID {
+		t.Fatalf("a link that is down is rebuilt on the elected broker: %+v", st)
 	}
 }
 

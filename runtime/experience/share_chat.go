@@ -542,7 +542,7 @@ func deliverLocalChatPost(home string, circle Circle, env chatEnvelope, topic st
 	if !meshAllowsChat() {
 		return env, true, nil
 	}
-	if err := meshTrySend(circle.ID, topic, qos, wire); err != nil {
+	if err := sendChatWire(circle.ID, topic, qos, wire); err != nil {
 		return env, true, nil
 	}
 	_ = deleteOutbox(home, env.MessageID)

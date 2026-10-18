@@ -258,7 +258,12 @@ func noteDiscoveredPeer(home string, peer discoveredPeer) error {
 		return err
 	}
 	if peer.MQTTPort > 0 && peer.Host != "" && meshServicesArmed() && meshAllowsChat() {
-		setMeshEndpoint(peer.DeviceID, net.JoinHostPort(peer.Host, strconv.Itoa(peer.MQTTPort)))
+		addr := net.JoinHostPort(peer.Host, strconv.Itoa(peer.MQTTPort))
+		if known, ok := meshEndpoint(peer.DeviceID); !ok || known != addr {
+			// The device announces a chat at a new address, so it is back: stop passing it over.
+			clearBrokerGone(peer.DeviceID)
+		}
+		setMeshEndpoint(peer.DeviceID, addr)
 		epoch := meshEpoch()
 		go func() { _ = startCircleLinks(home, epoch) }()
 	}

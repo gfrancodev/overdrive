@@ -40,7 +40,12 @@ const (
 	chatFailBackEvery = 15 * time.Second
 )
 
-var meshNow = time.Now
+var (
+	meshNow = time.Now
+	// brokerFailoverAfter is how long the elected broker must keep failing before another one is elected. A host
+	// that restarts is back in seconds; electing another meanwhile would split the circle's chat.
+	brokerFailoverAfter = 20 * time.Second
+)
 
 var (
 	meshLog           = log.New(io.Discard, "", 0)
@@ -130,6 +135,8 @@ type meshRuntime struct {
 	recovering      map[string]bool
 	// linkErr is why the last attempt to reach a circle's chat failed, until one succeeds.
 	linkErr map[string]string
+	// failingSince is when each broker of a circle started failing, until a link succeeds.
+	failingSince map[string]map[string]time.Time
 }
 
 var meshRT meshRuntime
@@ -150,6 +157,25 @@ func (m *meshRuntime) initLocked() {
 	if m.linkErr == nil {
 		m.linkErr = map[string]string{}
 	}
+	if m.failingSince == nil {
+		m.failingSince = map[string]map[string]time.Time{}
+	}
+}
+
+// brokerFailingFor notes that a circle's broker failed and says for how long it has been failing.
+func brokerFailingFor(circleID, host string) time.Duration {
+	meshRT.mu.Lock()
+	defer meshRT.mu.Unlock()
+	meshRT.initLocked()
+	if meshRT.failingSince[circleID] == nil {
+		meshRT.failingSince[circleID] = map[string]time.Time{}
+	}
+	first, ok := meshRT.failingSince[circleID][host]
+	if !ok {
+		meshRT.failingSince[circleID][host] = meshNow()
+		return 0
+	}
+	return meshNow().Sub(first)
 }
 
 // chatLinkState is how this device reaches one circle's chat: through which host, or why not. When this device
@@ -182,6 +208,7 @@ func noteChatLinkResult(circleID string, err error) {
 	meshRT.initLocked()
 	if err == nil {
 		delete(meshRT.linkErr, circleID)
+		delete(meshRT.failingSince, circleID)
 		return
 	}
 	meshRT.linkErr[circleID] = err.Error()
@@ -278,6 +305,16 @@ func markBrokerGone(circleID, deviceID string) {
 
 // brokerGoneSet is the brokers that failed recently. A mark expires, so the election comes back to a broker
 // once it may answer again.
+// clearBrokerGone takes a device's gone marks off: it was just seen hosting again.
+func clearBrokerGone(deviceID string) {
+	meshRT.mu.Lock()
+	defer meshRT.mu.Unlock()
+	meshRT.initLocked()
+	for _, gone := range meshRT.gone {
+		delete(gone, deviceID)
+	}
+}
+
 func brokerGoneSet(circleID string) map[string]bool {
 	meshRT.mu.Lock()
 	defer meshRT.mu.Unlock()
@@ -339,6 +376,28 @@ func emitMeshDelivery(packet *pahomqtt.Publish) {
 	}
 }
 
+var errNoOneListening = errors.New("no other device is on the circle's chat")
+
+// hostingAlone is whether this device hosts the circle's chat with no other device on it.
+func hostingAlone(meshID string) bool {
+	meshRT.mu.Lock()
+	link := meshRT.links[meshID]
+	meshRT.mu.Unlock()
+	if link == nil || link.broker == nil || link.addr != link.broker.addr {
+		return false
+	}
+	return link.broker.guests(link.hostID) == 0
+}
+
+// sendChatWire publishes chat unless this device hosts the circle's chat alone: a message published there
+// reaches no one, so it stays queued until another device is on the chat.
+func sendChatWire(meshID, topic string, qos byte, body []byte) error {
+	if hostingAlone(meshID) {
+		return errNoOneListening
+	}
+	return meshTrySend(meshID, topic, qos, body)
+}
+
 func meshTrySend(meshID, topic string, qos byte, body []byte) error {
 	if !chatTransportOpen() {
 		return errMeshClientDown
@@ -367,12 +426,24 @@ func publishMQTT(client *pahomqtt.Client, topic string, qos byte, body []byte, r
 type circleTopicHook struct {
 	mqtt.HookBase
 	prefix string
+	// home, circleID and hostID let the hook send chat queued while no one else was on this broker as soon as
+	// another device subscribes.
+	home, circleID, hostID string
 }
 
 func (h *circleTopicHook) ID() string { return "overdrive-circle-acl" }
 
 func (h *circleTopicHook) Provides(b byte) bool {
-	return b == mqtt.OnConnectAuthenticate || b == mqtt.OnACLCheck
+	return b == mqtt.OnConnectAuthenticate || b == mqtt.OnACLCheck || b == mqtt.OnSubscribed
+}
+
+// OnSubscribed sends the chat this device queued while it hosted the circle's chat alone. It waits for the
+// subscription, not the connection: a message published before the other device subscribes still reaches no one.
+func (h *circleTopicHook) OnSubscribed(cl *mqtt.Client, _ mqpackets.Packet, _ []byte) {
+	if cl == nil || cl.ID == h.hostID || h.home == "" {
+		return
+	}
+	go func() { _ = flushCircleOutbox(h.home, h.circleID) }()
 }
 
 func (h *circleTopicHook) OnConnectAuthenticate(*mqtt.Client, mqpackets.Packet) bool {
@@ -480,7 +551,7 @@ func listenMemberBroker(home string, circle Circle, id DeviceIdentity, priv ed25
 	caps.Compatibilities.NoInheritedPropertiesOnAck = true
 	caps.Compatibilities.PassiveClientDisconnect = true
 	server := mqtt.New(&mqtt.Options{Logger: meshSlog, Capabilities: caps})
-	if err := server.AddHook(&circleTopicHook{prefix: meshPrefix(circle.ID)}, nil); err != nil {
+	if err := server.AddHook(&circleTopicHook{prefix: meshPrefix(circle.ID), home: home, circleID: circle.ID, hostID: id.DeviceID}, nil); err != nil {
 		return nil, err
 	}
 	ln := listeners.NewTCP(listeners.Config{
@@ -684,19 +755,29 @@ func ensureLocalBroker(home string, circle Circle, self DeviceIdentity, priv ed2
 	if link.hostID == "" {
 		link.hostID = self.DeviceID
 	}
+	portChanged := meshRT.mqttPort != broker.port
 	meshRT.mqttPort = broker.port
 	meshRT.mu.Unlock()
 	if old != nil && old != broker {
 		old.close()
 	}
 	setMeshEndpoint(self.DeviceID, broker.addr)
+	if portChanged {
+		// Peers learn where this chat listens from the announcement: tell them the new port.
+		go restartDiscovery(home)
+	}
 	return broker.addr, nil
 }
 
 func flushCircleOutbox(home, circleID string) error {
-	return flushOutbox(home, circleID, func(topic string, qos byte, body []byte) error {
-		return meshTrySend(circleID, topic, qos, body)
+	err := flushOutbox(home, circleID, func(topic string, qos byte, body []byte) error {
+		return sendChatWire(circleID, topic, qos, body)
 	})
+	if errors.Is(err, errNoOneListening) {
+		// The link is fine; the chat waits for another device, and goes out when one subscribes.
+		return nil
+	}
+	return err
 }
 
 func meshBrokerAddr(home string, circle Circle, self DeviceIdentity, priv ed25519.PrivateKey, host string) (string, error) {
@@ -745,7 +826,17 @@ func recoverCircleMeshOnce(home string, circle Circle, self DeviceIdentity, priv
 		return host, err
 	}
 	if err := connectMeshClient(home, circle, self, priv, host, addr); err != nil {
-		return "", err
+		// A broker that restarted listens on a new port: ask the device for it before giving up on it.
+		if host == self.DeviceID {
+			return "", err
+		}
+		fresh, freshErr := brokerAddrFromPeerCatalog(home, circle, self, priv, host)
+		if freshErr != nil || fresh == addr {
+			return "", err
+		}
+		if err := connectMeshClient(home, circle, self, priv, host, fresh); err != nil {
+			return "", err
+		}
 	}
 	if err := flushCircleOutbox(home, circle.ID); err != nil {
 		return host, err
@@ -775,6 +866,10 @@ func recoverCircleMesh(home string, circle Circle, self DeviceIdentity, priv ed2
 			return linkedHost, nil
 		}
 		if host == self.DeviceID {
+			return "", err
+		}
+		if brokerFailingFor(circle.ID, host) < brokerFailoverAfter {
+			// It may be restarting: stay without a link, chat queued, and try it again on the next pass.
 			return "", err
 		}
 		markBrokerGone(circle.ID, host)
@@ -809,9 +904,10 @@ func scheduleRecover(home, circleID string) {
 	}()
 }
 
-// chatFailBack moves each circle's chat to the broker the election picks now. A core that could not reach the
-// creator hosts the chat itself; once the creator answers again, staying would split the circle's chat in two
-// without either side noticing. A move that fails keeps the link that works.
+// chatFailBack keeps each circle's chat on the broker the election picks now. It builds links that are missing,
+// drops removed devices from a chat this device hosts, and moves a core that hosted the chat itself, because it
+// could not reach the creator, back to it once it answers: staying would split the circle's chat in two without
+// either side noticing. A move that fails keeps the link that works.
 func chatFailBack(home string) {
 	if !meshAllowsChat() {
 		return
@@ -835,7 +931,13 @@ func chatFailBack(home string) {
 			host, linked = link.hostID, link.client != nil
 		}
 		meshRT.mu.Unlock()
-		if !linked || busy {
+		if busy {
+			continue
+		}
+		dropRemovedChatClients(circle)
+		if !linked {
+			// No link yet, or one that failed and was not rebuilt: build it now.
+			_, _ = recoverCircleMesh(home, circle, id, priv)
 			continue
 		}
 		want, ok := electBroker(circle, brokerGoneSet(circle.ID))
@@ -844,6 +946,27 @@ func chatFailBack(home string) {
 		}
 		if _, err := recoverCircleMeshOnce(home, circle, id, priv, want); err != nil && want != id.DeviceID {
 			markBrokerGone(circle.ID, want)
+		}
+	}
+}
+
+// dropRemovedChatClients disconnects, from the chat this device hosts, devices that are no longer active
+// members of the circle. Their connection outlived the removal; what they would still receive is sealed with a
+// key they no longer hold, but they should not stay on.
+func dropRemovedChatClients(circle Circle) {
+	meshRT.mu.Lock()
+	link := meshRT.links[circle.ID]
+	var broker *circleBroker
+	if link != nil {
+		broker = link.broker
+	}
+	meshRT.mu.Unlock()
+	if broker == nil || broker.server == nil {
+		return
+	}
+	for id, cl := range broker.server.Clients.GetAll() {
+		if _, ok := circle.activeMember(id); !ok && cl != nil && !cl.Closed() {
+			_ = broker.server.DisconnectClient(cl, mqpackets.ErrNotAuthorized)
 		}
 	}
 }

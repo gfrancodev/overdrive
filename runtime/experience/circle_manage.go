@@ -346,4 +346,7 @@ func forgetRevokedDevices(home, circleID string, targets []string) {
 		}
 		_ = revokeTerminalAccessForDevice(home, circleID, target)
 	}
+	if circle, err := loadCircle(home, circleID); err == nil {
+		dropRemovedChatClients(circle)
+	}
 }
