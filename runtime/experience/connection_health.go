@@ -108,6 +108,13 @@ func healthNameList(names []string) string {
 	return strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
 }
 
+func countOtherDevices(n int) string {
+	if n == 1 {
+		return "1 other device"
+	}
+	return strconv.Itoa(n) + " other devices"
+}
+
 func countDevices(n int) string {
 	if n == 1 {
 		return "1 device"
@@ -356,6 +363,12 @@ func circleHasPeers(c Circle, selfID string) bool {
 
 func circleChatHealth(c Circle, st chatLinkState, selfID string) capabilityHealth {
 	switch {
+	case st.Connected && st.HostID == selfID && st.Hosted && st.Guests == 0:
+		return capabilityHealth{ID: "chat", State: healthDegraded, Cause: "chat_alone",
+			Detail: "This device hosts the circle's chat, but no other device is on it.",
+			Fix:    "The others join it when they connect. Check the devices below that don't answer."}
+	case st.Connected && st.HostID == selfID && st.Hosted:
+		return capabilityHealth{ID: "chat", State: healthConnected, Detail: "This device hosts the circle's chat for " + countOtherDevices(st.Guests) + "."}
 	case st.Connected && st.HostID == selfID:
 		return capabilityHealth{ID: "chat", State: healthConnected, Detail: "This device hosts the circle's chat."}
 	case st.Connected:
