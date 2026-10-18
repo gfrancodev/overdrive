@@ -139,3 +139,43 @@ def test_hover_takes_the_theme_accent(lone_core, playwright):  # noqa: F811
         assert abs(r - 129) < 3 and abs(g - 70) < 3 and abs(b - 222) < 3, (r, g, b)
     finally:
         browser.close()
+
+
+def colours_in(css_value: str) -> list[tuple[float, float, float]]:
+    """Every colour in a computed value (a gradient lists several), as 0-255 channels."""
+    found = [tuple(float(v) * 255 for v in m) for m in re.findall(r"color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)", css_value)]
+    found += [tuple(float(v) for v in m) for m in re.findall(r"rgba?\(([\d.]+), ([\d.]+), ([\d.]+)", css_value)]
+    return found
+
+
+def near(colour: tuple[float, float, float], target: tuple[int, int, int]) -> bool:
+    return all(abs(a - b) < 3 for a, b in zip(colour, target))
+
+
+def test_the_call_and_the_globe_take_the_theme_colours(lone_core, playwright):  # noqa: F811
+    base, home = lone_core["base"], lone_core["home"]
+    circle = api(base, "/api/circles", {"name": "Squad"})["circle"]
+    add_member(home, circle["id"])
+    (home / "share" / "whitelabel.json").write_text(json.dumps({
+        "preset": "orbit", "title": "Themed", "themeColor": "#6d28d9",
+        "tokens": {"cyan": "#6d28d9", "live": "#c4b5fd", "ink": "#07060c"},
+    }))
+    violet, lavender = (109, 40, 217), (196, 181, 253)
+    browser = playwright.chromium.launch(args=["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"])
+    page = browser.new_context(viewport={"width": 1280, "height": 800}).new_page()
+    try:
+        page.goto(base + "/", wait_until="networkidle", timeout=30_000)
+        page.wait_for_function("() => globalThis.__odMessagesReady === true", timeout=30_000)
+        line = page.evaluate("() => getComputedStyle(document.querySelector('#labels .tag'), '::before').backgroundImage")
+        assert colours_in(line) and all(near(c, lavender) for c in colours_in(line)), line
+        page.locator("#msgApp").click()
+        page.wait_for_selector("#messages:not([hidden])", timeout=5_000)
+        page.locator("#msgVideo").click(force=True, timeout=10_000)
+        page.wait_for_selector("#callPanel[data-phase='setup']", timeout=15_000)
+        avatar = page.evaluate("() => getComputedStyle(document.querySelector('.call-avatar')).backgroundImage")
+        stops = colours_in(avatar)
+        assert len(stops) == 2 and near(stops[0], lavender) and near(stops[1], violet), avatar
+        ring = page.evaluate("() => getComputedStyle(document.querySelector('.call-voice-ring')).borderTopColor")
+        assert colours_in(ring) and near(colours_in(ring)[0], lavender), ring
+    finally:
+        browser.close()

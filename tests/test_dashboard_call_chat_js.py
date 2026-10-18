@@ -1524,3 +1524,38 @@ def test_theme_variables_have_defaults_and_states_follow_the_theme():
                 states += [(path.name, selector.strip(), color) for color in
                            re.findall(r"#0077ed|#0068d1|rgba\(94, 231, 255|rgba\(120, 190, 255|rgba\(80, 140, 220", body)]
     assert not states, states
+
+
+def _bluish(css_color: str) -> bool:
+    """The default theme's accent family: a saturated blue or cyan, the colours a theme replaces."""
+    import colorsys
+    hexa = re.fullmatch(r"#([0-9a-fA-F]{6})", css_color)
+    if hexa:
+        rgb = [int(hexa.group(1)[i:i + 2], 16) for i in (0, 2, 4)]
+    else:
+        rgb = [int(v) for v in re.findall(r"\d+", css_color)[:3]]
+    h, l, sat = colorsys.rgb_to_hls(*(c / 255 for c in rgb))
+    return sat > 0.45 and 0.45 <= h <= 0.68 and 0.15 < l < 0.9
+
+
+def test_no_fixed_accent_colours_outside_the_theme_variables():
+    dashboard = ROOT / "runtime" / "experience" / "dashboard"
+    # Categories in the legend keep their own colours on purpose, whatever the theme.
+    semantic = {".dot.procedure"}
+    fixed = []
+    for path in (dashboard / "dashboard.css", dashboard / "chat.css"):
+        text = re.sub(r"/\*.*?\*/", "", path.read_text(encoding="utf-8"), flags=re.S)
+        for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", text):
+            selector = selector.strip()
+            if selector.endswith(":root") or selector in semantic:
+                continue
+            for prop, value in re.findall(r"([\w-]+)\s*:\s*([^;]+)", body):
+                if prop.startswith("--"):
+                    continue
+                fixed += [(path.name, selector, colour) for colour in re.findall(r"#[0-9a-fA-F]{6}\b|rgba?\([^)]*\)", value)
+                          if _bluish(colour)]
+    assert not fixed, fixed
+    # Fallbacks for a theme variable that does not resolve are the default theme's, not a custom theme's.
+    scripts = "".join((dashboard / name).read_text(encoding="utf-8") for name in ("app.mjs", "terminal.mjs", "call.mjs", "chat.mjs"))
+    for leaked in ("0xc4b5fd", "0x09070f", "109, 40, 217", "#6d28d9"):
+        assert leaked not in scripts, leaked

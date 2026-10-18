@@ -460,7 +460,7 @@
       height: 9px;
       border-radius: 50%;
       background: var(--mute);
-      box-shadow: 0 0 0 3px rgba(122, 147, 166, 0.14);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--mute) 14%, transparent);
       flex: 0 0 9px;
     }
     .led.on { background: var(--cyan); box-shadow: 0 0 0 3px var(--accent-glow-18), 0 0 14px var(--accent-glow-60); }
@@ -894,13 +894,13 @@
       left: -38px;
       width: 30px;
       height: 1px;
-      background: linear-gradient(90deg, rgba(94, 231, 255, 0.85), rgba(94, 231, 255, 0.1));
+      background: linear-gradient(90deg, color-mix(in srgb, var(--live) 85%, transparent), color-mix(in srgb, var(--live) 10%, transparent));
     }
     .tag.flip { transform: translate(calc(-100% - 46px), -12px); }
     .tag.flip::before {
       left: auto;
       right: -38px;
-      background: linear-gradient(270deg, rgba(94, 231, 255, 0.85), rgba(94, 231, 255, 0.1));
+      background: linear-gradient(270deg, color-mix(in srgb, var(--live) 85%, transparent), color-mix(in srgb, var(--live) 10%, transparent));
     }
     .tag-row { display: flex; align-items: center; gap: 8px; }
     .tag svg { width: 20px; height: 20px; color: var(--live); flex: 0 0 20px; filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.7)); }
@@ -1502,7 +1502,7 @@
     .live-sessions:not(.term-inactive) .term-traffic-max {
       background: linear-gradient(155deg, var(--live) 0%, var(--cyan) 100%);
       box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22), 0 0 10px var(--accent-mid);
-      color: rgba(4, 7, 13, 0.86);
+      color: color-mix(in srgb, var(--ink) 86%, transparent);
     }
     .live-sessions:not(.term-inactive) .term-traffic-close:hover {
       background: linear-gradient(155deg, #ffa396 0%, #e85d4f 100%);
@@ -1723,7 +1723,7 @@
     .term-badge[hidden] { display: none; }
     .term-badge--rec { color: rgba(255, 105, 97, 0.9); }
     .term-badge--private { color: rgba(255, 214, 10, 0.88); }
-    .term-badge--control { color: rgba(100, 210, 255, 0.9); }
+    .term-badge--control { color: color-mix(in srgb, var(--live) 90%, transparent); }
     .term-badge--grant {
       cursor: pointer;
       color: #ffffff;
@@ -1735,8 +1735,8 @@
     .term-badge--waiting {
       cursor: default;
       color: #ffffff;
-      background: #0369a1;
-      box-shadow: inset 0 0 0 0.5px rgba(100, 210, 255, 0.28);
+      background: color-mix(in srgb, var(--accent) 60%, #000);
+      box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--live) 28%, transparent);
     }
     .term-ctl--accent {
       color: #ffffff;

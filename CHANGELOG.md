@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- **The rest of the dashboard follows the theme.** The call avatar and voice ring, the call stage's glow, the leader line of the globe's labels, the terminal's control and waiting badges, and offline devices on the globe kept the default cyan and blue-grey under any whitelabel theme; they derive from the theme's accent, live, mute and ink colours now. Three fallbacks used when a theme variable does not resolve carried a custom theme's violet instead of the default theme's colours. The legend no longer calls the sync line cyan. Category colours in the legend (decision, rule, procedure, preference) and status colours (red, amber, green) stay fixed on purpose.
+
 ## 2.3.1 - 2026-10-18
 
 ### Fixes

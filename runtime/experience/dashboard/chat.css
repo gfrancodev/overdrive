@@ -1859,8 +1859,8 @@ body.chat-media-modal-open { overflow: hidden; }
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: #04121c;
-  background: linear-gradient(145deg, #8be4ff, #3aa7ff);
+  color: var(--ink);
+  background: linear-gradient(145deg, var(--live), var(--accent));
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
 }
 .call-panel[data-phase="error"] .call-avatar {
@@ -1974,7 +1974,7 @@ body.chat-media-modal-open { overflow: hidden; }
   justify-content: center;
   min-height: 132px;
   border-radius: 14px;
-  background: radial-gradient(120% 90% at 50% 0%, rgba(100, 210, 255, 0.08), transparent 60%), rgba(0, 0, 0, 0.32);
+  background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--live) 8%, transparent), transparent 60%), rgba(0, 0, 0, 0.32);
   overflow: hidden;
 }
 .call-panel[data-phase="error"] .call-stage,
@@ -2038,14 +2038,14 @@ body.chat-media-modal-open { overflow: hidden; }
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  border: 2px solid rgba(100, 210, 255, 0.55);
-  box-shadow: 0 0 0 0 rgba(100, 210, 255, 0.35);
+  border: 2px solid color-mix(in srgb, var(--live) 55%, transparent);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--live) 35%, transparent);
 }
 .call-panel[data-phase^="ringing"] .call-voice-ring { animation: call-ring 1.6s ease-out infinite; }
 .call-panel[data-phase="active"] .call-voice-ring { border-color: rgba(48, 209, 88, 0.6); }
 @keyframes call-ring {
-  0% { box-shadow: 0 0 0 0 rgba(100, 210, 255, 0.38); }
-  100% { box-shadow: 0 0 0 18px rgba(100, 210, 255, 0); }
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--live) 38%, transparent); }
+  100% { box-shadow: 0 0 0 18px transparent; }
 }
 .call-voice-label { margin: 0; font-size: 13px; color: #ffffff; }
 .call-trust {
@@ -2102,7 +2102,7 @@ body.chat-media-modal-open { overflow: hidden; }
 .call-ctl.danger:hover svg { background: #ff766f; }
 .call-ctl.accept svg { background: var(--call-ok); }
 .call-ctl.accept:hover svg { background: #4ade72; }
-#callRetry svg { color: #04121c; background: var(--call-accent); }
+#callRetry svg { color: var(--ink); background: var(--call-accent); }
 @media (prefers-reduced-motion: reduce) {
   .call-panel[data-phase^="ringing"] .call-voice-ring { animation: none; }
 }

@@ -1768,14 +1768,16 @@
       }
       return pts;
     }
-    // Link colours match the legend: cyan solid = reached, red dashed = timed out, grey dashed = silent.
+    // Offline devices and their links: the theme's muted tone, sunk toward its ink.
+    const offlineHex = () => mixHex(themeColorHex("--mute", 0x7a93a6), themeColorHex("--ink", 0x04070d), 0.6);
+    // Link colours match the legend: live solid = reached, red dashed = timed out, muted dashed = silent.
     function orbitLinkStyle() {
       const live = themeColorHex("--live", 0x5ee7ff);
       return {
         synced: { color: live, dashed: false, opacity: 0.78 },
         online: { color: live, dashed: false, opacity: 0.42 },
         unreachable: { color: 0xff6b5e, dashed: true, opacity: 0.7 },
-        offline: { color: 0x4a6273, dashed: true, opacity: 0.3 }
+        offline: { color: offlineHex(), dashed: true, opacity: 0.3 }
       };
     }
     const linkFor = (peer, data) => {
@@ -1941,7 +1943,7 @@
       if (state !== "synced" && state !== "online") return [];
       const link = linkFor(peer, data);
       const packets = [{
-        kind: "sync", color: themeColorHex("--live", 0xc4b5fd), phase: index * 0.17, speed: 0.00012,
+        kind: "sync", color: themeColorHex("--live", 0x5ee7ff), phase: index * 0.17, speed: 0.00012,
         text: link?.packets ? "Sync · " + plural(link.packets, "packet") : "Sync"
       }];
       const decision = (data.decisions || [])[0];
@@ -1977,7 +1979,7 @@
     // A small open laptop drawn as a holographic outline: base, key rows, lid and a glowing screen.
     function deviceMesh(color, self) {
       const group = new THREE.Group();
-      const edge = themeColorHex("--sea", 0x09070f);
+      const edge = themeColorHex("--sea", 0x07131c);
       const base = outlined(new THREE.BoxGeometry(0.12, 0.007, 0.074), edge, color);
       base.position.y = 0.0035;
       const keys = [];
@@ -2037,7 +2039,7 @@
         } else if (pt.peer.self) {
           color = accentHex;
         } else if (!alive(pt.peer)) {
-          color = 0x4a6273;
+          color = offlineHex();
         }
         const pos = latLon(pt.lat, pt.lon, RADIUS * 1.01);
         const group = new THREE.Group();

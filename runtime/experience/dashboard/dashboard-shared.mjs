@@ -121,6 +121,12 @@ function themeColorHex(cssVar, fallback) {
   return (rgb.r << 16) | (rgb.g << 8) | rgb.b;
 }
 
+// A shade between two colours, for what has no theme token of its own; weight is the share of the first.
+function mixHex(a, b, weight) {
+  const channel = (shift) => Math.round(((a >> shift) & 255) * weight + ((b >> shift) & 255) * (1 - weight));
+  return (channel(16) << 16) | (channel(8) << 8) | channel(0);
+}
+
 applyShareTheme(globalThis.OVERDRIVE_WHITELABEL || globalThis.OVERDRIVE_UI || {});
 
 export {

@@ -480,7 +480,7 @@ function createLiveSessions(deps) {
   function xtermThemeBase() {
     const accent = shareCssColor("--accent", shareCssColor("--cyan", "#00b4ff"));
     const live = shareCssColor("--live", "#5ee7ff");
-    const mid = shareCssColor("--accent-mid", "rgba(109, 40, 217, 0.38)");
+    const mid = shareCssColor("--accent-mid", "rgba(0, 180, 255, 0.38)");
     return {
       background: TERM_BG,
       foreground: TERM_FG,
