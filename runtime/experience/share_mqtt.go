@@ -33,6 +33,15 @@ import (
 
 const presenceExpirySeconds uint32 = 45
 
+const (
+	// brokerGoneTTL is how long a broker that failed is passed over in the election.
+	brokerGoneTTL = 30 * time.Second
+	// chatFailBackEvery is how often a core checks it is on the broker the election picks now.
+	chatFailBackEvery = 15 * time.Second
+)
+
+var meshNow = time.Now
+
 var (
 	meshLog           = log.New(io.Discard, "", 0)
 	meshSlog          = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -116,7 +125,7 @@ type meshRuntime struct {
 	discovery       *mdns.Server
 	discoveryCancel context.CancelFunc
 	endpoints       map[string]string
-	gone            map[string]map[string]bool
+	gone            map[string]map[string]time.Time
 	links           map[string]*circleLink
 	recovering      map[string]bool
 	// linkErr is why the last attempt to reach a circle's chat failed, until one succeeds.
@@ -130,7 +139,7 @@ func (m *meshRuntime) initLocked() {
 		m.endpoints = map[string]string{}
 	}
 	if m.gone == nil {
-		m.gone = map[string]map[string]bool{}
+		m.gone = map[string]map[string]time.Time{}
 	}
 	if m.links == nil {
 		m.links = map[string]*circleLink{}
@@ -143,12 +152,28 @@ func (m *meshRuntime) initLocked() {
 	}
 }
 
-// chatLinkState is how this device reaches one circle's chat: through which host, or why not.
+// chatLinkState is how this device reaches one circle's chat: through which host, or why not. When this device
+// hosts it, Guests counts the other devices on it.
 type chatLinkState struct {
 	Connected  bool   `json:"connected"`
 	HostID     string `json:"host_id,omitempty"`
 	Recovering bool   `json:"recovering,omitempty"`
 	LastError  string `json:"last_error,omitempty"`
+	Hosted     bool   `json:"hosted,omitempty"`
+	Guests     int    `json:"guests,omitempty"`
+}
+
+func (b *circleBroker) guests(hostID string) int {
+	if b == nil || b.server == nil {
+		return 0
+	}
+	n := 0
+	for id, cl := range b.server.Clients.GetAll() {
+		if id != hostID && cl != nil && !cl.Closed() {
+			n++
+		}
+	}
+	return n
 }
 
 func noteChatLinkResult(circleID string, err error) {
@@ -171,7 +196,11 @@ func chatLinkStates() map[string]chatLinkState {
 		if link == nil {
 			continue
 		}
-		out[id] = chatLinkState{Connected: link.client != nil, HostID: link.hostID}
+		st := chatLinkState{Connected: link.client != nil, HostID: link.hostID}
+		if link.broker != nil && link.addr == link.broker.addr {
+			st.Hosted, st.Guests = true, link.broker.guests(link.hostID)
+		}
+		out[id] = st
 	}
 	for id := range meshRT.recovering {
 		st := out[id]
@@ -242,19 +271,24 @@ func markBrokerGone(circleID, deviceID string) {
 	defer meshRT.mu.Unlock()
 	meshRT.initLocked()
 	if meshRT.gone[circleID] == nil {
-		meshRT.gone[circleID] = map[string]bool{}
+		meshRT.gone[circleID] = map[string]time.Time{}
 	}
-	meshRT.gone[circleID][deviceID] = true
+	meshRT.gone[circleID][deviceID] = meshNow()
 }
 
+// brokerGoneSet is the brokers that failed recently. A mark expires, so the election comes back to a broker
+// once it may answer again.
 func brokerGoneSet(circleID string) map[string]bool {
 	meshRT.mu.Lock()
 	defer meshRT.mu.Unlock()
 	meshRT.initLocked()
 	out := map[string]bool{}
-	for id, gone := range meshRT.gone[circleID] {
-		if gone {
+	now := meshNow()
+	for id, at := range meshRT.gone[circleID] {
+		if now.Sub(at) < brokerGoneTTL {
 			out[id] = true
+		} else {
+			delete(meshRT.gone[circleID], id)
 		}
 	}
 	return out
@@ -270,12 +304,17 @@ func meshClient(meshID string) *pahomqtt.Client {
 	return link.client
 }
 
-func clearMeshClient(meshID string) {
+// clearMeshClient drops client from the circle's link when it is still the current one. A client replaced by a
+// newer one reports an error as it closes; that must not drop its successor.
+func clearMeshClient(meshID string, client *pahomqtt.Client) bool {
 	meshRT.mu.Lock()
 	defer meshRT.mu.Unlock()
-	if link := meshRT.links[meshID]; link != nil {
-		link.client = nil
+	link := meshRT.links[meshID]
+	if link == nil || link.client != client {
+		return false
 	}
+	link.client = nil
+	return true
 }
 
 func alreadyLinked(circleID, host string) bool {
@@ -516,15 +555,17 @@ func dialMeshClient(home string, circle Circle, self DeviceIdentity, priv ed2551
 	if err != nil {
 		return nil, err
 	}
-	client := pahomqtt.NewClient(pahomqtt.ClientConfig{
+	var client *pahomqtt.Client
+	client = pahomqtt.NewClient(pahomqtt.ClientConfig{
 		ClientID: self.DeviceID,
 		Conn:     pahopackets.NewThreadSafeConn(conn),
 		OnPublishReceived: []func(pahomqtt.PublishReceived) (bool, error){
 			meshClientPublishHandler(home, onPub),
 		},
 		OnClientError: func(error) {
-			clearMeshClient(circle.ID)
-			scheduleRecover(home, circle.ID)
+			if clearMeshClient(circle.ID, client) {
+				scheduleRecover(home, circle.ID)
+			}
 		},
 		PacketTimeout: 4 * time.Second,
 	})
@@ -768,6 +809,56 @@ func scheduleRecover(home, circleID string) {
 	}()
 }
 
+// chatFailBack moves each circle's chat to the broker the election picks now. A core that could not reach the
+// creator hosts the chat itself; once the creator answers again, staying would split the circle's chat in two
+// without either side noticing. A move that fails keeps the link that works.
+func chatFailBack(home string) {
+	if !meshAllowsChat() {
+		return
+	}
+	id, priv, err := loadOrCreateIdentity(home)
+	if err != nil {
+		return
+	}
+	circles, err := listCircles(home)
+	if err != nil {
+		return
+	}
+	for _, circle := range circles {
+		if _, ok := circle.activeMember(id.DeviceID); !ok {
+			continue
+		}
+		meshRT.mu.Lock()
+		link, busy := meshRT.links[circle.ID], meshRT.recovering[circle.ID]
+		host, linked := "", false
+		if link != nil {
+			host, linked = link.hostID, link.client != nil
+		}
+		meshRT.mu.Unlock()
+		if !linked || busy {
+			continue
+		}
+		want, ok := electBroker(circle, brokerGoneSet(circle.ID))
+		if !ok || want == host {
+			continue
+		}
+		if _, err := recoverCircleMeshOnce(home, circle, id, priv, want); err != nil && want != id.DeviceID {
+			markBrokerGone(circle.ID, want)
+		}
+	}
+}
+
+func chatFailBackLoop(home string, epoch uint64) {
+	ticker := time.NewTicker(chatFailBackEvery)
+	defer ticker.Stop()
+	for meshEpochOpen(epoch) {
+		<-ticker.C
+		if meshEpochOpen(epoch) {
+			chatFailBack(home)
+		}
+	}
+}
+
 func registerDiscovery(epoch uint64, srv *mdns.Server, cancel context.CancelFunc) bool {
 	meshRT.mu.Lock()
 	defer meshRT.mu.Unlock()
@@ -792,6 +883,7 @@ func startMeshServices(home string) {
 		return
 	}
 	go membershipLoop(home, epoch)
+	go chatFailBackLoop(home, epoch)
 	go func() {
 		if err := startCircleLinks(home, epoch); err != nil && !errors.Is(err, errBrokerUnknown) && meshEpochOpen(epoch) {
 			fmt.Fprintf(os.Stderr, "mesh: %v\n", err)
@@ -883,7 +975,7 @@ func stopMeshServices() {
 	suspendMeshTransports()
 	meshRT.mu.Lock()
 	meshRT.endpoints = map[string]string{}
-	meshRT.gone = map[string]map[string]bool{}
+	meshRT.gone = map[string]map[string]time.Time{}
 	meshRT.linkErr = map[string]string{}
 	meshRT.home = ""
 	meshRT.mqttPort = 0
