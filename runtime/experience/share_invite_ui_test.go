@@ -56,6 +56,10 @@ func TestCircleInviteIssueCopiesConnectionJSON(t *testing.T) {
 	home := t.TempDir()
 	setupTestEnv(t, home)
 	t.Setenv("OVERDRIVE_SHARE_LISTEN", "127.0.0.1:7741")
+	id, priv, _ := loadOrCreateIdentity(home)
+	if _, err := createCircle(home, "team", id, priv); err != nil {
+		t.Fatal(err)
+	}
 
 	rec := inviteHTTP(t, home, http.MethodPost, "/api/circle/invite", "127.0.0.1:9", []byte("{}"))
 	if rec.Code != http.StatusOK {
@@ -269,6 +273,15 @@ func inviteHTTP(t *testing.T, home, method, path, remote string, body []byte) *h
 
 func issueInviteForTest(t *testing.T, home string) issuedInviteBody {
 	t.Helper()
+	if circles, _ := listCircles(home); len(circles) == 0 {
+		id, priv, err := loadOrCreateIdentity(home)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := createCircle(home, "team", id, priv); err != nil {
+			t.Fatal(err)
+		}
+	}
 	rec := inviteHTTP(t, home, http.MethodPost, "/api/circle/invite", "127.0.0.1:9", nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("issue status %d", rec.Code)
