@@ -38,6 +38,8 @@ This section describes what the share mesh (`share listen`, circles, dashboard, 
 - **What a member can still do.** Inviting is open to every member by design, so a member with a modified core can admit devices of its own, and they stay after that member is revoked unless the creator uses `share circle revoke --with-invitees`. Each admission records who signed it (`share circle list`).
 - **Live session.** Circle membership does not open a terminal. The host core only serves a session to a device the session owner shared it with (an invite, or a terminal card posted in a chat). See [Live terminals](#live-terminals).
 - **Local dashboard.** The dashboard and its APIs bind to `127.0.0.1` by default. State-changing APIs reject non-loopback callers, cross-site fetches, and foreign `Origin` headers.
+- **Network access.** The Core started by the tray or the session hook accepts connections only from its own computer. Allowing devices on the network (Connection sheet, or Nearby) binds the share listener on every interface; the dashboard stays on loopback. Every request on that listener is sealed with a circle key and signed, except the pairing and `keys` exchanges, which carry only public keys and signed records, and a pairing still needs the code confirmed on both screens. The choice is stored in `share/network.json` and can be reverted from the same sheet.
+- **Diagnostics.** `GET /api/diagnostics` (Copy diagnostics) carries device id, hostname, addresses, circle names and ids, member counts and connection state. It never carries circle keys, previous keys, invite secrets, terminal tokens, private keys, or folder paths or names; a test checks it. Treat the report as you would a network map of your team.
 
 ### What the circle key protects
 

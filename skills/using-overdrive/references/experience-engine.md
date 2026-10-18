@@ -252,7 +252,8 @@ Rules:
 - peer recall uses a separate TurboVec index, a higher similarity floor, and requires a concrete problem signature overlap;
 - the encrypted catalog carries the page-index tree and graph edges (title, summary, parent) without `lesson_content`, vectors, or the group key;
 - if a ranked peer node is missing locally, sync may request those packet ids only, still inside allowed folders;
-- local verified memory outranks peer memory.
+- local verified memory outranks peer memory;
+- when peers do not answer, the dashboard's Connection sheet (`GET /api/connections/health` on the Core's UI port) names the cause and the fix. Devices on other computers connect only after the person allows devices on the network there; never open network access on the person's behalf.
 
 `session-start` syncs peer deltas when a circle matches the current folder and a peer endpoint responds. Fail open when nobody is online.
 
