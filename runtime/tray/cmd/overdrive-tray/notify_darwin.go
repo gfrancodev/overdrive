@@ -3,6 +3,7 @@
 package main
 
 /*
+#cgo darwin CFLAGS: -x objective-c
 #cgo darwin LDFLAGS: -framework Cocoa
 #import <Cocoa/Cocoa.h>
 #import <stdlib.h>
