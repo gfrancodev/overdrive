@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Pair & trust
+
+- **Pair from the dashboard.** Each device under Nearby has Pair. Both screens show a 6-digit code derived from both identities, both key-agreement keys and a commit-then-reveal nonce exchange, so a device in the middle gets one guess in a million. Nothing joins until both people confirm; the member picks the circle after comparing. The member then signs the admission and seals the circle key, at its current epoch, to the joiner's key-agreement key.
+- **Invites no longer carry the circle key.** A new invite is a one-time token: the joiner proves it holds the secret with an HMAC bound to its identity and the time, and gets the same sealed welcome a pairing ends with. A used invite is deleted; a wrong secret does not burn it. Invites from older cores, with the key inside, are still accepted.
+- **Explicit circle.** Invites and pairings name their circle; the dashboard keeps an active circle chosen in Circle settings instead of always using the first one, and issuing an invite no longer creates a circle on its own.
+- **Get started.** A setup panel shows only the steps the Core still reports as missing (create or join a circle, pair a device, share a folder) and creates circles from the UI. Local API: `GET /api/setup/status`, `GET/POST /api/circles`, `PATCH /api/circles/{id}`, `GET/POST /api/pairing/sessions`, `POST /api/pairing/sessions/{id}/confirm|cancel`. None of them returns key material.
+- Concurrent writes of the circle file inside the Core (membership loop, sync, roster, keys, join, pairing) no longer overwrite each other; a roster refresh could undo a key adoption.
+
 ### Install & boot
 
 - **Release bundles.** Each release now ships `overdrive-<os>-<arch>.zip` with the skills, plugin manifests, installers, runtime, TurboVec library, and a prebuilt tray built on its native runner. Installing from it needs no Go, Rust, or Docker. The workflow installs every bundle it can run, checks TurboVec loads, and upgrades it again while a Core runs before publishing.
