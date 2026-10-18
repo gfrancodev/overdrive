@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Validate
+
+- **A circle's chat no longer splits in two.** A member admitted by someone other than the creator could not reach the creator's chat yet (the creator did not know it), hosted the chat itself, and stayed there: nobody else ever heard it, and the dashboard said connected. A broker that fails is now passed over for 30 seconds only, and every 15 seconds each core moves to the broker the election picks, keeping its working link when the move fails. The Connection sheet says when a device hosts the chat with no one else on it.
+- Replacing a chat connection closed the new one too: the old connection's error handler dropped whatever link was current, and the core reconnected in a loop.
+- **Members learn a removal at once.** A member that receives the new key now fetches the creator's roster right away; before, it kept the removed device as a member until its next roster exchange, up to a minute, while that device still held the previous key.
+- **Three cores, end to end.** A new suite runs three real cores on one machine: pairing in a chain (C through B), experience reaching a device that never talked to its author, chat for the whole circle, connection health, a removal with key rotation, and diagnostics without keys. A [cross-machine runbook](docs/CROSS_MACHINE_RUNBOOK.md) covers what needs real computers.
+- **The MCP server works with MCP clients.** `overdrive-runtime mcp` only understood messages framed with Content-Length headers, as LSP does, so every client that follows the MCP stdio transport (one JSON message per line: Claude Desktop, Cursor, VS Code, Zed) hung at `initialize`. It now reads either framing and answers in the one the client used, and every tool describes its arguments with an `inputSchema`, which clients that validate the protocol require. Checked with the official MCP Python SDK.
+- **Test runs no longer leave hundreds of processes behind.** Go tests that open a terminal started the test binary as the session host; it ignored that role and ran the whole suite again in the background, and since 2.3 a Core keeps live hosts, so nothing stopped them. The test binary now acts as a real host and stops its hosts when the suite ends, and the Python suite stops the hosts its Cores left in temporary homes.
+- **Mutation testing runs again.** The gremlins gate never finished on this package: one mutant re-ran the whole suite, and its coverage pass hangs here. `scripts/mutation.sh` now mutates the lines a change touched and runs only the tests that execute each one, from a per-test coverage map.
+
 ### Recover & diagnose
 
 - **Connection health.** The menu bar's network icon shows how this device reaches the circle, and opens a Connection sheet with one line per capability (chat, calls, experience, terminals): connected, partly connected, reconnecting, offline or blocked, why, and the fix. Each device in the circle shows whether it answers, refuses connections, times out or has no route. The Core derives it from the mesh switch, the network choice, the chat link and a TCP connect to each member's listener; nothing new travels between devices.
