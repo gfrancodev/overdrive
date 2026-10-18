@@ -5,6 +5,9 @@ on:
   push:
     tags:
       - "v*"
+    branches:
+      - "release-check/**"
+  workflow_dispatch:
 
 jobs:
   build:
@@ -84,6 +87,9 @@ jobs:
           test -s "runtime/lib/${{ matrix.target }}/${{ matrix.lib }}"
           test "$(wc -c < "runtime/bin/${{ matrix.bin }}")" -gt 100000
           test "$(wc -c < "runtime/lib/${{ matrix.target }}/${{ matrix.lib }}")" -gt 10000
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            python scripts/verify_windows_dll.py "runtime/lib/${{ matrix.target }}/${{ matrix.lib }}"
+          fi
 
       - name: Package platform zip (Unix)
         if: runner.os != 'Windows'
@@ -112,6 +118,7 @@ jobs:
   release:
     name: Publish GitHub Release
     needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
