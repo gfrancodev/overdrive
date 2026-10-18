@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 2.2.1 - 2026-10-17
+
+### Fixes
+
+- **Windows:** every TurboVec DLL since 0.3.0 was linked without its `od_tv_*` exports, so the runtime panicked on any command that opened the engine (`status`, recall, capture). The DLLs are now built with the MSVC targets and a static C runtime, so they need no Visual C++ Redistributable. The release checks each DLL's exports and imports before publishing, and the DLLs in the repository were replaced.
+- The runtime no longer crashes when the TurboVec library loads without its functions: it runs without TurboVec, as when the library is missing.
+- **macOS:** the tray never compiled. Its notification code is Objective-C and was compiled as C, and with an exported Go callback the class was defined twice. The Objective-C now lives in `notify_darwin.m`.
+
 ## 2.2.0 - 2026-10-17
 
 ### Security
