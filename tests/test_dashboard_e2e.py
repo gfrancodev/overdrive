@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import socket
 import subprocess
@@ -146,3 +147,79 @@ def test_call_events_and_terminal_session_api(share_ui):
     assert status == 200
     ids = [s.get("id") for s in listed.get("sessions", [])]
     assert session_id in ids
+
+
+def _start_share_listen(runtime_bin: Path, env: dict[str, str], repo: str, port: int) -> subprocess.Popen:
+    proc = subprocess.Popen(
+        [str(runtime_bin), "share", "listen", "--cwd", repo],
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    base = f"http://127.0.0.1:{port + 1}"
+    for _ in range(100):
+        try:
+            with urllib.request.urlopen(base + "/api/core/ui", timeout=1) as resp:
+                if resp.status == 200:
+                    return proc
+        except OSError:
+            time.sleep(0.1)
+    proc.kill()
+    pytest.fail("share UI did not start")
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def test_core_restart_keeps_an_open_terminal(runtime_bin: Path):
+    # Stopping the Core from the tray and starting it again (an upgrade does the same) must not close the
+    # terminals that were open: their session hosts outlive the Core and the next one adopts them.
+    home = Path("/tmp") / f"od-e2e-{uuid.uuid4().hex[:10]}"
+    home.mkdir(parents=True, exist_ok=True)
+    env = runtime_env(home)
+    repo = str(make_repo(Path("/tmp") / f"od-repo-{uuid.uuid4().hex[:10]}"))
+    circle = json.loads(run(str(runtime_bin), "share", "circle", "create", "--name", "restart", env=env).stdout)
+    run(str(runtime_bin), "share", "circle", "folder-add", "--circle", circle["id"], "--folder", repo, env=env)
+    port = free_port()
+    env["OVERDRIVE_SHARE_LISTEN"] = f"127.0.0.1:{port}"
+    base = f"http://127.0.0.1:{port + 1}"
+
+    proc = _start_share_listen(runtime_bin, env, repo, port)
+    session_id = ""
+    try:
+        status, created = http_json("POST", f"{base}/api/v1/terminal/sessions", {
+            "name": "survivor", "cols": 80, "rows": 24, "circle_id": circle["id"],
+            "project_root": repo, "working_directory": repo,
+        })
+        assert status == 201, created
+        session_id = (created.get("session") or created)["id"]
+        host_pid = 0
+        for _ in range(50):
+            _, got = http_json("GET", f"{base}/api/v1/terminal/sessions/{session_id}")
+            sess = got.get("session") or got
+            host_pid = int(sess.get("host_pid") or 0)
+            if host_pid and sess.get("state") == "RUNNING":
+                break
+            time.sleep(0.1)
+        assert host_pid and _pid_alive(host_pid)
+
+        http_json("POST", f"{base}/api/core/stop")
+        proc.wait(timeout=10)
+        assert _pid_alive(host_pid), "the session host must outlive the Core"
+
+        proc = _start_share_listen(runtime_bin, env, repo, port)
+        _, got = http_json("GET", f"{base}/api/v1/terminal/sessions/{session_id}")
+        sess = got.get("session") or got
+        assert sess.get("state") == "RUNNING", sess
+        assert _pid_alive(host_pid), "the next Core must adopt the open terminal, not kill it"
+    finally:
+        if session_id:
+            http_json("POST", f"{base}/api/v1/terminal/sessions/{session_id}/terminate")
+        proc.terminate()
+        proc.wait(timeout=5)
+
