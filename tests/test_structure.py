@@ -336,7 +336,8 @@ def test_experience_engine_is_transversal_not_a_skill():
 def test_manifests_are_v030_or_newer():
     for rel in ['.claude-plugin/plugin.json', '.cursor-plugin/plugin.json', '.codex-plugin/plugin.json']:
         data = json.loads((ROOT / rel).read_text())
-        major, minor, patch = [int(x) for x in data['version'].split('.')]
+        # A release candidate carries a suffix (2.3.0-rc.1); the numeric core is what is compared.
+        major, minor, patch = [int(x) for x in data['version'].split('-')[0].split('.')]
         assert (major, minor, patch) >= (0, 3, 0)
         desc = data['description'].lower()
         assert any(('experience' in desc, 'learn' in desc))

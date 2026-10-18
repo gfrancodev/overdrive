@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 2.3.0-rc.1 - 2026-10-18
+
+Release candidate for 2.3.0: install it on the computers you can test with and run the [cross-machine runbook](docs/CROSS_MACHINE_RUNBOOK.md) before the final release.
 
 ### Validate
 

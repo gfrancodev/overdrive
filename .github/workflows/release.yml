@@ -245,3 +245,5 @@ jobs:
         with:
           files: dist/*.zip
           generate_release_notes: true
+          # A tag with a suffix (v2.3.0-rc.1) is a pre-release: it never becomes the "latest" release.
+          prerelease: ${{ contains(github.ref_name, '-') }}
