@@ -60,6 +60,9 @@ var (
 	hookCheckpointLocalMemory = checkpointLocalMemory
 	hookOpenDynamicLib        func(path string) (uintptr, error)
 	hookRowsScanErr           error
+	// hookSessionHostStarted sees the pid of every session host this process starts, so a test binary can stop
+	// the hosts its tests left behind.
+	hookSessionHostStarted func(pid int)
 )
 
 func defaultCreateTemp(dir, pattern string) (writeCloser, error) {
