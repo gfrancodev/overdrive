@@ -28,7 +28,10 @@ type discoveredPeer struct {
 	Host         string `json:"host,omitempty"`
 	Port         int    `json:"port,omitempty"`
 	MQTTPort     int    `json:"mqtt_port,omitempty"`
-	LastSeen     string `json:"last_seen"`
+	// LocalOnly is set when the device announced that it accepts connections only from itself. Cores before
+	// 2.3 do not say, and are not assumed to be.
+	LocalOnly bool   `json:"local_only,omitempty"`
+	LastSeen  string `json:"last_seen"`
 }
 
 type discoveryAnnouncement struct {
@@ -38,6 +41,8 @@ type discoveryAnnouncement struct {
 	DeviceID     string
 	Port         int
 	MQTTPort     int
+	// Net is "lan" when devices on the network can connect and "local" when only this computer can.
+	Net string
 }
 
 type discoveredFile struct {
@@ -67,6 +72,9 @@ func announcementTXT(ann discoveryAnnouncement) []string {
 	}
 	if ann.MQTTPort > 0 {
 		txt = append(txt, "mqtt="+strconv.Itoa(ann.MQTTPort))
+	}
+	if ann.Net != "" {
+		txt = append(txt, "net="+ann.Net)
 	}
 	return txt
 }
@@ -140,7 +148,15 @@ func localDiscoveryAnnouncement(home string) (discoveryAnnouncement, error) {
 		DeviceID:     id.DeviceID,
 		Port:         shareAnnouncePort(),
 		MQTTPort:     meshMQTTPort(),
+		Net:          announcedNet(),
 	}, nil
+}
+
+func announcedNet() string {
+	if announcesNetwork() {
+		return "lan"
+	}
+	return "local"
 }
 
 // newOverdriveMDNS builds the DNS-SD service this device advertises.
@@ -181,6 +197,7 @@ func peerFromTXT(txt []string, host string, port int) (discoveredPeer, bool) {
 		DisplayName:  fields["dn"],
 		Host:         host,
 		Port:         port,
+		LocalOnly:    fields["net"] == "local",
 		LastSeen:     nowRFC3339(),
 	}
 	if raw := fields["mqtt"]; raw != "" {
@@ -472,6 +489,23 @@ func browseOnce(ctx context.Context, home string) {
 			return
 		}
 	}
+}
+
+// restartDiscovery announces again after something peers read from the announcement changed. Discovery that
+// was not running stays off.
+func restartDiscovery(home string) {
+	meshRT.mu.Lock()
+	srv, cancel, epoch := meshRT.discovery, meshRT.discoveryCancel, meshRT.epoch
+	meshRT.discovery, meshRT.discoveryCancel = nil, nil
+	meshRT.mu.Unlock()
+	if srv == nil {
+		return
+	}
+	if cancel != nil {
+		cancel()
+	}
+	_ = srv.Shutdown()
+	_ = startDiscovery(home, epoch)
 }
 
 func discoveryAdvertising() bool {

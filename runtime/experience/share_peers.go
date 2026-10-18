@@ -18,6 +18,9 @@ var (
 )
 
 func advertisedListenAddr() string {
+	if override := currentListenOverride(); override != "" {
+		return publicEndpoint(override)
+	}
 	raw := strings.TrimSpace(os.Getenv("OVERDRIVE_SHARE_LISTEN"))
 	if raw == "" {
 		return ""
@@ -48,8 +51,8 @@ func publicEndpoint(listenAddr string) string {
 }
 
 func (sl *shareListener) selfEndpoint() string {
-	if sl != nil && sl.ln != nil {
-		return publicEndpoint(sl.ln.Addr().String())
+	if ln := sl.listener(); ln != nil {
+		return publicEndpoint(ln.Addr().String())
 	}
 	return advertisedListenAddr()
 }

@@ -376,7 +376,7 @@ func startPairing(home, endpoint, expectedDeviceID string) (pairingView, error) 
 	}
 	reply, err := sendPairMessage(endpoint, hello)
 	if err != nil {
-		return pairingView{}, err
+		return pairingView{}, explainPairingDial(home, expectedDeviceID, endpoint, err)
 	}
 	if expectedDeviceID != "" && reply.Member.DeviceID != expectedDeviceID {
 		return pairingView{}, errors.New("the device that answered is not the one you picked")
@@ -406,6 +406,23 @@ func startPairing(home, endpoint, expectedDeviceID string) (pairingView, error) 
 	pairings.Unlock()
 	go pollPairing(home, s.ID, id, priv, self)
 	return view, nil
+}
+
+// explainPairingDial turns a failed connection to the picked device into its cause and fix, as connection
+// health words them. Errors past the connection are returned as they are.
+func explainPairingDial(home, deviceID, endpoint string, err error) error {
+	var op *net.OpError
+	if !errors.As(err, &op) || op.Op != "dial" {
+		return err
+	}
+	p := peerHealth{Name: "the other device", Endpoint: endpoint, Reach: classifyDialError(err)}
+	if seen, ok := nearbyByID(home)[deviceID]; ok {
+		p.LocalOnly = seen.LocalOnly
+		if seen.FriendlyName != "" {
+			p.Name = seen.FriendlyName
+		}
+	}
+	return errors.New("Could not reach " + p.Name + ". " + peerFix(p))
 }
 
 // pollPairing waits for the member's decision. A welcome is kept until this side's person confirms the code;

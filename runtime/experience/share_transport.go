@@ -4,9 +4,11 @@ import (
 	"bufio"
 	"crypto/ed25519"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,7 +23,10 @@ const (
 )
 
 type shareListener struct {
-	ln   net.Listener
+	mu sync.Mutex
+	ln net.Listener
+	// bind is the address the listener was asked for, with the port it got: a wildcard bind reports "[::]".
+	bind string
 	home string
 	id   DeviceIdentity
 	stop chan struct{}
@@ -37,20 +42,92 @@ func shareListenAddr() string {
 
 var (
 	shareListenerOnce sync.Once
+	shareListenerMu   sync.Mutex
 	shareListenerInst *shareListener
 )
 
+func currentShareListener() *shareListener {
+	shareListenerMu.Lock()
+	defer shareListenerMu.Unlock()
+	return shareListenerInst
+}
+
 func startShareListener(home string, id DeviceIdentity, priv ed25519.PrivateKey) (*shareListener, error) {
 	loadMeshState(home)
-	addr := shareListenAddr()
+	addr := effectiveShareListen(home)
 	ln, err := hookNetListen("tcp", addr)
 	if err != nil {
-		return shareListenerInst, err
+		return currentShareListener(), err
 	}
-	sl := &shareListener{ln: ln, home: home, id: id, stop: make(chan struct{})}
+	bind := boundAddr(addr, ln)
+	if addr != shareListenAddr() {
+		setListenOverride(bind)
+	}
+	sl := &shareListener{ln: ln, bind: bind, home: home, id: id, stop: make(chan struct{})}
+	shareListenerMu.Lock()
 	shareListenerInst = sl
+	shareListenerMu.Unlock()
 	go sl.serve(priv)
 	return sl, nil
+}
+
+// boundAddr is addr with the port the listener actually got.
+func boundAddr(addr string, ln net.Listener) string {
+	host, _, err := net.SplitHostPort(normalizeListen(addr))
+	tcp, ok := ln.Addr().(*net.TCPAddr)
+	if err != nil || !ok {
+		return ln.Addr().String()
+	}
+	return net.JoinHostPort(host, strconv.Itoa(tcp.Port))
+}
+
+func (sl *shareListener) bindAddr() string {
+	if sl == nil {
+		return ""
+	}
+	sl.mu.Lock()
+	defer sl.mu.Unlock()
+	if sl.bind == "" && sl.ln != nil {
+		return sl.ln.Addr().String()
+	}
+	return sl.bind
+}
+
+func (sl *shareListener) listener() net.Listener {
+	if sl == nil {
+		return nil
+	}
+	sl.mu.Lock()
+	defer sl.mu.Unlock()
+	return sl.ln
+}
+
+// rebind moves the listener to addr. The old socket closes first, because a wildcard bind cannot share a
+// port with a loopback one; when the new bind fails the old address is taken back.
+func (sl *shareListener) rebind(addr string) error {
+	sl.mu.Lock()
+	defer sl.mu.Unlock()
+	old := sl.ln
+	if old == nil {
+		return errors.New("listener is not running")
+	}
+	prev := sl.bind
+	if prev == "" {
+		prev = old.Addr().String()
+	}
+	if prev == addr {
+		return nil
+	}
+	_ = old.Close()
+	ln, err := hookNetListen("tcp", addr)
+	if err != nil {
+		if back, backErr := hookNetListen("tcp", prev); backErr == nil {
+			sl.ln = back
+		}
+		return err
+	}
+	sl.ln, sl.bind = ln, boundAddr(addr, ln)
+	return nil
 }
 
 func ensureShareListener(home string) {
@@ -69,12 +146,17 @@ func ensureShareListener(home string) {
 
 func (sl *shareListener) serve(priv ed25519.PrivateKey) {
 	for {
-		conn, err := sl.ln.Accept()
+		ln := sl.listener()
+		conn, err := ln.Accept()
 		if err != nil {
 			select {
 			case <-sl.stop:
 				return
 			default:
+			}
+			if errors.Is(err, net.ErrClosed) && sl.listener() == ln {
+				// Closed without a replacement: a rebind that could not take any address back.
+				time.Sleep(200 * time.Millisecond)
 			}
 			continue
 		}
@@ -182,7 +264,9 @@ func (sl *shareListener) handleSyncWire(conn net.Conn, circle Circle, priv ed255
 func (sl *shareListener) Close() {
 	sl.once.Do(func() {
 		close(sl.stop)
-		_ = sl.ln.Close()
+		if ln := sl.listener(); ln != nil {
+			_ = ln.Close()
+		}
 	})
 }
 
