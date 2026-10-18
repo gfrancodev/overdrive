@@ -8,6 +8,20 @@ $LibDir = if ($env:OVERDRIVE_LIB_DIR) { $env:OVERDRIVE_LIB_DIR } else { Join-Pat
 
 New-Item -ItemType Directory -Force -Path $SkillsDir, $OverdriveHome, $BinDir, $LibDir | Out-Null
 
+# Windows refuses to overwrite a running executable or a loaded DLL but lets it be renamed. Copy the new file
+# beside it, move the old one aside, then put the new one in place; a stale .old goes on the next install.
+function Install-OverdriveFile([string]$Source, [string]$Dest) {
+    $staged = "$Dest.new"
+    Copy-Item -Force $Source $staged
+    $old = "$Dest.old"
+    Remove-Item -Force $old -ErrorAction SilentlyContinue
+    if (Test-Path $Dest) {
+        Move-Item -Force $Dest $old
+    }
+    Move-Item -Force $staged $Dest
+    Remove-Item -Force $old -ErrorAction SilentlyContinue
+}
+
 Get-ChildItem (Join-Path $Root "skills") -Directory | ForEach-Object {
     $Dest = Join-Path $SkillsDir $_.Name
     if (Test-Path $Dest) { Remove-Item -Recurse -Force $Dest }
@@ -26,12 +40,12 @@ $DestRuntime = Join-Path $BinDir "overdrive-runtime.exe"
 if (-not (Test-Path $Source)) {
     throw "Compatible Overdrive runtime is missing: $Source. Install ships only the Windows-$Target prebuilt binary."
 }
-Copy-Item -Force $Source $DestRuntime
+Install-OverdriveFile $Source $DestRuntime
 
 $LibSource = Join-Path $Root "runtime\lib\windows-$Target\overdrive_turbovec_ffi.dll"
 if (Test-Path $LibSource) {
-    Copy-Item -Force $LibSource (Join-Path $LibDir "overdrive_turbovec_ffi.dll")
-    Copy-Item -Force $LibSource (Join-Path $BinDir "overdrive_turbovec_ffi.dll")
+    Install-OverdriveFile $LibSource (Join-Path $LibDir "overdrive_turbovec_ffi.dll")
+    Install-OverdriveFile $LibSource (Join-Path $BinDir "overdrive_turbovec_ffi.dll")
 }
 
 # Remove foreign runtime artifacts from prior installs.
@@ -67,7 +81,7 @@ $TrayPrebuilt = Join-Path $Root "runtime\bin\overdrive-tray-windows-$Target.exe"
 $TraySrc = Join-Path $Root "runtime\tray"
 $TrayOK = $false
 if (Test-Path $TrayPrebuilt) {
-    Copy-Item -Force $TrayPrebuilt $TrayDest
+    Install-OverdriveFile $TrayPrebuilt $TrayDest
     $TrayOK = $true
 } elseif ((Test-Path (Join-Path $TraySrc "go.mod")) -and (Get-Command go -ErrorAction SilentlyContinue)) {
     $savedCgo = $env:CGO_ENABLED
@@ -80,8 +94,11 @@ if (Test-Path $TrayPrebuilt) {
         $env:GOARCH = $Target
         Push-Location $TraySrc
         $pushed = $true
-        & go build -buildvcs=false -trimpath "-ldflags=-s -w" -o $TrayDest .\cmd\overdrive-tray
-        if ($LASTEXITCODE -eq 0 -and (Test-Path $TrayDest)) {
+        $TrayBuilt = Join-Path $BinDir "overdrive-tray.build.exe"
+        & go build -buildvcs=false -trimpath "-ldflags=-s -w" -o $TrayBuilt .\cmd\overdrive-tray
+        if ($LASTEXITCODE -eq 0 -and (Test-Path $TrayBuilt)) {
+            Install-OverdriveFile $TrayBuilt $TrayDest
+            Remove-Item -Force $TrayBuilt -ErrorAction SilentlyContinue
             $TrayOK = $true
         }
     } catch {

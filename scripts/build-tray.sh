@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Build the tray only. This does not compile TurboVec or the experience module.
+# Usage: ./scripts/build-tray.sh            # host tray (plus Windows trays on Linux)
+#        ./scripts/build-tray.sh linux-arm64 # one target; macOS targets need a macOS host (CGO)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -38,6 +40,26 @@ build_one() {
     return 0
   fi
 }
+
+if [[ -n "${1:-}" ]]; then
+  goos="${1%-*}"
+  goarch="${1#*-}"
+  name="overdrive-tray-${goos}-${goarch}"
+  cgo=0
+  if [[ "$goos" = "windows" ]]; then
+    name="${name}.exe"
+  fi
+  if [[ "$goos" = "darwin" ]]; then
+    cgo=1
+  fi
+  (
+    cd "$SRC"
+    CGO_ENABLED="$cgo" GOOS="$goos" GOARCH="$goarch" \
+      go build -buildvcs=false -trimpath -ldflags='-s -w' -o "$OUT/$name" ./cmd/overdrive-tray
+  )
+  echo "Tray binary written to $OUT/$name"
+  exit 0
+fi
 
 name="overdrive-tray-${host_os}-${host_arch}"
 if [[ "$host_os" = "windows" ]]; then

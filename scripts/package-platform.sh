@@ -42,6 +42,13 @@ artifact="$(runtime_artifact_name "$TARGET_OS" "$TARGET_ARCH")"
 lib_name="$(turbovec_lib_name "$TARGET_OS")"
 cp "$ROOT/runtime/bin/$artifact" "$OUT/runtime/bin/$artifact"
 cp "$ROOT/runtime/lib/${TARGET_OS}-${TARGET_ARCH}/$lib_name" "$OUT/runtime/lib/${TARGET_OS}-${TARGET_ARCH}/$lib_name"
+tray="$(tray_artifact_name "$TARGET_OS" "$TARGET_ARCH")"
+if [[ -n "$tray" && -f "$ROOT/runtime/bin/$tray" ]]; then
+  cp "$ROOT/runtime/bin/$tray" "$OUT/runtime/bin/$tray"
+elif [[ "${OVERDRIVE_REQUIRE_TRAY:-}" = "1" ]]; then
+  echo "tray binary missing: runtime/bin/$tray (run scripts/build-tray.sh ${TARGET_OS}-${TARGET_ARCH})" >&2
+  exit 1
+fi
 
 if install_tree_has_forbidden_payload "$OUT"; then
   echo "package contains forbidden dev payload" >&2
