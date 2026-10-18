@@ -75,6 +75,9 @@ def test_network_text_says_who_can_connect():
           cn.diagnosticsText({ a: 1 }),
         ];
     """)
-    assert out[0] == "Only this computer can connect to Overdrive here (127.0.0.1:7741). Devices on the network can see it but can't connect."
+    assert out[0] == (
+        "Only this computer can pair, sync experience or open terminals with Overdrive here (127.0.0.1:7741). "
+        "Devices on the network see it but can't do those. Circle chat, open only to members, still crosses the network."
+    )
     assert out[1].startswith("Devices on this network connect to 192.168.1.2:7741. Only circle members get in")
     assert out[2:] == ["", "Blocked", "Checking", "Experience", "other", '{\n  "a": 1\n}']

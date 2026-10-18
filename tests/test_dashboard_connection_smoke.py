@@ -161,8 +161,8 @@ def test_connection_sheet_lets_the_network_in(lone_core, playwright):
         page.wait_for_selector("#health:not([hidden])", timeout=5_000)
         assert page.locator("#healthSummary").inner_text() == "Experience and Terminals are blocked."
         experience = page.locator("#healthCaps .row", has_text="Experience")
-        assert "accepts connections only from this computer" in experience.inner_text()
-        assert page.locator("#healthNetwork").inner_text().startswith("Only this computer can connect")
+        assert "accepts sync connections only from this computer" in experience.inner_text()
+        assert page.locator("#healthNetwork").inner_text().startswith("Only this computer can pair")
         fixes = page.locator("#healthFixes button")
         assert fixes.all_inner_texts() == ["Allow devices on this network"], "one fix, offered once"
         assert page.locator("#networkToggle").is_hidden(), "the fix above already offers it"
@@ -182,7 +182,7 @@ def test_connection_sheet_lets_the_network_in(lone_core, playwright):
         assert page.locator("#networkToggle").inner_text() == "Accept connections only from this computer"
         page.locator("#networkToggle").click()
         page.wait_for_function(
-            "() => document.getElementById('healthNetwork')?.textContent.startsWith('Only this computer can connect')",
+            "() => document.getElementById('healthNetwork')?.textContent.startsWith('Only this computer can pair')",
             timeout=10_000,
         )
         assert api(base, "/api/network")["lan_access"] is False

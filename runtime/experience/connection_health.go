@@ -303,7 +303,7 @@ func memoryHealth(in healthInputs, peers []peerHealth) capabilityHealth {
 			Fix:    "Share a project folder with the circle.", Action: "share_folder"}
 	}
 	if !in.Network.LANAccess && remotePeers(peers) {
-		return localOnlyHealth("memory", "Other devices can't send experience to this one: it accepts connections only from this computer.")
+		return localOnlyHealth("memory", "Other devices can't send experience to this one: it accepts sync connections only from this computer.")
 	}
 	return reachHealth("memory", peers,
 		func(n int) string { return "Experience syncs with " + countDevices(n) + "." },
@@ -315,7 +315,7 @@ func memoryHealth(in healthInputs, peers []peerHealth) capabilityHealth {
 
 func terminalHealth(in healthInputs, peers []peerHealth) capabilityHealth {
 	if !in.Network.LANAccess && remotePeers(peers) {
-		return localOnlyHealth("terminal", "Other devices can't open terminals shared from this one: it accepts connections only from this computer.")
+		return localOnlyHealth("terminal", "Other devices can't open terminals shared from this one: it accepts terminal connections only from this computer.")
 	}
 	return reachHealth("terminal", peers,
 		func(n int) string { return "Terminals can be shared with " + countDevices(n) + "." },
