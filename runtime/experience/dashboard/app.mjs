@@ -189,6 +189,7 @@
     let world = null;
     let meshID = "";
     let selfID = "";
+    let onboarding = null;
     let discovered = [];
     let discoveredOutsideCircle = [];
     const NEARBY_HIDDEN_KEY = "overdriveNearbyHidden";
@@ -370,6 +371,8 @@
     document.getElementById("copyInvite").addEventListener("click", () => copyConnection().catch(() => {}));
     document.getElementById("joinDevice").addEventListener("click", () => joinConnection().catch(() => {}));
     document.getElementById("nearbyConnection").addEventListener("click", () => openManualConnection("joinJSON"));
+    document.getElementById("setup").addEventListener("click", (ev) => ev.stopPropagation());
+    document.getElementById("pairing").addEventListener("click", (ev) => ev.stopPropagation());
     document.getElementById("chips").addEventListener("change", () => {
       selectedDevice = document.getElementById("chips").value;
       if (lastData) renderDock(lastData);
@@ -1332,7 +1335,14 @@
       tile.appendChild(macIcon());
       const text = el("span", "machine-copy");
       text.append(el("b", "", discoveryName(peer)), el("small", "", "Not in the circle"));
-      cell.append(tile, text, el("span", "check-slot"));
+      const pair = el("button", "row-pair", "Pair");
+      pair.type = "button";
+      pair.setAttribute("aria-label", "Pair with " + discoveryName(peer));
+      pair.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        if (onboarding && peer.device_id) onboarding.startPairing(peer.device_id).catch(() => {});
+      });
+      cell.append(tile, text, pair, el("span", "check-slot"));
       const name = discoveryName(peer);
       return machineRowShell(cell, rowForgetButton("Forget " + name, () => forgetNearbyPeer(peer)));
     }
@@ -2680,7 +2690,9 @@
       const status = document.getElementById("joinStatus");
       if (status) status.textContent = "";
       try {
-        const res = await fetch("/api/circle/invite", { method: "POST" });
+        const res = await fetch("/api/circle/invite", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ circle_id: meshID }),
+        });
         const body = await readInviteResponse(res);
         const invite = body.invite;
         if (!res.ok || !invite || typeof invite !== "object") {
@@ -2797,7 +2809,7 @@
 
     async function refreshMesh(peers) {
       try {
-        const circle = (peers.circles || [])[0] || null;
+        const circle = pickActiveCircle(peers.circles || [], onboarding ? onboarding.activeCircleId() : "");
         meshID = circle?.id ? circle.id : "";
         selfID = peers.device_id || "";
         const members = (circle?.members) || [];
@@ -2829,6 +2841,14 @@
     else if (initialDrawer === "live-sessions" || initialDrawer === "terminals") liveSessions.openFromHash();
     else if (initialDrawer === "nearby") openNearby();
     else if (initialDrawer === "settings") openSettings();
+    onboarding = createOnboarding({
+      onCircleChange: () => { refresh().catch(() => {}); },
+      openNearby,
+      openConnection: () => openManualConnection("joinJSON"),
+    });
+    onboarding.refreshCircles().then(() => onboarding.refreshSetup()).catch(() => {});
+    setInterval(() => { onboarding.pollPairings().catch(() => {}); }, 1000);
+    setInterval(() => { onboarding.refreshCircles().then(() => onboarding.refreshSetup()).catch(() => {}); }, 5000);
     loadInviteRule().catch(() => {});
     refresh().catch(() => {});
     setInterval(() => { refresh().catch(() => {}); }, 3000);

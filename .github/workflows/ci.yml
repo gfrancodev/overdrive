@@ -134,4 +134,4 @@ jobs:
       - name: Playwright mesh call smoke (fake media)
         env:
           OVERDRIVE_EMBEDDER: stub
-        run: python3 -m pytest tests/test_dashboard_call_media_smoke.py -q -m playwright
+        run: python3 -m pytest tests/test_dashboard_call_media_smoke.py tests/test_dashboard_pairing_smoke.py -q -m playwright

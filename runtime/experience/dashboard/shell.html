@@ -459,9 +459,53 @@
       <button type="button" class="close" id="nearbyClose" aria-label="Close"></button>
     </div>
     <div class="sheet-body">
-      <p class="hint">Seen via mDNS on your LAN. To join the circle, use a connection code from the device that invited you.</p>
+      <p class="hint">Seen via mDNS on your LAN. Pair with one to join its circle or add it to yours: both screens show a code you compare first.</p>
       <div class="card" id="discoveredPeers"></div>
       <button type="button" class="action-fill" id="nearbyConnection">Add with a connection</button>
+    </div>
+  </dialog>
+  <dialog class="stack-panel" id="setup" aria-label="Get started" hidden>
+    <div class="sheet-head">
+      <div>
+        <h2>Get started</h2>
+        <p class="sheet-sub">Only the steps this device still needs.</p>
+      </div>
+      <button type="button" class="close" id="setupClose" aria-label="Close"></button>
+    </div>
+    <div class="sheet-body">
+      <ol class="setup-steps" id="setupSteps"></ol>
+      <div class="setup-action" id="setupCreate" hidden>
+        <label class="connection-field">
+          <span>Circle name</span>
+          <input type="text" id="setupCircleName" maxlength="64" autocomplete="off" spellcheck="false" placeholder="My team">
+        </label>
+        <button type="button" class="action-fill" id="setupCreateCircle">Create circle</button>
+      </div>
+      <div class="setup-action" id="setupPairRow" hidden>
+        <button type="button" class="action-fill" id="setupPairNearby">Pair with a nearby device</button>
+        <button type="button" class="action-row" id="setupUseConnection">Use a connection code</button>
+      </div>
+      <p class="hint" id="setupFolderRow" hidden>Choose a project folder to share in Circle settings. Nothing is shared until you do.</p>
+      <p class="hint" id="setupDone" hidden>Everything is set up: chat, calls, shared memory and live terminals are ready.</p>
+      <output class="hint" id="setupStatus"></output>
+    </div>
+  </dialog>
+  <dialog class="stack-panel pairing-panel" id="pairing" aria-labelledby="pairingTitle" hidden>
+    <div class="sheet-head">
+      <div>
+        <h2 id="pairingTitle">Pairing</h2>
+      </div>
+    </div>
+    <div class="sheet-body">
+      <p class="hint" id="pairingBody"></p>
+      <output class="pairing-code" id="pairingCode" aria-label="Verification code" hidden></output>
+      <label class="connection-field" id="pairingCircleField" hidden>
+        <span>Add to circle</span>
+        <select id="pairingCircle"></select>
+      </label>
+      <button type="button" class="action-fill" id="pairingConfirm" hidden>The codes match</button>
+      <button type="button" class="action-row" id="pairingCancel" hidden>Cancel</button>
+      <button type="button" class="action-row" id="pairingClose" hidden>Close</button>
     </div>
   </dialog>
   <dialog class="stack-panel" id="settings" aria-label="Circle settings" hidden>
@@ -473,6 +517,11 @@
       <button type="button" class="close" id="settingsClose" aria-label="Close"></button>
     </div>
     <div class="sheet-body" id="settingsBody">
+      <label class="connection-field" id="activeCircleField" hidden>
+        <span>Active circle</span>
+        <select id="activeCircle"></select>
+      </label>
+      <button type="button" class="action-row" id="setupOpen">Get started</button>
       <div class="settings-actions">
         <button type="button" id="meshPause">Pause mesh</button>
         <button type="button" id="meshResume">Resume mesh</button>
