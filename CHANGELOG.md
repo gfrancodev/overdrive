@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.3.0-rc.2 - 2026-10-18
+
+Second release candidate for 2.3.0. The [cross-host check](docs/runbook-results/2.3.0-rc.1-2026-10-18.md) of rc.1 found chat messages lost when the device hosting a circle's chat restarted.
+
+### Fixes
+
+- **Chat no longer loses messages while its host restarts.** The host's chat came back on a new port; the others, with the old one cached, hosted a chat of their own at once, and what they sent in that window was published where no one listened and dropped. Now a device that hosts the chat with no one else on it keeps messages queued until another device subscribes; a member that fails at a cached address asks the device for its current port; the elected host is only replaced after 20 seconds of failures, with chat queued meanwhile; links that are missing are built by the chat loop, and a chat announced at a new address is tried again at once. A message sent during the restart now arrives a few seconds later, and three cores converge in about 20 seconds instead of 54.
+- **Removed devices are dropped from the chat.** Their connection to the host's chat outlived the removal; what reached them was sealed with a key they no longer held, but they should not stay on.
+
+### Tests
+
+- `scripts/cross-host/run.sh` runs the automatable part of the cross-machine runbook on three Docker hosts, each with its own address, from a release bundle.
+
 ## 2.3.0-rc.1 - 2026-10-18
 
 Release candidate for 2.3.0: install it on the computers you can test with and run the [cross-machine runbook](docs/CROSS_MACHINE_RUNBOOK.md) before the final release.
