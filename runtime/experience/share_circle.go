@@ -375,6 +375,31 @@ func addAllowedFolder(home, circleID, folder string, actor DeviceIdentity) (Circ
 	})
 }
 
+// removeAllowedFolder stops sharing a folder: memories from it are no longer exported to the circle. Copies
+// other devices already received stay with them.
+func removeAllowedFolder(home, circleID, folder string, actor DeviceIdentity) (Circle, error) {
+	return updateCircle(home, circleID, func(c Circle) (Circle, error) {
+		if _, ok := c.activeMember(actor.DeviceID); !ok {
+			return Circle{}, errors.New("not a circle member")
+		}
+		want := filepath.Clean(folder)
+		if resolved, err := filepath.EvalSymlinks(want); err == nil {
+			want = resolved
+		}
+		kept := []string{}
+		for _, allowed := range c.AllowedFolders {
+			if allowed != folder && filepath.Clean(allowed) != want {
+				kept = append(kept, allowed)
+			}
+		}
+		if len(kept) == len(c.AllowedFolders) {
+			return Circle{}, errFolderNotShared
+		}
+		c.AllowedFolders = kept
+		return c, nil
+	})
+}
+
 func folderAllowed(c Circle, projectRoot string) bool {
 	if len(c.AllowedFolders) == 0 {
 		return false

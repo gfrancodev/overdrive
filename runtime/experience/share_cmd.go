@@ -119,20 +119,21 @@ func cmdShareIdentity(args []string) error {
 }
 
 var circleCommands = map[string]func([]string) error{
-	"create":      cmdCircleCreate,
-	"invite":      cmdCircleInvite,
-	"accept":      cmdCircleAccept,
-	"revoke":      cmdCircleRevoke,
-	"rekey":       cmdCircleRekey,
-	"list":        cmdCircleList,
-	"folder-add":  cmdCircleFolderAdd,
-	"folder-list": cmdCircleFolderList,
-	"prune":       cmdCirclePrune,
+	"create":        cmdCircleCreate,
+	"invite":        cmdCircleInvite,
+	"accept":        cmdCircleAccept,
+	"revoke":        cmdCircleRevoke,
+	"rekey":         cmdCircleRekey,
+	"list":          cmdCircleList,
+	"folder-add":    cmdCircleFolderAdd,
+	"folder-list":   cmdCircleFolderList,
+	"folder-remove": cmdCircleFolderRemove,
+	"prune":         cmdCirclePrune,
 }
 
 func cmdShareCircle(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("usage: share circle <create|invite|accept|revoke|rekey|list|folder-add|folder-list|prune>")
+		return fmt.Errorf("usage: share circle <create|invite|accept|revoke|rekey|list|folder-add|folder-list|folder-remove|prune>")
 	}
 	handler, ok := circleCommands[args[0]]
 	if !ok {
@@ -306,6 +307,29 @@ func cmdCircleFolderAdd(args []string) error {
 			return err
 		}
 		c, err := addAllowedFolder(e.home, *circleID, *folder, id)
+		if err != nil {
+			return err
+		}
+		return writeJSON(c)
+	})
+}
+
+func cmdCircleFolderRemove(args []string) error {
+	fs := flag.NewFlagSet("share circle folder-remove", flag.ContinueOnError)
+	circleID := fs.String("circle", "", circleIDFlagHelp)
+	folder := fs.String("folder", "", "shared folder path to stop sharing")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *circleID == "" || *folder == "" {
+		return fmt.Errorf("--circle and --folder are required")
+	}
+	return withEngine(func(e *Engine) error {
+		id, _, err := loadOrCreateIdentity(e.home)
+		if err != nil {
+			return err
+		}
+		c, err := removeAllowedFolder(e.home, *circleID, *folder, id)
 		if err != nil {
 			return err
 		}

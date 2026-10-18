@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
@@ -36,16 +37,21 @@ type circleMemberView struct {
 	Revoked   bool   `json:"revoked"`
 	Self      bool   `json:"self"`
 	LastSeen  string `json:"last_seen,omitempty"`
+	// ReceivesKeys is whether a key rotation reaches this member: this core holds its key-agreement key.
+	ReceivesKeys bool `json:"receives_keys"`
 }
 
 type circleView struct {
-	ID              string             `json:"id"`
-	Name            string             `json:"name"`
-	CreatorDeviceID string             `json:"creator_device_id"`
-	IsCreator       bool               `json:"is_creator"`
-	KeyEpoch        int                `json:"key_epoch"`
-	Folders         []string           `json:"folders"`
-	Members         []circleMemberView `json:"members"`
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	CreatorDeviceID string `json:"creator_device_id"`
+	IsCreator       bool   `json:"is_creator"`
+	KeyEpoch        int    `json:"key_epoch"`
+	KeyRotatedAt    string `json:"key_rotated_at,omitempty"`
+	// PreviousKeyUntil is when deliveries sealed with the key before the last rotation stop being accepted.
+	PreviousKeyUntil string             `json:"previous_key_until,omitempty"`
+	Folders          []string           `json:"folders"`
+	Members          []circleMemberView `json:"members"`
 }
 
 func registerCircleAPIRoutes(mux *http.ServeMux, home string) {
@@ -87,6 +93,7 @@ func registerCircleAPIRoutes(mux *http.ServeMux, home string) {
 		}
 		serveCircleRename(w, r, home, r.PathValue("id"))
 	})
+	registerCircleManageRoutes(mux, home)
 }
 
 func deriveSetupStatus(home string) (setupStatus, error) {
@@ -147,10 +154,18 @@ func viewCircle(c Circle, selfID string) circleView {
 		ID: c.ID, Name: c.Name, CreatorDeviceID: c.CreatorDeviceID, IsCreator: c.CreatorDeviceID == selfID,
 		KeyEpoch: c.KeyEpoch, Folders: append([]string{}, c.AllowedFolders...), Members: []circleMemberView{},
 	}
+	if c.KeyUpdate != nil && c.KeyUpdate.Epoch == c.KeyEpoch {
+		v.KeyRotatedAt = c.KeyUpdate.CreatedAt
+	}
+	if len(c.openKeys(time.Now())) > 1 {
+		v.PreviousKeyUntil = c.PreviousKey.ExpiresAt
+	}
 	for _, m := range c.Members {
+		_, hasKex := c.KexKeys[m.DeviceID]
 		v.Members = append(v.Members, circleMemberView{
 			DeviceID: m.DeviceID, Hostname: m.Hostname, InvitedBy: c.Admissions[m.DeviceID].InvitedBy,
 			Revoked: m.Revoked, Self: m.DeviceID == selfID, LastSeen: m.LastSeen,
+			ReceivesKeys: hasKex || m.DeviceID == selfID,
 		})
 	}
 	return v
