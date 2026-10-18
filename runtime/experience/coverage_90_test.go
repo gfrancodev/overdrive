@@ -294,6 +294,7 @@ func TestShareCircleErrorPaths(t *testing.T) {
 	assertCLIRejects(t, []string{"share", "circle", "revoke"}, "--circle")
 	assertCLIRejects(t, []string{"share", "circle", "folder-add"}, "--circle")
 	assertCLIRejects(t, []string{"share", "circle", "folder-list"}, "--circle")
+	assertCLIRejects(t, []string{"share", "circle", "folder-remove"}, "--circle")
 }
 
 func assertCLIRejects(t *testing.T, args []string, needle string) {

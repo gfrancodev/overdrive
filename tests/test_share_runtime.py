@@ -545,6 +545,24 @@ def test_folder_outside_allowed_blocks_share(runtime_bin: Path, tmp_path: Path):
     assert recalled.get("peer_memories", []) == []
 
 
+def test_circle_folder_remove_stops_sharing_a_folder(runtime_bin: Path, tmp_path: Path):
+    repo = make_repo(tmp_path / "shared", "https://github.com/acme/shared.git")
+    env = runtime_env(tmp_path / "home")
+    circle = json.loads(run(str(runtime_bin), "share", "circle", "create", "--name", "scoped", env=env).stdout)
+    run(str(runtime_bin), "share", "circle", "folder-add", "--circle", circle["id"], "--folder", str(repo), env=env)
+    listed = json.loads(run(str(runtime_bin), "share", "circle", "folder-list", "--circle", circle["id"], env=env).stdout)
+    assert len(listed["allowed_folders"]) == 1
+
+    run(str(runtime_bin), "share", "circle", "folder-remove", "--circle", circle["id"], "--folder", str(repo), env=env)
+    listed = json.loads(run(str(runtime_bin), "share", "circle", "folder-list", "--circle", circle["id"], env=env).stdout)
+    assert listed["allowed_folders"] == []
+    again = subprocess.run(
+        [str(runtime_bin), "share", "circle", "folder-remove", "--circle", circle["id"], "--folder", str(repo)],
+        env=env, capture_output=True, text=True, check=False,
+    )
+    assert again.returncode != 0 and "not shared" in again.stderr
+
+
 def test_share_status_reports_off_without_circle(runtime_bin: Path, tmp_path: Path):
     home = tmp_path / 'home'
     env = runtime_env(home)
