@@ -207,6 +207,10 @@ The roster a core keeps is changed only by signed proofs, stored next to the mem
 
 Cores exchange proofs through a separate `roster` request after a sync or catalog exchange with a peer (at most once a minute per peer). A device enters another core's roster only when a member that core already trusts signed its admission; a revocation applies only with the creator's signature. The member list inside sync, catalog, and join responses now refreshes only endpoint, hostname, and last-seen of members a core already knows. A device id is derived from its Ed25519 key, so a known key never changes.
 
+### Pairing and invites (2.3+)
+
+From the dashboard, Pair on a Nearby device runs a numeric-comparison exchange over the share listener (`pair` kind, unsealed: the joiner has no circle key yet). Both screens show the same 6-digit code; after both people confirm, the member picks the circle, signs the joiner's admission and seals the circle key to the joiner's HPKE key. Invites are one-time tokens (`version: 2`, `secret`), redeemed the same way with an HMAC proof instead of a code. Local API: `/api/setup/status`, `/api/circles`, `/api/pairing/sessions`.
+
 ### Circle key rotation (2.2+)
 
 `share circle revoke` rotates the circle key after revoking; `share circle rekey --circle <id>` rotates it on demand. Only the creator rotates. Each device derives an HPKE key-agreement key (ML-KEM-768 + X25519) from its Ed25519 identity and publishes it signed; the creator seals the new key to each remaining member and signs the update. Cores trade key-agreement records and the latest update through a `keys` exchange that is not sealed with the circle key, so a member that missed a rotation can still catch up. `share listen` runs the roster and keys exchanges with every peer once a minute, and the creator pushes a new key to every member right after rotating. Receivers accept the previous key for 24 hours. Rotating drops this core's pending invites for the circle and reseals queued chat. Members whose core predates rotation are named on stderr; each gets the current key once it upgrades and syncs.

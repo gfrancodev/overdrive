@@ -48,6 +48,12 @@ The circle key does **not** separate members from each other:
 - **Chat.** Messages are signed by the sender and sealed with the circle key. Every member's core receives every chat topic, and direct messages and custom groups are filtered by the receiving core. A member that runs a modified core can read direct and group messages it was not addressed to. Treat circle chat as *encrypted circle messaging*, not end-to-end encryption between two people.
 - **No forward secrecy inside a key epoch.** The circle key lasts until the next rotation. There is no ratchet, so a leaked key exposes the traffic captured while it was current. This is not equivalent to the Signal protocol.
 
+### Joining a circle
+
+- **Pairing** (dashboard, Nearby): both devices show a 6-digit code computed from both device identities, both key-agreement keys, a commitment the joiner made before seeing the member's nonce, and both nonces. A device in the middle has one chance in a million to make the codes match. Nothing happens until both people confirm; a pairing expires after two minutes and lives only in memory. The name and id a device announces over mDNS are hints; the identity that counts is the one proven in the exchange, and a pairing fails if a different device answers.
+- **Invites** are one-time tokens with a 192-bit secret and no circle key. The joiner proves it holds the secret with an HMAC bound to its own identity and the time, so a captured request cannot be replayed for another device. The inviter deletes the invite after use. Anyone who obtains an unused invite before it expires can join with it, as with any bearer token: send it over a channel you trust.
+- In both cases the member signs the admission and seals the circle key to the joiner's key-agreement key. Folders are never shared as part of joining.
+
 ### Key rotation
 
 - Every `share circle revoke` rotates the circle key; `share circle rekey` rotates it on demand. Only the creator rotates.
