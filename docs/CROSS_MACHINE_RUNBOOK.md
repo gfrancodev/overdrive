@@ -5,6 +5,19 @@ show: installing from a bundle, mDNS between hosts, firewalls, the network choic
 three devices. Run it before tagging a release that changes pairing, the mesh, or installation, and record the
 results in `docs/runbook-results/<version>-<date>.md` (copy the table at the end).
 
+## Automated part
+
+Steps 2–9 and 13–18 run without a person on one Linux machine with Docker: three containers, each with its own
+address, install the published bundle and talk to each other.
+
+```bash
+scripts/cross-host/run.sh v2.3.0-rc.2                          # the bundle of a release
+scripts/cross-host/run.sh v2.3.0-rc.2 path/to/overdrive-runtime   # that bundle with a local runtime build
+```
+
+Run it first: it catches protocol and timing problems in minutes. It does not replace the machines below: other
+operating systems, the tray, firewalls, Wi-Fi, calls and a person timing the first collaboration.
+
 ## Setup
 
 - Three computers on the same LAN: **A**, **B** and **C**. Use at least two operating systems; one Windows
