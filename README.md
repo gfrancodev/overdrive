@@ -33,7 +33,7 @@
   <strong>Architecture-aware autonomous software engineering that learns from every execution, locally and optionally across your team.</strong>
 </p>
 
-**Current release: 2.3.1.** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
+**Current release: 2.3.2.** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
 
 It combines architecture-aware discovery, a single authoritative spec, adaptive execution, autonomous decision-making, test-driven development, systematic debugging, isolated workspaces, code review, evidence-based verification, and a **local Experience Engine** (SQLite, FTS5, TurboVec, lazy MiniLM) that compounds operational knowledge across runs without a memory-management workflow. **1.2** adds opt-in **shared memory circles**; **2.0** adds the encrypted mesh dashboard on the same circle keys and allowed folders ([demo](#mesh-dashboard-in-action)).
 
@@ -947,6 +947,7 @@ Full notes live in [CHANGELOG.md](CHANGELOG.md). Shipped tags:
 
 | Version | Date | What shipped |
 |---------|------|----------------|
+| [2.3.2](https://github.com/gfrancodev/overdrive/releases/tag/v2.3.2) | 2026-10-18 | The whole dashboard follows a whitelabel theme: the call, the globe's labels and offline devices, and the terminal badges no longer keep the default cyan. |
 | [2.3.1](https://github.com/gfrancodev/overdrive/releases/tag/v2.3.1) | 2026-10-18 | A device removed before 2.3.0 is no longer dialed, and no longer keeps the tray on "Status: error". |
 | [2.3.0](https://github.com/gfrancodev/overdrive/releases/tag/v2.3.0) | 2026-10-18 | Zero-friction: release bundles with the tray, pairing from Nearby with a six-digit code, one-time invites without the circle key, shared folders and member removal from the dashboard, connection health and diagnostics, a dashboard that works offline, Restart Overdrive in the tray. |
 | [2.2.1](https://github.com/gfrancodev/overdrive/releases/tag/v2.2.1) | 2026-10-17 | Windows: TurboVec DLLs export their functions (MSVC, static CRT) and the runtime no longer crashes on a broken library; macOS tray compiles. |
