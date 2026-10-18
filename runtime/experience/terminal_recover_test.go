@@ -125,3 +125,31 @@ func TestCoreStartAdoptsLiveSessionHosts(t *testing.T) {
 	}
 	t.Fatal("an adopted host that exits must leave its session failed, not running forever")
 }
+
+func TestOnlyAHostThatAnswersItsTokenIsAdopted(t *testing.T) {
+	home := shortTempHome(t)
+	closeTerminalDBs()
+	store := mustTerminalStore(t, home)
+	if err := hookMkdirAll(terminalSessionsDir(home), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	mgr := &TerminalManager{home: home, store: store}
+	insertHostedSession(t, store, home, "ts_ok", "tok", 1)
+	fakeSessionHost(t, terminalSocketPath(home, "ts_ok"), "tok")
+	if !mgr.hostAnswers("ts_ok") {
+		t.Fatal("a host that answers its token is adopted")
+	}
+	insertHostedSession(t, store, home, "ts_wrong", "expected", 1)
+	fakeSessionHost(t, terminalSocketPath(home, "ts_wrong"), "other")
+	if mgr.hostAnswers("ts_wrong") {
+		t.Fatal("a host that refuses the token is not adopted")
+	}
+	insertHostedSession(t, store, home, "ts_notoken", "", 1)
+	fakeSessionHost(t, terminalSocketPath(home, "ts_notoken"), "")
+	if mgr.hostAnswers("ts_notoken") {
+		t.Fatal("a session without a token is not adopted")
+	}
+	if mgr.hostAnswers("ts_missing") {
+		t.Fatal("an unknown session is not adopted")
+	}
+}
