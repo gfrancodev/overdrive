@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"net"
@@ -24,7 +23,7 @@ func registerCircleInviteRoutes(mux *http.ServeMux, home string) {
 		case http.MethodGet:
 			writeInviteJSON(w, http.StatusOK, map[string]int{"ttl_seconds": inviteTTLSeconds()})
 		case http.MethodPost:
-			serveCircleInviteIssue(w, home)
+			serveCircleInviteIssue(w, r, home)
 		default:
 			http.Error(w, methodNotAllowedMsg, http.StatusMethodNotAllowed)
 		}
@@ -41,8 +40,15 @@ func registerCircleInviteRoutes(mux *http.ServeMux, home string) {
 	})
 }
 
-func serveCircleInviteIssue(w http.ResponseWriter, home string) {
-	invite, err := issueCircleInvite(home)
+func serveCircleInviteIssue(w http.ResponseWriter, r *http.Request, home string) {
+	var body struct {
+		CircleID string `json:"circle_id"`
+	}
+	if r.Body != nil {
+		r.Body = http.MaxBytesReader(w, r.Body, 4*1024)
+		_ = json.NewDecoder(r.Body).Decode(&body)
+	}
+	invite, err := issueCircleInvite(home, strings.TrimSpace(body.CircleID))
 	if err != nil {
 		writeInviteError(w, http.StatusBadRequest, err.Error())
 		return
@@ -54,33 +60,41 @@ func serveCircleInviteIssue(w http.ResponseWriter, home string) {
 	})
 }
 
-func issueCircleInvite(home string) (CircleInvite, error) {
-	id, priv, err := loadOrCreateIdentity(home)
+func issueCircleInvite(home, circleID string) (CircleInvite, error) {
+	id, _, err := loadOrCreateIdentity(home)
 	if err != nil {
 		return CircleInvite{}, err
 	}
-	circle, err := circleForInvite(home, id, priv)
+	circle, err := circleForInvite(home, id, circleID)
 	if err != nil {
 		return CircleInvite{}, err
 	}
 	return createInvite(home, circle.ID, id)
 }
 
-func circleForInvite(home string, id DeviceIdentity, priv ed25519.PrivateKey) (Circle, error) {
-	circles, err := listCircles(home)
+// circleForInvite resolves the circle an invite is for. The caller names it; only a device in exactly one
+// circle may leave it out. An invite never creates a circle on its own.
+func circleForInvite(home string, id DeviceIdentity, circleID string) (Circle, error) {
+	circles, err := memberCircles(home, id.DeviceID)
 	if err != nil {
 		return Circle{}, err
 	}
-	for _, circle := range circles {
-		if _, ok := circle.activeMember(id.DeviceID); ok {
-			return circle, nil
+	if circleID != "" {
+		for _, circle := range circles {
+			if circle.ID == circleID {
+				return circle, nil
+			}
 		}
+		return Circle{}, errors.New("this device is not in that circle")
 	}
-	name := strings.TrimSpace(computerName())
-	if name == "" {
-		name = "Circle"
+	switch len(circles) {
+	case 0:
+		return Circle{}, errors.New("create a circle before inviting")
+	case 1:
+		return circles[0], nil
+	default:
+		return Circle{}, errors.New("choose the circle to invite into")
 	}
-	return createCircle(home, name, id, priv)
 }
 
 func serveCircleJoin(w http.ResponseWriter, r *http.Request, home string) {
