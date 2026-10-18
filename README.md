@@ -1,5 +1,26 @@
 <p align="center">
+  <a href="https://github.com/gfrancodev/overdrive/releases/latest"><img src="https://img.shields.io/github/v/release/gfrancodev/overdrive" alt="Latest release"></a>
+  <a href="https://github.com/gfrancodev/overdrive/actions/workflows/ci.yml"><img src="https://github.com/gfrancodev/overdrive/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/gfrancodev/overdrive/actions/workflows/release.yml"><img src="https://github.com/gfrancodev/overdrive/actions/workflows/release.yml/badge.svg" alt="Release builds"></a>
+  <a href="#from-a-release-bundle-no-toolchain"><img src="https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows%20(amd64%2C%20arm64)-informational" alt="Platforms: Linux, macOS, Windows on amd64 and arm64"></a>
+  <a href="runtime/experience/go.mod"><img src="https://img.shields.io/github/go-mod/go-version/gfrancodev/overdrive?filename=runtime%2Fexperience%2Fgo.mod" alt="Go version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT"></a>
+</p>
+
+<p align="center">
+  <a href="https://sonarcloud.io/summary/overall?id=gfrancodev_overdrive"><img src="https://sonarcloud.io/api/project_badges/measure?project=gfrancodev_overdrive&metric=alert_status" alt="Quality gate"></a>
   <a href="https://sonarcloud.io/summary/overall?id=gfrancodev_overdrive"><img src="https://sonarcloud.io/api/project_badges/measure?project=gfrancodev_overdrive&metric=coverage" alt="Coverage"></a>
+  <a href="https://sonarcloud.io/summary/overall?id=gfrancodev_overdrive"><img src="https://sonarcloud.io/api/project_badges/measure?project=gfrancodev_overdrive&metric=security_rating" alt="Security rating"></a>
+  <a href="https://sonarcloud.io/summary/overall?id=gfrancodev_overdrive"><img src="https://sonarcloud.io/api/project_badges/measure?project=gfrancodev_overdrive&metric=reliability_rating" alt="Reliability rating"></a>
+  <a href="https://sonarcloud.io/summary/overall?id=gfrancodev_overdrive"><img src="https://sonarcloud.io/api/project_badges/measure?project=gfrancodev_overdrive&metric=sqale_rating" alt="Maintainability rating"></a>
+</p>
+
+<p align="center">
+  <a href="#compatibility"><img src="https://img.shields.io/badge/Claude%20Code-plugin%20%2B%20hooks-D97757" alt="Claude Code: plugin with session hooks"></a>
+  <a href="#compatibility"><img src="https://img.shields.io/badge/Cursor-plugin%20%2B%20hooks-black" alt="Cursor: plugin with session hooks"></a>
+  <a href="#compatibility"><img src="https://img.shields.io/badge/Codex-plugin%20%2B%20hooks-10A37F" alt="Codex: plugin with session hooks"></a>
+  <a href="#compatibility"><img src="https://img.shields.io/badge/MCP-stdio%20server-6E56CF" alt="Any MCP client over stdio"></a>
+  <a href="#compatibility"><img src="https://img.shields.io/badge/skills-~%2F.agents%2Fskills-555" alt="Agents that read ~/.agents/skills"></a>
 </p>
 
 <p align="center">
@@ -15,6 +36,46 @@
 **Current release: 2.2.0.** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
 
 It combines architecture-aware discovery, a single authoritative spec, adaptive execution, autonomous decision-making, test-driven development, systematic debugging, isolated workspaces, code review, evidence-based verification, and a **local Experience Engine** (SQLite, FTS5, TurboVec, lazy MiniLM) that compounds operational knowledge across runs without a memory-management workflow. **1.2** adds opt-in **shared memory circles**; **2.0** adds the encrypted mesh dashboard on the same circle keys and allowed folders ([demo](#mesh-dashboard-in-action)).
+
+## Quick start
+
+1. **Install it on each computer.** Pick your system: the block downloads the bundle for your OS and CPU from the latest release and runs its installer. No Go, Rust or Docker needed. The tray starts at login and runs the Core.
+
+   Linux and macOS:
+
+   ```bash
+   target="$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
+   curl -fLO "https://github.com/gfrancodev/overdrive/releases/latest/download/overdrive-$target.zip"
+   unzip -q "overdrive-$target.zip" && "./install-$target/scripts/install.sh"
+   ```
+
+   Windows (PowerShell):
+
+   ```powershell
+   $target = "windows-" + $(if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } else { "amd64" })
+   Invoke-WebRequest "https://github.com/gfrancodev/overdrive/releases/latest/download/overdrive-$target.zip" -OutFile "overdrive-$target.zip"
+   Expand-Archive "overdrive-$target.zip" -DestinationPath . -Force
+   powershell -ExecutionPolicy Bypass -File ".\install-$target\scripts\install.ps1"
+   ```
+
+2. **Connect your agent.** In [Claude Code](#claude-code), [Cursor](#cursor) or [Codex](#codex), load the unzipped `install-<os>-<arch>` folder as a local plugin and keep the folder where it is. Any other MCP client can use the [MCP server](#compatibility). From then on every session starts with what earlier ones learned and leaves what it verified; there is nothing to manage.
+
+3. **Working with a team? Pair the computers.** On the same network, open the dashboard from the tray on each computer, then:
+   - menu bar network icon → **Allow devices on this network**;
+   - on the first computer, **Get started** → create a circle;
+   - on each of the others, **Nearby** → **Pair**, check that both screens show the same six digits, and confirm on both;
+   - everywhere, **Circle settings** → share the project folder.
+
+   The menu bar network icon turns green when chat, calls, experience and terminals all connect; when one does not, its sheet says why and how to fix it.
+
+### Highlights (2.3)
+
+| Area | What you get |
+|------|----------------|
+| **Install** | One bundle per platform with the tray; installing needs no toolchain, the tray starts the Core at login, and restarting or upgrading the Core keeps open terminals. |
+| **Pair** | Pair from Nearby by comparing a six-digit code on both screens; invites are one-time tokens that no longer carry the circle key. |
+| **Share** | Shared folders, members, removal with a preview of what it does, and key status, all from Circle settings. |
+| **Diagnose** | Connection health per capability with cause and fix, copyable diagnostics without secrets, and a dashboard that works with the internet off. |
 
 ### Highlights (2.0)
 
@@ -46,7 +107,9 @@ Overdrive is one workflow among many for coding agents; see [Acknowledgements](#
 - [How it works](#how-it-works)
 - [Why Overdrive](#why-overdrive)
 - [Mesh dashboard in action](#mesh-dashboard-in-action)
+- [Quick start](#quick-start)
 - [Installation](#installation)
+  - [Compatibility](#compatibility)
   - [Cross-runtime skills](#cross-runtime-skills)
   - [Claude Code](#claude-code)
   - [Codex](#codex)
@@ -180,6 +243,31 @@ cd overdrive
 ```
 
 That is the primary install path for all supported runtimes. The installer copies **only** the skills tree and the prebuilt runtime/TurboVec library for the **current OS and CPU**. It does not install Go or Rust source, `examples/`, tests, or binaries built for other platforms. Contributor source builds require `OVERDRIVE_INSTALL_FROM_SOURCE=1`.
+
+### Compatibility
+
+| Agent | How Overdrive plugs in | What happens on its own |
+|---|---|---|
+| **Claude Code** | Plugin in `.claude-plugin/`, with session hooks | Session start brings standing decisions, handoffs and the circle's status into the session and syncs with peers; each prompt is noted for transcript hints; session end consolidates what the session produced. |
+| **Cursor** | Plugin in `.cursor-plugin/`, with session hooks | The same, on Cursor's session start, prompt submit and session end. |
+| **Codex** | Plugin in `.codex-plugin/`, with session hooks | Session start and session end, as above. |
+| **Agents that read `~/.agents/skills/`** | The skills the installer copies there | The skills; they call the runtime to recall and record. |
+| **Any MCP client** (stdio) | `overdrive-runtime mcp --cwd <project>` | Tools `recall` and `record`, when the agent calls them. |
+
+An MCP client usually takes a server entry like this (use the absolute path to the runtime; on Windows it is `%USERPROFILE%\.overdrive\bin\overdrive-runtime.exe`):
+
+```json
+{
+  "mcpServers": {
+    "overdrive": {
+      "command": "/home/you/.overdrive/bin/overdrive-runtime",
+      "args": ["mcp", "--cwd", "/path/to/project"]
+    }
+  }
+}
+```
+
+`hooks/adapters/` maps the session events of 26 more agents (among them Gemini CLI, GitHub Copilot CLI, OpenCode, Kiro, Devin and Zed) onto `hooks/run-hook.sh`. The installer does not wire those yet: add the hooks to the agent's own configuration, following its adapter.
 
 ### Cross-runtime skills
 
