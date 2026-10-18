@@ -3,8 +3,8 @@
 # own address on one network, install a release bundle, start the Core as the tray does, and pair, sync, chat,
 # restart, remove and diagnose between them through the dashboard's local API.
 #
-#   scripts/cross-host/run.sh v2.3.0-rc.2                        # the bundle published with that tag
-#   scripts/cross-host/run.sh v2.3.0-rc.2 path/to/overdrive-runtime  # that bundle, this runtime build
+#   scripts/cross-host/run.sh v2.3.0                        # the bundle published with that tag
+#   scripts/cross-host/run.sh v2.3.0 path/to/overdrive-runtime  # that bundle, this runtime build
 #
 # KEEP=1 leaves the hosts and their network up. Needs Docker, and internet access to install the bundle.
 set -euo pipefail

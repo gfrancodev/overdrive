@@ -1,6 +1,52 @@
 # Changelog
 
-## Unreleased
+## 2.3.0 - 2026-10-18
+
+Zero-Friction Experience: install from one bundle, pair two devices by comparing a code, share folders from the dashboard, and see why a connection fails and fix it there. A three-core suite and a [cross-host check](docs/runbook-results/2.3.0-rc.2-2026-10-18.md) on three Docker hosts validate it end to end.
+
+### Install & boot
+
+- **Release bundles.** Each release now ships `overdrive-<os>-<arch>.zip` with the skills, plugin manifests, installers, runtime, TurboVec library, and a prebuilt tray built on its native runner. Installing from it needs no Go, Rust, or Docker. The workflow installs every bundle it can run, checks TurboVec loads, and upgrades it again while a Core runs before publishing.
+- **The tray starts the Core.** Opening the tray (at login) starts the Core when nothing is serving, so the dashboard is ready without clicking Start.
+- **Restarting or upgrading the Core keeps open terminals.** The new Core adopts session hosts that still answer their session socket instead of killing them; before, every Core restart closed every terminal.
+
+### Pair & trust
+
+- **Pair from the dashboard.** Each device under Nearby has Pair. Both screens show a 6-digit code derived from both identities, both key-agreement keys and a commit-then-reveal nonce exchange, so a device in the middle gets one guess in a million. Nothing joins until both people confirm; the member picks the circle after comparing. The member then signs the admission and seals the circle key, at its current epoch, to the joiner's key-agreement key.
+- **Invites no longer carry the circle key.** A new invite is a one-time token: the joiner proves it holds the secret with an HMAC bound to its identity and the time, and gets the same sealed welcome a pairing ends with. A used invite is deleted; a wrong secret does not burn it. Invites from older cores, with the key inside, are still accepted.
+- **Explicit circle.** Invites and pairings name their circle; the dashboard keeps an active circle chosen in Circle settings instead of always using the first one, and issuing an invite no longer creates a circle on its own.
+- **Get started.** A setup panel shows only the steps the Core still reports as missing (create or join a circle, pair a device, share a folder) and creates circles from the UI. Local API: `GET /api/setup/status`, `GET/POST /api/circles`, `PATCH /api/circles/{id}`, `GET/POST /api/pairing/sessions`, `POST /api/pairing/sessions/{id}/confirm|cancel`. None of them returns key material.
+- Concurrent writes of the circle file inside the Core (membership loop, sync, roster, keys, join, pairing) no longer overwrite each other; a roster refresh could undo a key adoption.
+
+### Share & collaborate
+
+- **Shared folders from the dashboard.** Circle settings list the folders this device shares, share another one by its path (or `~/…`) or from the projects this device already recorded experience in, and stop sharing one. A folder must exist, and the disk root or the whole home folder is refused. Stopping a folder ends future exports from it; what other devices already received stays with them. CLI: `share circle folder-remove`.
+- **Remove a device from the dashboard.** On the creator, each member has Remove. Before anything happens, the Core says who loses access, which devices that one invited (they can go too), and which members run a core that cannot receive the new key. Removing then revokes, rotates the circle key and clears the device's terminal access, as `share circle revoke` does.
+- **Key status.** Circle settings show how many times the circle key changed and when, until when the previous key is still accepted, and which members need an update to receive new keys.
+- Local API: `GET/POST/DELETE /api/circles/{id}/folders`, `GET/POST /api/circles/{id}/members/{device}/revoke` (GET previews). Loopback only, and none returns key material.
+- Dashboard sheets showed controls that were meant to be hidden: all three pairing buttons at once, the circle picker with a single circle, and the circle field on the joining device.
+
+### Recover & diagnose
+
+- **Connection health.** The menu bar's network icon shows how this device reaches the circle, and opens a Connection sheet with one line per capability (chat, calls, experience, terminals): connected, partly connected, reconnecting, offline or blocked, why, and the fix. Each device in the circle shows whether it answers, refuses connections, times out or has no route. The Core derives it from the mesh switch, the network choice, the chat link and a TCP connect to each member's listener; nothing new travels between devices.
+- **Devices on the network can connect once you allow it.** The tray and the session hook start the Core on loopback, so before this, devices on other computers could find each other but not connect: no pairing, sync or shared terminals across machines. The Connection sheet, and Nearby, now offer "Allow devices on this network". The Core rebinds on every interface without restarting, remembers the choice in `share/network.json`, and announces it over mDNS so other devices can say "accepts connections only from itself" instead of a bare refusal. "Accept connections only from this computer" closes it again.
+- **Pairing says why it cannot reach a device**, with the same causes and fixes, instead of a raw `connection refused`.
+- **Diagnostics.** Copy diagnostics puts a report on the clipboard: version, platform, network, discovery, chat links, circles (key epoch, members, number of shared folders), nearby devices and connection health. It leaves out keys, invite secrets, tokens, and folder paths or names.
+- **The dashboard needs no internet.** Three.js, which drew the globe, came from a CDN; the Core now serves it (r170, MIT). Chat, peers and local terminals work with the WAN off, and a browser test runs the dashboard with every request off this computer blocked.
+- Local API: `GET /api/connections/health`, `GET /api/diagnostics`, `GET/POST /api/network`. Loopback only.
+
+### Validate
+
+- **A circle's chat no longer splits in two.** A member admitted by someone other than the creator could not reach the creator's chat yet (the creator did not know it), hosted the chat itself, and stayed there: nobody else ever heard it, and the dashboard said connected. A broker that fails is now passed over for 30 seconds only, and every 15 seconds each core moves to the broker the election picks, keeping its working link when the move fails. The Connection sheet says when a device hosts the chat with no one else on it.
+- Replacing a chat connection closed the new one too: the old connection's error handler dropped whatever link was current, and the core reconnected in a loop.
+- **Members learn a removal at once.** A member that receives the new key now fetches the creator's roster right away; before, it kept the removed device as a member until its next roster exchange, up to a minute, while that device still held the previous key.
+- **Three cores, end to end.** A new suite runs three real cores on one machine: pairing in a chain (C through B), experience reaching a device that never talked to its author, chat for the whole circle, connection health, a removal with key rotation, and diagnostics without keys. A [cross-machine runbook](docs/CROSS_MACHINE_RUNBOOK.md) covers what needs real computers.
+- **The MCP server works with MCP clients.** `overdrive-runtime mcp` only understood messages framed with Content-Length headers, as LSP does, so every client that follows the MCP stdio transport (one JSON message per line: Claude Desktop, Cursor, VS Code, Zed) hung at `initialize`. It now reads either framing and answers in the one the client used, and every tool describes its arguments with an `inputSchema`, which clients that validate the protocol require. Checked with the official MCP Python SDK.
+- **Test runs no longer leave hundreds of processes behind.** Go tests that open a terminal started the test binary as the session host; it ignored that role and ran the whole suite again in the background, and since 2.3 a Core keeps live hosts, so nothing stopped them. The test binary now acts as a real host and stops its hosts when the suite ends, and the Python suite stops the hosts its Cores left in temporary homes.
+- **Mutation testing runs again.** The gremlins gate never finished on this package: one mutant re-ran the whole suite, and its coverage pass hangs here. `scripts/mutation.sh` now mutates the lines a change touched and runs only the tests that execute each one, from a per-test coverage map.
+- **Chat no longer loses messages while its host restarts.** The host's chat came back on a new port; the others, with the old one cached, hosted a chat of their own at once, and what they sent in that window was published where no one listened and dropped. Now a device that hosts the chat with no one else on it keeps messages queued until another device subscribes; a member that fails at a cached address asks the device for its current port; the elected host is only replaced after 20 seconds of failures, with chat queued meanwhile; links that are missing are built by the chat loop, and a chat announced at a new address is tried again at once. A message sent during the restart now arrives a few seconds later, and three cores converge in about 20 seconds instead of 54.
+- **Removed devices are dropped from the chat.** Their connection to the host's chat outlived the removal; what reached them was sealed with a key they no longer held, but they should not stay on.
+- `scripts/cross-host/run.sh` runs the automatable part of the cross-machine runbook on three Docker hosts, each with its own address, from a release bundle.
 
 ### Tray
 
@@ -18,68 +64,15 @@
 - **A removed device is no longer dialed.** Revoking a member left its address among the endpoints the Core syncs with, so sync, the catalog and roster exchanges kept dialing it, and its last sync line, a timeout, kept the tray on "Status: error" for good. Revoked members' addresses are dropped, also from circles saved before this fix, and the dashboard shows sync results only for devices still in the circle.
 - Opening Messages, Nearby or Settings from the dock closes Get started, which stayed on top of them.
 - With no other device on the circle's chat, the Connection sheet says calls have no one to ring yet, not that the chat is out of reach.
-
-## 2.3.0-rc.2 - 2026-10-18
-
-Second release candidate for 2.3.0. The [cross-host check](docs/runbook-results/2.3.0-rc.1-2026-10-18.md) of rc.1 found chat messages lost when the device hosting a circle's chat restarted.
-
-### Fixes
-
-- **Chat no longer loses messages while its host restarts.** The host's chat came back on a new port; the others, with the old one cached, hosted a chat of their own at once, and what they sent in that window was published where no one listened and dropped. Now a device that hosts the chat with no one else on it keeps messages queued until another device subscribes; a member that fails at a cached address asks the device for its current port; the elected host is only replaced after 20 seconds of failures, with chat queued meanwhile; links that are missing are built by the chat loop, and a chat announced at a new address is tried again at once. A message sent during the restart now arrives a few seconds later, and three cores converge in about 20 seconds instead of 54.
-- **Removed devices are dropped from the chat.** Their connection to the host's chat outlived the removal; what reached them was sealed with a key they no longer held, but they should not stay on.
-
-### Tests
-
-- `scripts/cross-host/run.sh` runs the automatable part of the cross-machine runbook on three Docker hosts, each with its own address, from a release bundle.
-
-## 2.3.0-rc.1 - 2026-10-18
-
-Release candidate for 2.3.0: install it on the computers you can test with and run the [cross-machine runbook](docs/CROSS_MACHINE_RUNBOOK.md) before the final release.
-
-### Validate
-
-- **A circle's chat no longer splits in two.** A member admitted by someone other than the creator could not reach the creator's chat yet (the creator did not know it), hosted the chat itself, and stayed there: nobody else ever heard it, and the dashboard said connected. A broker that fails is now passed over for 30 seconds only, and every 15 seconds each core moves to the broker the election picks, keeping its working link when the move fails. The Connection sheet says when a device hosts the chat with no one else on it.
-- Replacing a chat connection closed the new one too: the old connection's error handler dropped whatever link was current, and the core reconnected in a loop.
-- **Members learn a removal at once.** A member that receives the new key now fetches the creator's roster right away; before, it kept the removed device as a member until its next roster exchange, up to a minute, while that device still held the previous key.
-- **Three cores, end to end.** A new suite runs three real cores on one machine: pairing in a chain (C through B), experience reaching a device that never talked to its author, chat for the whole circle, connection health, a removal with key rotation, and diagnostics without keys. A [cross-machine runbook](docs/CROSS_MACHINE_RUNBOOK.md) covers what needs real computers.
-- **The MCP server works with MCP clients.** `overdrive-runtime mcp` only understood messages framed with Content-Length headers, as LSP does, so every client that follows the MCP stdio transport (one JSON message per line: Claude Desktop, Cursor, VS Code, Zed) hung at `initialize`. It now reads either framing and answers in the one the client used, and every tool describes its arguments with an `inputSchema`, which clients that validate the protocol require. Checked with the official MCP Python SDK.
-- **Test runs no longer leave hundreds of processes behind.** Go tests that open a terminal started the test binary as the session host; it ignored that role and ran the whole suite again in the background, and since 2.3 a Core keeps live hosts, so nothing stopped them. The test binary now acts as a real host and stops its hosts when the suite ends, and the Python suite stops the hosts its Cores left in temporary homes.
-- **Mutation testing runs again.** The gremlins gate never finished on this package: one mutant re-ran the whole suite, and its coverage pass hangs here. `scripts/mutation.sh` now mutates the lines a change touched and runs only the tests that execute each one, from a per-test coverage map.
-
-### Recover & diagnose
-
-- **Connection health.** The menu bar's network icon shows how this device reaches the circle, and opens a Connection sheet with one line per capability (chat, calls, experience, terminals): connected, partly connected, reconnecting, offline or blocked, why, and the fix. Each device in the circle shows whether it answers, refuses connections, times out or has no route. The Core derives it from the mesh switch, the network choice, the chat link and a TCP connect to each member's listener; nothing new travels between devices.
-- **Devices on the network can connect once you allow it.** The tray and the session hook start the Core on loopback, so before this, devices on other computers could find each other but not connect: no pairing, sync or shared terminals across machines. The Connection sheet, and Nearby, now offer "Allow devices on this network". The Core rebinds on every interface without restarting, remembers the choice in `share/network.json`, and announces it over mDNS so other devices can say "accepts connections only from itself" instead of a bare refusal. "Accept connections only from this computer" closes it again.
-- **Pairing says why it cannot reach a device**, with the same causes and fixes, instead of a raw `connection refused`.
-- **Diagnostics.** Copy diagnostics puts a report on the clipboard: version, platform, network, discovery, chat links, circles (key epoch, members, number of shared folders), nearby devices and connection health. It leaves out keys, invite secrets, tokens, and folder paths or names.
-- **The dashboard needs no internet.** Three.js, which drew the globe, came from a CDN; the Core now serves it (r170, MIT). Chat, peers and local terminals work with the WAN off, and a browser test runs the dashboard with every request off this computer blocked.
-- Local API: `GET /api/connections/health`, `GET /api/diagnostics`, `GET/POST /api/network`. Loopback only.
-
-### Share & collaborate
-
-- **Shared folders from the dashboard.** Circle settings list the folders this device shares, share another one by its path (or `~/…`) or from the projects this device already recorded experience in, and stop sharing one. A folder must exist, and the disk root or the whole home folder is refused. Stopping a folder ends future exports from it; what other devices already received stays with them. CLI: `share circle folder-remove`.
-- **Remove a device from the dashboard.** On the creator, each member has Remove. Before anything happens, the Core says who loses access, which devices that one invited (they can go too), and which members run a core that cannot receive the new key. Removing then revokes, rotates the circle key and clears the device's terminal access, as `share circle revoke` does.
-- **Key status.** Circle settings show how many times the circle key changed and when, until when the previous key is still accepted, and which members need an update to receive new keys.
-- Local API: `GET/POST/DELETE /api/circles/{id}/folders`, `GET/POST /api/circles/{id}/members/{device}/revoke` (GET previews). Loopback only, and none returns key material.
-- Dashboard sheets showed controls that were meant to be hidden: all three pairing buttons at once, the circle picker with a single circle, and the circle field on the joining device.
-
-### Pair & trust
-
-- **Pair from the dashboard.** Each device under Nearby has Pair. Both screens show a 6-digit code derived from both identities, both key-agreement keys and a commit-then-reveal nonce exchange, so a device in the middle gets one guess in a million. Nothing joins until both people confirm; the member picks the circle after comparing. The member then signs the admission and seals the circle key, at its current epoch, to the joiner's key-agreement key.
-- **Invites no longer carry the circle key.** A new invite is a one-time token: the joiner proves it holds the secret with an HMAC bound to its identity and the time, and gets the same sealed welcome a pairing ends with. A used invite is deleted; a wrong secret does not burn it. Invites from older cores, with the key inside, are still accepted.
-- **Explicit circle.** Invites and pairings name their circle; the dashboard keeps an active circle chosen in Circle settings instead of always using the first one, and issuing an invite no longer creates a circle on its own.
-- **Get started.** A setup panel shows only the steps the Core still reports as missing (create or join a circle, pair a device, share a folder) and creates circles from the UI. Local API: `GET /api/setup/status`, `GET/POST /api/circles`, `PATCH /api/circles/{id}`, `GET/POST /api/pairing/sessions`, `POST /api/pairing/sessions/{id}/confirm|cancel`. None of them returns key material.
-- Concurrent writes of the circle file inside the Core (membership loop, sync, roster, keys, join, pairing) no longer overwrite each other; a roster refresh could undo a key adoption.
-
-### Install & boot
-
-- **Release bundles.** Each release now ships `overdrive-<os>-<arch>.zip` with the skills, plugin manifests, installers, runtime, TurboVec library, and a prebuilt tray built on its native runner. Installing from it needs no Go, Rust, or Docker. The workflow installs every bundle it can run, checks TurboVec loads, and upgrades it again while a Core runs before publishing.
-- **The tray starts the Core.** Opening the tray (at login) starts the Core when nothing is serving, so the dashboard is ready without clicking Start.
-- **Restarting or upgrading the Core keeps open terminals.** The new Core adopts session hosts that still answer their session socket instead of killing them; before, every Core restart closed every terminal.
-
-### Fixes
-
 - `install.ps1` replaces the runtime, the DLL, and the tray even while they run, by moving the old file aside.
+
+### Known limits
+
+- The steps of the [cross-machine runbook](docs/CROSS_MACHINE_RUNBOOK.md) that need real computers were not run for this release: calls and terminal control between computers, the internet unplugged, the macOS and Windows trays with their firewall prompts, and Wi-Fi. Its automated part passes.
+- Chat has no store-and-forward: a device that is offline while the others talk does not get those messages later.
+- A device learns about a member another member admitted through the roster exchange, which can take up to a minute.
+- The installer wires the hooks for Claude Code, Cursor and Codex; the 26 other agents mapped in `hooks/adapters` still need their hooks added by hand.
+- Terminals need `OVERDRIVE_HOME` short enough for their socket paths, which stop at about 104 bytes.
 
 ## 2.2.1 - 2026-10-17
 

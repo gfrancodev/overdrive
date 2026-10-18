@@ -33,7 +33,7 @@
   <strong>Architecture-aware autonomous software engineering that learns from every execution, locally and optionally across your team.</strong>
 </p>
 
-**Current release: 2.2.1.** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
+**Current release: 2.3.0.** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
 
 It combines architecture-aware discovery, a single authoritative spec, adaptive execution, autonomous decision-making, test-driven development, systematic debugging, isolated workspaces, code review, evidence-based verification, and a **local Experience Engine** (SQLite, FTS5, TurboVec, lazy MiniLM) that compounds operational knowledge across runs without a memory-management workflow. **1.2** adds opt-in **shared memory circles**; **2.0** adds the encrypted mesh dashboard on the same circle keys and allowed folders ([demo](#mesh-dashboard-in-action)).
 
@@ -72,7 +72,7 @@ It combines architecture-aware discovery, a single authoritative spec, adaptive 
 
 | Area | What you get |
 |------|----------------|
-| **Install** | One bundle per platform with the tray; installing needs no toolchain, the tray starts the Core at login, and restarting or upgrading the Core keeps open terminals. |
+| **Install** | One bundle per platform with the tray; installing needs no toolchain, the tray starts the Core at login, and Restart Overdrive in the tray loads an upgrade while open terminals stay open. |
 | **Pair** | Pair from Nearby by comparing a six-digit code on both screens; invites are one-time tokens that no longer carry the circle key. |
 | **Share** | Shared folders, members, removal with a preview of what it does, and key status, all from Circle settings. |
 | **Diagnose** | Connection health per capability with cause and fix, copyable diagnostics without secrets, and a dashboard that works with the internet off. |
@@ -947,6 +947,7 @@ Full notes live in [CHANGELOG.md](CHANGELOG.md). Shipped tags:
 
 | Version | Date | What shipped |
 |---------|------|----------------|
+| [2.3.0](https://github.com/gfrancodev/overdrive/releases/tag/v2.3.0) | 2026-10-18 | Zero-friction: release bundles with the tray, pairing from Nearby with a six-digit code, one-time invites without the circle key, shared folders and member removal from the dashboard, connection health and diagnostics, a dashboard that works offline, Restart Overdrive in the tray. |
 | [2.2.1](https://github.com/gfrancodev/overdrive/releases/tag/v2.2.1) | 2026-10-17 | Windows: TurboVec DLLs export their functions (MSVC, static CRT) and the runtime no longer crashes on a broken library; macOS tray compiles. |
 | [2.2.0](https://github.com/gfrancodev/overdrive/releases/tag/v2.2.0) | 2026-10-17 | Circle key rotation on every revoke (HPKE, ML-KEM-768 + X25519), `share circle rekey`, installer that never rewrites a running Core in place, tray unit that no longer stops the Core. |
 | [2.1.0](https://github.com/gfrancodev/overdrive/releases/tag/v2.1.0) | 2026-10-17 | Signed circle membership (admissions by the inviter, revocations by the creator), `--with-invitees` revoke, device keys bound to ids, Linux tray icon fix. |

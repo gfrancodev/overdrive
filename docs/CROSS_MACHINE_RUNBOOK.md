@@ -11,8 +11,8 @@ Steps 2–9 and 13–18 run without a person on one Linux machine with Docker: t
 address, install the published bundle and talk to each other.
 
 ```bash
-scripts/cross-host/run.sh v2.3.0-rc.2                          # the bundle of a release
-scripts/cross-host/run.sh v2.3.0-rc.2 path/to/overdrive-runtime   # that bundle with a local runtime build
+scripts/cross-host/run.sh v2.3.0                          # the bundle of a release
+scripts/cross-host/run.sh v2.3.0 path/to/overdrive-runtime   # that bundle with a local runtime build
 ```
 
 Run it first: it catches protocol and timing problems in minutes. It does not replace the machines below: other
