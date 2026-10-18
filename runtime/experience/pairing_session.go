@@ -3,11 +3,14 @@ package main
 import (
 	"bufio"
 	"crypto/ed25519"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -146,6 +149,8 @@ type pairMessage struct {
 	Joiner    pairingPeer `json:"joiner"`
 	Commit    string      `json:"commit,omitempty"`
 	Nonce     string      `json:"nonce,omitempty"`
+	Code      string      `json:"code,omitempty"`
+	Proof     string      `json:"proof,omitempty"`
 	Timestamp string      `json:"timestamp"`
 	Signature string      `json:"signature"`
 }
@@ -220,11 +225,21 @@ func (sl *shareListener) handlePair(conn net.Conn, priv ed25519.PrivateKey, plai
 	if err := json.Unmarshal([]byte(plain), &m); err != nil || !verifyPairMessage(m, time.Now()) {
 		return
 	}
+	// As a legacy join does, record where the joiner actually connected from when it advertises a wildcard
+	// or loopback address.
+	if conn != nil && conn.RemoteAddr() != nil {
+		m.Joiner.ListenAddr = chooseEndpoint(m.Joiner.ListenAddr, conn.RemoteAddr().String())
+	}
 	self, err := selfPairingPeer(sl.id, priv)
 	if err != nil {
 		return
 	}
-	reply := memberHandlePair(sl.home, self, m)
+	var reply pairReply
+	if m.Op == "invite" {
+		reply = memberHandleInvite(sl.home, sl.id, priv, m)
+	} else {
+		reply = memberHandlePair(sl.home, self, m)
+	}
 	reply.SessionID, reply.Member = m.SessionID, self
 	out, err := json.Marshal(signPairReply(priv, reply))
 	if err != nil {
@@ -462,16 +477,21 @@ func applyPairingWelcome(home, sessionID string, w pairingWelcome, member pairin
 	}
 	circle.AllowedFolders, circle.PeerEndpoints = []string{}, []string{}
 	circle = stampMemberEndpoint(circle, member.DeviceID, endpoint, "")
-	circle = stampSelfMember(circle, id.DeviceID, advertisedListenAddr())
+	// This device's own record says where it listens, not where the member saw it connect from.
+	selfEndpoint := advertisedListenAddr()
+	if selfEndpoint == strings.TrimSpace(endpoint) {
+		selfEndpoint = ""
+	}
+	for i := range circle.Members {
+		if circle.Members[i].DeviceID == id.DeviceID {
+			circle.Members[i].Endpoint, circle.Members[i].RemoteAddr = selfEndpoint, ""
+		}
+	}
+	circle = stampSelfMember(circle, id.DeviceID, selfEndpoint)
 	circle = refreshPeerEndpoints(circle, id.DeviceID)
 	if err := persistJoinedCircle(home, circle); err != nil {
 		return "", err
 	}
-	go func() {
-		if joined, err := loadCircle(home, circle.ID); err == nil {
-			exchangeMembership(home, endpoint, joined, id, priv)
-		}
-	}()
 	return circle.ID, nil
 }
 
@@ -629,4 +649,86 @@ func registerPairingRoutes(mux *http.ServeMux, home string) {
 		}
 		writeInviteJSON(w, http.StatusOK, map[string]any{"session": view})
 	})
+}
+
+// ---- invite tokens ----
+
+const inviteProofPurpose = "overdrive-invite-proof-v1"
+
+var inviteUse sync.Mutex
+
+func inviteProof(secret, sessionID, code string, joiner pairingPeer, timestamp string) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(pairingDigest(inviteProofPurpose, sessionID, code, joiner.DeviceID, joiner.PublicKey, joiner.KexPublicKey, timestamp))
+	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
+}
+
+// joinWithInviteToken redeems a version 2 invite: the joiner proves it holds the invite secret without sending
+// it, and the inviter answers with the same sealed welcome a pairing ends with.
+func joinWithInviteToken(home string, invite CircleInvite, endpoint string, id DeviceIdentity, priv ed25519.PrivateKey) (Circle, error) {
+	if strings.TrimSpace(endpoint) == "" {
+		endpoint = joinEndpoint(invite.Endpoint)
+	}
+	if _, _, err := net.SplitHostPort(endpoint); err != nil {
+		return Circle{}, errors.New("the invite has no address to reach the inviting device")
+	}
+	self, err := selfPairingPeer(id, priv)
+	if err != nil {
+		return Circle{}, err
+	}
+	m := pairMessage{Op: "invite", SessionID: "pi_" + randomToken(16), Joiner: self, Code: invite.Code, Timestamp: nowRFC3339()}
+	m.Proof = inviteProof(invite.Secret, m.SessionID, m.Code, self, m.Timestamp)
+	if m, err = signPairMessage(priv, m); err != nil {
+		return Circle{}, err
+	}
+	reply, err := sendPairMessage(endpoint, m)
+	if err != nil {
+		return Circle{}, err
+	}
+	if reply.Member.DeviceID != invite.CreatorID || reply.Member.PublicKey != invite.CreatorPK || reply.Welcome == nil {
+		return Circle{}, errors.New("the device that answered did not issue this invite")
+	}
+	circleID, err := applyPairingWelcome(home, m.SessionID, *reply.Welcome, reply.Member, endpoint, id, priv)
+	if err != nil {
+		return Circle{}, err
+	}
+	_ = hookRemove(filepath.Join(invitesDir(home), invite.Code+".json"))
+	return loadCircle(home, circleID)
+}
+
+// memberHandleInvite redeems one of this device's invites. The proof binds the secret to the joiner's identity
+// and the request time, so a captured request cannot be replayed for another device; a used invite is dropped.
+func memberHandleInvite(home string, id DeviceIdentity, priv ed25519.PrivateKey, m pairMessage) pairReply {
+	if !inviteCodeSafe(m.Code) {
+		return pairReply{Error: "invite not found"}
+	}
+	inviteUse.Lock()
+	defer inviteUse.Unlock()
+	invite, err := loadJoinInvite(home, m.Code)
+	if err != nil || invite.Version < 2 || invite.CreatorID != id.DeviceID {
+		return pairReply{Error: "invite not found"}
+	}
+	if !joinInviteValid(invite, time.Now()) {
+		return pairReply{Error: "invite expired"}
+	}
+	want := inviteProof(invite.Secret, m.SessionID, m.Code, m.Joiner, m.Timestamp)
+	if !hmac.Equal([]byte(want), []byte(m.Proof)) {
+		return pairReply{Error: "invite not found"}
+	}
+	circle, err := loadCircle(home, invite.CircleID)
+	if err != nil {
+		return pairReply{Error: "invite not found"}
+	}
+	if _, ok := circle.activeMember(id.DeviceID); !ok {
+		return pairReply{Error: "invite not found"}
+	}
+	welcome, admitted, err := buildPairingWelcome(m.SessionID, circle, id, priv, m.Joiner)
+	if err != nil {
+		return pairReply{Error: "could not admit this device"}
+	}
+	if err := persistJoinedCircle(home, admitted); err != nil {
+		return pairReply{Error: "could not admit this device"}
+	}
+	_ = hookRemove(filepath.Join(invitesDir(home), invite.Code+".json"))
+	return pairReply{OK: true, State: string(pairingJoined), Welcome: &welcome}
 }

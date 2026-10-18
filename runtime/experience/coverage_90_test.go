@@ -364,6 +364,8 @@ func TestNotifyPeerJoin(t *testing.T) {
 	idA, privA, _ := loadOrCreateIdentity(home)
 	circle, _ := createCircle(home, "team", idA, privA)
 	invite, _ := createInvite(home, circle.ID, idA)
+	// notifyPeerJoin is the join of a version 1 invite, which carried the circle key, from an older core.
+	invite.Version, invite.Secret, invite.GroupKey = 0, "", circle.GroupKey
 	pubB, privB, _ := ed25519.GenerateKey(rand.Reader)
 	idB := DeviceIdentity{DeviceID: "dev_" + sha256Hex(pubB)[:16], PublicKey: base64.StdEncoding.EncodeToString(pubB)}
 	if err := notifyPeerJoin(invite, "127.0.0.1:1", idB, privB); err == nil {

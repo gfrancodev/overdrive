@@ -104,7 +104,7 @@ func buildPairingWelcome(sessionID string, circle Circle, member DeviceIdentity,
 	if err != nil {
 		return pairingWelcome{}, circle, err
 	}
-	admitted := circle.admit(joined, adm)
+	admitted := refreshPeerEndpoints(circle.admit(joined, adm), member.DeviceID)
 	gift := admitted
 	gift.AllowedFolders, gift.PeerEndpoints, gift.PreviousKey, gift.KeyUpdate = nil, nil, nil, nil
 	payload, err := json.Marshal(pairingWelcomeBody{Circle: gift})
