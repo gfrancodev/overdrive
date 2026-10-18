@@ -131,7 +131,8 @@ jobs:
             OVERDRIVE_TRAY_ENABLE=0 OVERDRIVE_EMBEDDER=stub \
             bash "dist/install-${{ matrix.target }}/scripts/install.sh"
           cmp "$smoke/bin/overdrive-tray" "dist/install-${{ matrix.target }}/runtime/bin/overdrive-tray-${{ matrix.target }}"
-          OVERDRIVE_HOME="$smoke/home" OVERDRIVE_EMBEDDER=stub "$smoke/bin/overdrive-runtime" status
+          OVERDRIVE_HOME="$smoke/home" OVERDRIVE_EMBEDDER=stub "$smoke/bin/overdrive-runtime" status \
+            | python3 -c 'import json,sys; s=json.load(sys.stdin); print(s); assert s["turbovec_available"], "TurboVec did not load"'
 
       - name: Smoke install from bundle (Windows)
         if: matrix.native && runner.os == 'Windows'
@@ -146,7 +147,42 @@ jobs:
           & "dist/install-${{ matrix.target }}/scripts/install.ps1"
           $tray = Join-Path $env:OVERDRIVE_BIN_DIR "overdrive-tray.exe"
           if ((Get-FileHash $tray).Hash -ne (Get-FileHash "dist/install-${{ matrix.target }}/runtime/bin/overdrive-tray-${{ matrix.target }}.exe").Hash) { throw "installed tray is not the bundled one" }
-          & (Join-Path $env:OVERDRIVE_BIN_DIR "overdrive-runtime.exe") status
+          $status = & (Join-Path $env:OVERDRIVE_BIN_DIR "overdrive-runtime.exe") status | ConvertFrom-Json
+          $status
+          if (-not $status.turbovec_available) { throw "TurboVec did not load" }
+
+      - name: Upgrade with the Core running (Unix)
+        if: matrix.native && runner.os != 'Windows'
+        shell: bash
+        run: |
+          smoke="$RUNNER_TEMP/overdrive-smoke"
+          export OVERDRIVE_HOME="$smoke/home" OVERDRIVE_BIN_DIR="$smoke/bin" OVERDRIVE_SKILLS_DIR="$smoke/skills"
+          export OVERDRIVE_TRAY_ENABLE=0 OVERDRIVE_EMBEDDER=stub OVERDRIVE_SHARE_LISTEN=127.0.0.1:7841
+          "$smoke/bin/overdrive-runtime" share listen --cwd "$smoke" >/dev/null 2>&1 &
+          core=$!
+          for i in $(seq 1 100); do curl -fsS http://127.0.0.1:7842/api/core/ui >/dev/null 2>&1 && break; sleep 0.2; done
+          bash "dist/install-${{ matrix.target }}/scripts/install.sh"
+          kill -0 "$core"
+          curl -fsS http://127.0.0.1:7842/api/core/ui
+          kill "$core"
+
+      - name: Upgrade with the Core running (Windows)
+        if: matrix.native && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $smoke = Join-Path $env:RUNNER_TEMP "overdrive-smoke"
+          $env:OVERDRIVE_HOME = Join-Path $smoke "home"
+          $env:OVERDRIVE_BIN_DIR = Join-Path $smoke "bin"
+          $env:OVERDRIVE_SKILLS_DIR = Join-Path $smoke "skills"
+          $env:OVERDRIVE_TRAY_ENABLE = "0"
+          $env:OVERDRIVE_EMBEDDER = "stub"
+          $env:OVERDRIVE_SHARE_LISTEN = "127.0.0.1:7841"
+          $core = Start-Process -FilePath (Join-Path $env:OVERDRIVE_BIN_DIR "overdrive-runtime.exe") -ArgumentList "share","listen","--cwd",$smoke -PassThru -WindowStyle Hidden
+          for ($i = 0; $i -lt 100; $i++) { try { Invoke-RestMethod http://127.0.0.1:7842/api/core/ui | Out-Null; break } catch { Start-Sleep -Milliseconds 200 } }
+          & "dist/install-${{ matrix.target }}/scripts/install.ps1"
+          if ($core.HasExited) { throw "upgrading stopped the running Core" }
+          Invoke-RestMethod http://127.0.0.1:7842/api/core/ui | Out-Null
+          Stop-Process -Id $core.Id
 
       - name: Zip install bundle (Unix)
         if: runner.os != 'Windows'

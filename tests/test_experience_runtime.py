@@ -431,6 +431,55 @@ def test_release_bundle_installs_without_go_or_rust(tmp_path: Path):
     assert (bin_dir / "overdrive-tray").read_bytes() == tray.read_bytes()
     result = json.loads(run(str(bin_dir / "overdrive-runtime"), "status", env=env).stdout)
     assert result["version"] == PLUGIN_VERSION
+    assert result["turbovec_available"], "the bundled TurboVec library must load"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="bash bundle installer")
+def test_upgrading_from_the_bundle_keeps_the_running_core_alive(tmp_path: Path):
+    target = _host_target()
+    run("bash", str(ROOT / "scripts" / "build-tray.sh"), target)
+    run("bash", str(ROOT / "scripts" / "package-platform.sh"), target)
+    installer = ROOT / "dist" / f"install-{target}" / "scripts" / "install.sh"
+    bin_dir = tmp_path / "bin"
+    port = _free_port()
+    env = dict(
+        os.environ, HOME=str(tmp_path), OVERDRIVE_HOME=str(tmp_path / "home"), OVERDRIVE_BIN_DIR=str(bin_dir),
+        OVERDRIVE_SKILLS_DIR=str(tmp_path / "skills"), OVERDRIVE_TRAY_ENABLE="0", OVERDRIVE_EMBEDDER="stub",
+        OVERDRIVE_SHARE_LISTEN=f"127.0.0.1:{port}",
+    )
+    run("bash", str(installer), env=env)
+    core = subprocess.Popen([str(bin_dir / "overdrive-runtime"), "share", "listen", "--cwd", str(tmp_path)],
+                            env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    ui = f"http://127.0.0.1:{port + 1}/api/core/ui"
+    try:
+        _wait_http(ui)
+        run("bash", str(installer), env=env)
+        assert core.poll() is None, "upgrading must not stop the running Core"
+        _wait_http(ui)
+    finally:
+        core.terminate()
+        core.wait(timeout=10)
+
+
+def _free_port() -> int:
+    import socket
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def _wait_http(url: str, timeout: float = 15.0) -> None:
+    import time
+    import urllib.request
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=1) as resp:
+                if resp.status == 200:
+                    return
+        except OSError:
+            time.sleep(0.1)
+    raise AssertionError(f"{url} did not answer")
 
 
 def test_skills_treat_experience_as_advisory_and_automatic():
