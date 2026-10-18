@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -175,8 +176,18 @@ func TestAFailedRebindKeepsTheCoreOnItsAddress(t *testing.T) {
 	if !dialsWithin(fmt.Sprintf("127.0.0.1:%d", port)) {
 		t.Fatal("the Core lost its address after a failed rebind")
 	}
-	if s, ok := loadNetworkSetting(home); ok && s.LANAccess {
-		t.Fatal("a failed rebind must not store the choice")
+	if _, ok := loadNetworkSetting(home); ok {
+		t.Fatal("a failed rebind must leave no choice behind when there was none")
+	}
+
+	if err := saveNetworkSetting(home, false); err != nil {
+		t.Fatal(err)
+	}
+	if code, _, body := networkCall(t, home, http.MethodPost, `{"lan_access":true}`); code != http.StatusInternalServerError {
+		t.Fatalf("%d %s", code, body)
+	}
+	if s, ok := loadNetworkSetting(home); !ok || s.LANAccess {
+		t.Fatalf("a failed rebind must keep the earlier choice: %+v %v", s, ok)
 	}
 }
 
@@ -195,11 +206,28 @@ func TestNetworkAPIIsLocalOnly(t *testing.T) {
 	if code, _, _ := networkCall(t, home, http.MethodPost, `{`); code != http.StatusBadRequest {
 		t.Fatalf("bad body: %d", code)
 	}
+	if code, _, _ := networkCall(t, home, http.MethodPost, `{}`); code != http.StatusBadRequest {
+		t.Fatalf("a body that does not say: %d", code)
+	}
 	if code, _, _ := networkCall(t, home, http.MethodDelete, ``); code != http.StatusMethodNotAllowed {
 		t.Fatalf("delete: %d", code)
 	}
 	if _, ok := loadNetworkSetting(home); ok {
 		t.Fatal("rejected calls stored a choice")
+	}
+}
+
+func TestAnUnreadableNetworkFileIsNoChoice(t *testing.T) {
+	home := t.TempDir()
+	setupTestEnv(t, home)
+	if err := os.MkdirAll(shareDir(home), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(networkSettingPath(home), []byte("{lan"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if s, ok := loadNetworkSetting(home); ok || s.LANAccess {
+		t.Fatalf("a corrupt file must read as no choice: %+v %v", s, ok)
 	}
 }
 
