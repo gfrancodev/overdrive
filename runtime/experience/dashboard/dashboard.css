@@ -3,20 +3,23 @@
       --sea: #07131c;
       --foam: #e8f6ff;
       --cyan: #00b4ff;
-      --live: var(--live);
+      --live: #5ee7ff;
       --mute: #7a93a6;
       --glass: rgba(6, 14, 22, 0.78);
       --accent: var(--cyan);
-      --line: var(--line);
+      --line: rgba(0, 180, 255, 0.22);
       --focus-border: rgba(0, 180, 255, 0.9);
       --focus-shadow: rgba(0, 180, 255, 0.3);
-      --accent-soft: var(--accent-soft);
-      --accent-mid: var(--accent-mid);
+      --accent-soft: rgba(0, 180, 255, 0.2);
+      --accent-mid: rgba(0, 180, 255, 0.38);
       --accent-ring: rgba(0, 180, 255, 0.55);
-      --accent-glow-18: var(--accent-glow-18);
-      --accent-glow-60: var(--accent-glow-60);
+      --accent-glow-18: rgba(0, 180, 255, 0.18);
+      --accent-glow-60: rgba(0, 180, 255, 0.6);
       --live-glow: rgba(94, 231, 255, 0.7);
       --term-insp-accent: var(--cyan);
+      /* A theme sets --accent and --live; hover and press states derive from them, so they follow any theme. */
+      --accent-hover: color-mix(in srgb, var(--accent) 86%, #fff);
+      --accent-press: color-mix(in srgb, var(--accent) 84%, #000);
     }
     * { box-sizing: border-box; }
     dialog { border: none; padding: 0; margin: 0; background: transparent; color: inherit; max-width: none; max-height: none; }
@@ -1357,7 +1360,7 @@
     }
     .term-split-grip:hover::after,
     .term-split--resizing > .term-split-grip::after {
-      background: rgba(94, 231, 255, 0.42);
+      background: color-mix(in srgb, var(--live) 42%, transparent);
     }
     .term-split--v.term-split--resizing > .term-split-grip::after { width: 2px; }
     .term-split--h.term-split--resizing > .term-split-grip::after { height: 2px; }
@@ -1483,7 +1486,7 @@
       transition: background 0.14s ease, box-shadow 0.14s ease, transform 0.12s ease;
     }
     .term-traffic button:focus-visible {
-      outline: 2px solid rgba(94, 231, 255, 0.88);
+      outline: 2px solid color-mix(in srgb, var(--live) 88%, transparent);
       outline-offset: 2px;
     }
     .live-sessions:not(.term-inactive) .term-traffic-close {
@@ -1493,7 +1496,7 @@
     }
     .live-sessions:not(.term-inactive) .term-traffic-min {
       background: var(--accent-soft);
-      box-shadow: inset 0 0 0 1px rgba(94, 231, 255, 0.32), 0 0 0 1px rgba(0, 0, 0, 0.18);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--live) 32%, transparent), 0 0 0 1px rgba(0, 0, 0, 0.18);
       color: var(--foam);
     }
     .live-sessions:not(.term-inactive) .term-traffic-max {
@@ -1507,10 +1510,10 @@
     }
     .live-sessions:not(.term-inactive) .term-traffic-min:hover {
       background: var(--accent-mid);
-      box-shadow: inset 0 0 0 1px rgba(94, 231, 255, 0.5), 0 0 8px var(--accent-soft);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--live) 50%, transparent), 0 0 8px var(--accent-soft);
     }
     .live-sessions:not(.term-inactive) .term-traffic-max:hover {
-      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28), 0 0 14px rgba(94, 231, 255, 0.45);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28), 0 0 14px color-mix(in srgb, var(--live) 45%, transparent);
     }
     .term-traffic-close:hover::after,
     .term-traffic-min:hover::after,
@@ -2709,8 +2712,8 @@
       text-transform: none;
       cursor: pointer;
     }
-    .action-fill:hover { background: #0077ed; }
-    .action-fill:active { background: #0068d1; }
+    .action-fill:hover { background: var(--accent-hover); }
+    .action-fill:active { background: var(--accent-press); }
     .action-fill:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.8); outline-offset: 2px; }
     .connection-field { display: block; margin: 10px 0 0; }
     .card .connection-field { margin: 0; padding: 0 12px 12px; }

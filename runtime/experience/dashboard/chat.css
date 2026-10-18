@@ -552,7 +552,7 @@
   outline: none;
 }
 .chat-widget .msg-card--terminal .msg-card-btn:focus-visible {
-  outline: 2px solid rgba(120, 190, 255, 0.75);
+  outline: 2px solid var(--focus-border);
   outline-offset: 2px;
 }
 .chat-body {
@@ -890,8 +890,8 @@
 }
 .composer-pill.composer-drag-over,
 .composer-wa.composer-drag-over .composer-pill {
-  box-shadow: inset 0 0 0 1px rgba(120, 190, 255, 0.55);
-  background: rgba(80, 140, 220, 0.14);
+  box-shadow: inset 0 0 0 1px var(--accent-ring);
+  background: var(--accent-soft);
 }
 .composer-pill {
   position: relative;

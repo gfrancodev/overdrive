@@ -4,6 +4,7 @@ their Pair buttons under the forget buttons, and a messages window that vanished
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -104,5 +105,37 @@ def test_a_messages_window_once_dragged_stays_beside_a_call(lone_core, playwrigh
         assert page.locator("#callFocus").is_hidden(), "nothing is on the stage before the call"
         assert page.locator("#callVoiceLabel").inner_text() == "Video call"
         assert page.locator("#callNatHint").is_hidden(), "the relay advice waits for a call that failed"
+    finally:
+        browser.close()
+
+
+def rgb_of(css_color: str) -> tuple[float, float, float]:
+    """Reads rgb()/rgba() and the color(srgb ...) form a color-mix() computes to, as 0-255 channels."""
+    srgb = re.match(r"color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)", css_color)
+    if srgb:
+        return tuple(float(v) * 255 for v in srgb.groups())
+    return tuple(float(v) for v in re.findall(r"[\d.]+", css_color)[:3])
+
+
+def test_hover_takes_the_theme_accent(lone_core, playwright):  # noqa: F811
+    base, home = lone_core["base"], lone_core["home"]
+    (home / "share" / "whitelabel.json").write_text(json.dumps({
+        "preset": "orbit", "title": "Themed", "themeColor": "#6d28d9",
+        "tokens": {"cyan": "#6d28d9", "live": "#c4b5fd"},
+    }))
+    browser = playwright.chromium.launch()
+    page = browser.new_context(viewport={"width": 1280, "height": 800}).new_page()
+    try:
+        page.goto(base + "/", wait_until="networkidle", timeout=30_000)
+        page.locator("#nearbyApp").click()
+        button = page.locator("#nearbyConnection")
+        button.wait_for(state="visible", timeout=5_000)
+        background = "() => getComputedStyle(document.getElementById('nearbyConnection')).backgroundColor"
+        assert rgb_of(page.evaluate(background)) == (109, 40, 217), "the button takes the theme accent"
+        button.hover()
+        r, g, b = rgb_of(page.evaluate(background))
+        # A lighter shade of the theme's violet, never the default blue (#0077ed) it used to turn.
+        assert b > r > g and (round(r), round(g), round(b)) != (0, 119, 237), (r, g, b)
+        assert abs(r - 129) < 3 and abs(g - 70) < 3 and abs(b - 222) < 3, (r, g, b)
     finally:
         browser.close()

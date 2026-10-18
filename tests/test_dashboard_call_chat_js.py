@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -1504,3 +1505,22 @@ def test_terminal_owner_grant_control_badge_opens_inspector():
     assert "term-inspector-block--attention" in css
     assert "term-inspector-group" in css
     assert "--term-insp-accent" in css
+
+
+def test_theme_variables_have_defaults_and_states_follow_the_theme():
+    dashboard = ROOT / "runtime" / "experience" / "dashboard"
+    css = (dashboard / "dashboard.css").read_text(encoding="utf-8")
+    root = re.search(r":root\s*\{([^}]*)\}", css).group(1)
+    # "--live: var(--live)" is a cycle: the variable is invalid until a theme script sets it, and stays invalid
+    # when a theme leaves that token out.
+    cycles = [name for name, value in re.findall(r"(--[\w-]+)\s*:\s*([^;]+);", root) if f"var({name})" in value]
+    assert not cycles, cycles
+    # Interactive states take their color from the theme; the default blue stayed on hover under any theme.
+    states = []
+    for path in (dashboard / "dashboard.css", dashboard / "chat.css"):
+        text = re.sub(r"/\*.*?\*/", "", path.read_text(encoding="utf-8"), flags=re.S)
+        for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", text):
+            if re.search(r":(hover|active|focus)", selector):
+                states += [(path.name, selector.strip(), color) for color in
+                           re.findall(r"#0077ed|#0068d1|rgba\(94, 231, 255|rgba\(120, 190, 255|rgba\(80, 140, 220", body)]
+    assert not states, states
