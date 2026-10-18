@@ -13,6 +13,8 @@ import (
 
 const maxCircleNameRunes = 64
 
+var errCircleNotFound = errors.New("circle not found")
+
 type setupStep struct {
 	ID   string `json:"id"`
 	Done bool   `json:"done"`
@@ -221,18 +223,15 @@ func serveCircleRename(w http.ResponseWriter, r *http.Request, home, circleID st
 		writeInviteError(w, http.StatusInternalServerError, "could not read identity")
 		return
 	}
-	circle, err := loadCircle(home, circleID)
+	circle, err := updateCircle(home, circleID, func(c Circle) (Circle, error) {
+		if _, ok := c.activeMember(id.DeviceID); !ok {
+			return Circle{}, errCircleNotFound
+		}
+		c.Name = name
+		return c, nil
+	})
 	if err != nil {
 		writeInviteError(w, http.StatusNotFound, "circle not found")
-		return
-	}
-	if _, ok := circle.activeMember(id.DeviceID); !ok {
-		writeInviteError(w, http.StatusNotFound, "circle not found")
-		return
-	}
-	circle.Name = name
-	if err := saveCircle(home, circle); err != nil {
-		writeInviteError(w, http.StatusInternalServerError, "could not rename the circle")
 		return
 	}
 	writeInviteJSON(w, http.StatusOK, map[string]any{"circle": viewCircle(circle, id.DeviceID)})

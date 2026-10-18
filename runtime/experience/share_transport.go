@@ -145,10 +145,13 @@ func (sl *shareListener) handleSyncWire(conn net.Conn, circle Circle, priv ed255
 	if err != nil || !verifySyncRequest(pub, req) {
 		return
 	}
-	circle = rememberSyncPeer(circle, req, conn.RemoteAddr())
-	circle = stampSelfMember(circle, sl.id.DeviceID, sl.selfEndpoint())
-	circle = refreshPeerEndpoints(circle, sl.id.DeviceID)
-	_ = persistJoinedCircle(sl.home, circle)
+	if updated, err := updateCircle(sl.home, circle.ID, func(c Circle) (Circle, error) {
+		c = rememberSyncPeer(c, req, conn.RemoteAddr())
+		c = stampSelfMember(c, sl.id.DeviceID, sl.selfEndpoint())
+		return vouchMembers(refreshPeerEndpoints(c, sl.id.DeviceID), sl.id, priv), nil
+	}); err == nil {
+		circle = updated
+	}
 	var e *Engine
 	if hookShareNewEngine != nil {
 		e, err = hookShareNewEngine(sl.home)

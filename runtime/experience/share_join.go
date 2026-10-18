@@ -119,17 +119,14 @@ func exchangeJoin(home string, invite CircleInvite, endpoint string, id DeviceId
 // ack without them comes from an older inviter; the joiner already trusts that device, which handed over the
 // invite, so its roster is taken as before, keys still bound to their ids.
 func applyJoinAck(home, circleID string, ack joinAck) error {
-	circle, err := loadCircle(home, circleID)
-	if err != nil {
-		return err
-	}
 	id, _, err := loadOrCreateIdentity(home)
 	if err != nil {
 		return err
 	}
-	if ack.Admissions != nil {
-		circle = ingestRosterProofs(circle, ack.Members, ack.Admissions, ack.Revocations)
-	} else {
+	if _, err := updateCircle(home, circleID, func(circle Circle) (Circle, error) {
+		if ack.Admissions != nil {
+			return ingestRosterProofs(circle, ack.Members, ack.Admissions, ack.Revocations), nil
+		}
 		for _, m := range ack.Members {
 			if m.DeviceID == id.DeviceID || !memberKeyBound(m.DeviceID, m.PublicKey) {
 				continue
@@ -138,8 +135,8 @@ func applyJoinAck(home, circleID string, ack joinAck) error {
 				circle.Members = append(circle.Members, m)
 			}
 		}
-	}
-	if err := saveCircle(home, circle); err != nil {
+		return circle, nil
+	}); err != nil {
 		return err
 	}
 	return mergePeerRoster(home, circleID, ack.Members)
@@ -176,14 +173,17 @@ func (sl *shareListener) applyJoin(conn net.Conn, env wireEnvelope, plain []byte
 	if conn != nil {
 		remote = conn.RemoteAddr()
 	}
-	circle = rememberJoin(circle, req, remote)
-	circle = stampSelfMember(circle, sl.id.DeviceID, sl.selfEndpoint())
-	circle = refreshPeerEndpoints(circle, sl.id.DeviceID)
-	if err := persistJoinedCircle(sl.home, circle); err != nil {
+	_, priv, err := loadOrCreateIdentity(sl.home)
+	if err != nil {
 		return true
 	}
-	if vouched, err := loadCircle(sl.home, circle.ID); err == nil {
-		circle = vouched
+	circle, err = updateCircle(sl.home, circle.ID, func(c Circle) (Circle, error) {
+		c = rememberJoin(c, req, remote)
+		c = stampSelfMember(c, sl.id.DeviceID, sl.selfEndpoint())
+		return vouchMembers(refreshPeerEndpoints(c, sl.id.DeviceID), sl.id, priv), nil
+	})
+	if err != nil {
+		return true
 	}
 	if conn != nil {
 		_ = writeJoinAck(conn, circle)
