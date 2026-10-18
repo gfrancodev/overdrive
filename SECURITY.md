@@ -56,7 +56,7 @@ The circle key does **not** separate members from each other:
 
 ### Key rotation
 
-- Every `share circle revoke` rotates the circle key; `share circle rekey` rotates it on demand. Only the creator rotates.
+- Every `share circle revoke`, and every removal from the dashboard's Circle settings, rotates the circle key; `share circle rekey` rotates it on demand. Only the creator rotates. The dashboard shows, before removing, who loses access, which devices the removed one invited, and which members cannot receive the new key.
 - Each device derives a key-agreement key (HPKE with ML-KEM-768 + X25519) from its Ed25519 identity and publishes it signed. The creator seals the new key to each remaining member separately and signs the update. A revoked device gets no entry, so it cannot read anything sealed after the rotation.
 - What a revoked device keeps: traffic it captured before the rotation, and traffic from members still on the previous key. Receivers accept the previous key for 24 hours so messages in flight still arrive; a member that has not received the new key yet keeps sealing with the old one until it syncs, which takes about a minute while its mesh is open.
 - Key updates travel through a separate `keys` exchange that is not sealed with the circle key, because a member that missed a rotation no longer shares one. It carries device IDs, public key-agreement keys, entries each sealed to one device, and signatures. A network observer can see which devices are in the circle.
@@ -67,7 +67,7 @@ The circle key does **not** separate members from each other:
 - The host checks, on every remote operation (metadata, control requests, stream), that the requesting device is an active circle member **and** holds a share for that session. The owner and the host device always pass.
 - Only the session owner creates shares: an invite to one device, or a terminal card posted in a direct conversation (the recipient), a custom group (its members at that moment), or the circle channel (active members at that moment). A card's shares are granted only after the card is saved, all at once; if either step fails, the post fails and nobody gains access.
 - Removing a participant or revoking a circle member deletes its shares and hands any control lease back to the owner. New requests from that device are refused at once. After a key rotation, remote links still sealed with the old key close within 15 seconds and viewers reconnect with the new one.
-- Streams that are already open are re-admitted every 15 seconds and closed when the device is no longer admitted. Removing a participant from the host's dashboard closes its streams at once. Private mode, and `share circle revoke` run from the CLI, reach open streams at the next check: a revoked viewer can keep seeing output for up to 15 seconds.
+- Streams that are already open are re-admitted every 15 seconds and closed when the device is no longer admitted. Removing a participant from the host's dashboard closes its streams at once. Removing a device from the dashboard runs in the Core and closes its streams at once too. Private mode, and `share circle revoke` run from the CLI, reach open streams at the next check: a revoked viewer can keep seeing output for up to 15 seconds.
 - Viewing never implies typing. Input and resize require the control lease, granted by the owner, with a monotonic epoch that rejects stale controllers.
 - Sessions shared before 2.0.2 relied on circle membership alone. After upgrading the host, share them again.
 
