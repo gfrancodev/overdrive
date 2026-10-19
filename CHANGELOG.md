@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.3 - 2026-10-19
+
+### Fixes
+
+- **MiniLM works on every platform.** The runtime called ONNX Runtime three entries off in its function table, so on Windows loading the model closed the runtime, and setting `OVERDRIVE_EMBEDDER=hashed` was the only way to keep it running. On Linux and macOS it never got that far: the library ships under a versioned name behind a symlink, nothing was extracted, and every machine used hashed vectors while downloading the ONNX Runtime archive again on each start. The calls now follow the 1.18.1 header, the model path reaches ONNX Runtime as UTF-16 on Windows, the versioned library is extracted, and MiniLM is chosen only after it embeds one text. Anyone who set `OVERDRIVE_EMBEDDER=hashed` to work around the crash can remove it.
+- **What changes after upgrading.** The first `record`, `recall` or Core start downloads ONNX Runtime and the MiniLM model into `~/.overdrive/` (about 30 MB, 85 MB on Windows) and rebuilds the vector index once from active memories, including those received from a circle. A device still on hashed vectors keeps exchanging memories with one on MiniLM; received memories are embedded again locally.
+- **The real model is tested.** The real-model test failed silently by skipping when the library was missing; it now fails, and CI runs it. The release smokes on Linux, macOS and Windows install into a fresh home with an accent in its path and check that the shipped runtime embeds with MiniLM.
+
 ## 2.3.2 - 2026-10-18
 
 ### Fixes

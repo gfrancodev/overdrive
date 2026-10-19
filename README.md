@@ -33,7 +33,7 @@
   <strong>Architecture-aware autonomous software engineering that learns from every execution, locally and optionally across your team.</strong>
 </p>
 
-**Current release: 2.3.2.** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
+**Current release: 2.3.3.** Overdrive is an independent software development methodology for coding agents that understands the system before changing it.
 
 It combines architecture-aware discovery, a single authoritative spec, adaptive execution, autonomous decision-making, test-driven development, systematic debugging, isolated workspaces, code review, evidence-based verification, and a **local Experience Engine** (SQLite, FTS5, TurboVec, lazy MiniLM) that compounds operational knowledge across runs without a memory-management workflow. **1.2** adds opt-in **shared memory circles**; **2.0** adds the encrypted mesh dashboard on the same circle keys and allowed folders ([demo](#mesh-dashboard-in-action)).
 
@@ -700,12 +700,12 @@ Capture only compact, verified, reusable knowledge. Never store raw prompts, who
 | Graph + PageIndex | One hop on path, symbol, error code, or `supersedes`; `recall` also returns that branch as short cards, without the lesson body |
 | [TurboVec](https://github.com/RyanCodrai/turbovec) `IdMapIndex` | Bundled FFI rerank with allowlist search (`experience-v2.tvim`). It does not store the graph |
 | MiniLM-L6 (lazy) | First `record`/`recall` may download ONNX + tokenizer to `~/.overdrive/models/` and an ONNX Runtime sidecar to `~/.overdrive/lib/` |
-| Hashed fail-open | Network, model, tokenizer, or ORT failure falls back to 256-d hashed vectors; `record`/`recall` never fail because of the embedder |
+| Hashed fail-open | Network, model, tokenizer, or ORT failure falls back to 256-d hashed vectors, and MiniLM is chosen only after it embeds once; `record`/`recall` never fail because of the embedder |
 | Working Memory | Session scratch keyed by repository; cleared on the next `session-start`; never promoted to durable knowledge |
 | Decision Ledger | Run-local rulings in SQLite + `.overdrive/runs/<run>/ledger.md` |
 | Automatic Forgetting | GC on `session-start`; protected sources (`adr`, user feedback, project instructions) are kept unless already deprecated |
 
-Prebuilt binaries and TurboVec libraries are installed automatically. You do not need Go, Rust, cargo, pip, or CGO on the user machine. MiniLM and ORT are **not** in git and are **not** among the six bundled `runtime/lib/` artifacts. Tests/CI use `OVERDRIVE_EMBEDDER=stub` so nothing is downloaded.
+Prebuilt binaries and TurboVec libraries are installed automatically. You do not need Go, Rust, cargo, pip, or CGO on the user machine. MiniLM and ORT are **not** in git and are **not** among the six bundled `runtime/lib/` artifacts. Tests use `OVERDRIVE_EMBEDDER=stub` so nothing is downloaded. One CI test and the release smokes on Linux, macOS and Windows download the real ONNX Runtime and MiniLM, and fail unless they embed.
 
 `status` reports `backend`, `embedder` (`stub` \| `hashed` \| `minilm`), `embedder_dim`, and `turbovec_available`. When the embedding dimension changes, the runtime rebuilds `.tvim` from active memories.
 
@@ -947,6 +947,7 @@ Full notes live in [CHANGELOG.md](CHANGELOG.md). Shipped tags:
 
 | Version | Date | What shipped |
 |---------|------|----------------|
+| [2.3.3](https://github.com/gfrancodev/overdrive/releases/tag/v2.3.3) | 2026-10-19 | MiniLM works: the Windows runtime no longer closes when it loads the model, and Linux and macOS get MiniLM instead of hashed vectors. |
 | [2.3.2](https://github.com/gfrancodev/overdrive/releases/tag/v2.3.2) | 2026-10-18 | The whole dashboard follows a whitelabel theme: the call, the globe's labels and offline devices, and the terminal badges no longer keep the default cyan. |
 | [2.3.1](https://github.com/gfrancodev/overdrive/releases/tag/v2.3.1) | 2026-10-18 | A device removed before 2.3.0 is no longer dialed, and no longer keeps the tray on "Status: error". |
 | [2.3.0](https://github.com/gfrancodev/overdrive/releases/tag/v2.3.0) | 2026-10-18 | Zero-friction: release bundles with the tray, pairing from Nearby with a six-digit code, one-time invites without the circle key, shared folders and member removal from the dashboard, connection health and diagnostics, a dashboard that works offline, Restart Overdrive in the tray. |
