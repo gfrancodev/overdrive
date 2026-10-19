@@ -3,56 +3,59 @@
 package main
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 )
 
-func TestRealORTSessionWhenAvailable(t *testing.T) {
+// MiniLM vectors leave meanPoolL2 with unit length, so their dot product is the cosine.
+func cosine(a, b []float32) float64 {
+	var dot float64
+	for i := range a {
+		dot += float64(a[i]) * float64(b[i])
+	}
+	return dot
+}
+
+// The build tag asks for the real ONNX Runtime and MiniLM, so anything missing fails instead of skipping: a skip
+// here hid that no Linux machine ever got the library.
+func TestTheRealMiniLMTellsMeaningsApart(t *testing.T) {
 	home := t.TempDir()
-	resetORTLibForTest()
 	resetRuntimeGlobals()
+	t.Cleanup(resetRuntimeGlobals)
 	t.Setenv("OVERDRIVE_HOME", home)
 	t.Setenv("OVERDRIVE_SKIP_EMBED_DOWNLOAD", "0")
-
-	if lib := os.Getenv("OVERDRIVE_ORT_LIB"); lib != "" {
-		t.Setenv("OVERDRIVE_ORT_LIB", lib)
-	}
-
-	if err := ensureMiniLMPack(home); err != nil {
-		t.Skip("minilm pack unavailable: " + err.Error())
-	}
-	libPath, err := resolveORTLibPath(home)
-	if err != nil {
-		t.Skip("ort lib unavailable: " + err.Error())
-	}
-	model := miniLMModelPath(home)
-	if _, err := os.Stat(model); err != nil {
-		t.Skip("model missing")
-	}
+	t.Setenv("OVERDRIVE_EMBEDDER", "")
 
 	old := ortSessionOpener
 	ortSessionOpener = openORTSessionFFI
-	defer func() { ortSessionOpener = old }()
+	t.Cleanup(func() { ortSessionOpener = old })
 
-	sess, err := tryORTSession(home, model)
+	emb, err := buildMiniLMEmbedder(home)
 	if err != nil {
-		t.Fatalf("real ort session: %v (lib=%s)", err, libPath)
+		t.Fatalf("MiniLM did not load: %v", err)
 	}
-	tok, err := loadWordPieceTokenizer(miniLMVocabPath(home))
+	t.Cleanup(func() {
+		if c, ok := emb.ort.(interface{ Close() }); ok {
+			c.Close()
+		}
+	})
+	login, err := emb.embed("fix the login bug")
 	if err != nil {
 		t.Fatal(err)
 	}
-	ids, mask, types := tok.Encode("integration test sentence", 16)
-	out, err := sess.Run(ids, mask, types)
+	signIn, err := emb.embed("repair the broken sign-in")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(out) < miniLMDims {
-		t.Fatalf("hidden size %d", len(out))
+	cake, err := emb.embed("bake a chocolate cake")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if c, ok := sess.(interface{ Close() }); ok {
-		c.Close()
+	if len(login) != miniLMDims {
+		t.Fatalf("vector size %d", len(login))
 	}
-	_ = filepath.Base(libPath)
+	near, far := cosine(login, signIn), cosine(login, cake)
+	if near <= far {
+		t.Fatalf("the model does not tell meanings apart: login/sign-in %.3f, login/cake %.3f", near, far)
+	}
+	t.Logf("login/sign-in %.3f, login/cake %.3f", near, far)
 }

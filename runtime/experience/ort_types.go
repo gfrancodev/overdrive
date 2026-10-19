@@ -10,26 +10,28 @@ type ortSession struct {
 	outputName     *byte
 }
 
-// OrtApi v18 indices (onnxruntime 1.18.1).
+// OrtApi v18 indices (onnxruntime 1.18.1, onnxruntime_c_api.h). The table opens with CreateStatus, GetErrorCode and
+// GetErrorMessage, so CreateEnv is the fourth entry.
 const (
-	ortIdxCreateEnv                      = 0
-	ortIdxCreateSession                  = 4
-	ortIdxRun                            = 6
-	ortIdxCreateSessionOptions           = 7
-	ortIdxCreateTensorWithDataAsOrtValue = 46
-	ortIdxGetTensorMutableData           = 48
-	ortIdxCreateCpuMemoryInfo            = 66
-	ortIdxReleaseStatus                  = 90
-	ortIdxReleaseEnv                     = 89
-	ortIdxReleaseSession                 = 92
-	ortIdxReleaseValue                   = 93
-	ortIdxReleaseSessionOptions          = 97
+	ortIdxCreateEnv                      = 3
+	ortIdxCreateSession                  = 7
+	ortIdxRun                            = 9
+	ortIdxCreateSessionOptions           = 10
+	ortIdxCreateTensorWithDataAsOrtValue = 49
+	ortIdxGetTensorMutableData           = 51
+	ortIdxCreateCpuMemoryInfo            = 69
+	ortIdxReleaseEnv                     = 92
+	ortIdxReleaseStatus                  = 93
+	ortIdxReleaseMemoryInfo              = 94
+	ortIdxReleaseSession                 = 95
+	ortIdxReleaseValue                   = 96
+	ortIdxReleaseSessionOptions          = 100
 )
 
 const (
 	onnxTensorElementDataTypeFloat = 1
 	onnxTensorElementDataTypeInt64 = 7
-	ortLoggingLevelWarning         = 3
+	ortLoggingLevelError           = 3
 	ortDeviceAllocator             = 0
 	ortMemTypeDefault              = 0
 )

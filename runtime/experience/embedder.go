@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"strings"
 	"sync"
@@ -47,17 +48,24 @@ func (miniLMEmbedder) Dim() int     { return miniLMDims }
 func (miniLMEmbedder) Name() string { return "minilm" }
 
 func (m *miniLMEmbedder) Embed(text string) []float32 {
+	if pooled, err := m.embed(text); err == nil {
+		return pooled
+	}
+	return hashedVectorFloat32(text)
+}
+
+func (m *miniLMEmbedder) embed(text string) ([]float32, error) {
 	const maxLen = 128
 	inputIDs, attentionMask, tokenTypeIDs := m.tok.Encode(text, maxLen)
 	hidden, err := m.ort.Run(inputIDs, attentionMask, tokenTypeIDs)
 	if err != nil {
-		return hashedVectorFloat32(text)
+		return nil, err
 	}
 	pooled := meanPoolL2(hidden, attentionMask, maxLen, miniLMDims)
 	if pooled == nil {
-		return hashedVectorFloat32(text)
+		return nil, errors.New("the model gave no usable output")
 	}
-	return pooled
+	return pooled, nil
 }
 
 var (
@@ -110,7 +118,15 @@ func buildMiniLMEmbedder(home string) (*miniLMEmbedder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &miniLMEmbedder{tok: tok, ort: sess}, nil
+	// A session that opens but cannot run would give every text the hashed fallback under MiniLM's name and size.
+	emb := &miniLMEmbedder{tok: tok, ort: sess}
+	if _, err := emb.embed("overdrive"); err != nil {
+		if c, ok := sess.(interface{ Close() }); ok {
+			c.Close()
+		}
+		return nil, err
+	}
+	return emb, nil
 }
 
 func loadMiniLMTokenizer(home string) (*wordPieceTokenizer, error) {

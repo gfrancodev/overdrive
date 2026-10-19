@@ -151,6 +151,24 @@ jobs:
           $status
           if (-not $status.turbovec_available) { throw "TurboVec did not load" }
 
+      # Every other smoke runs with the stub embedder. This one downloads ONNX Runtime and MiniLM into a fresh home,
+      # with an accent in its path, and fails unless the shipped binary embeds with them.
+      - name: MiniLM from a fresh home (Unix)
+        if: matrix.native && runner.os != 'Windows'
+        shell: bash
+        run: |
+          OVERDRIVE_HOME="$RUNNER_TEMP/overdrive-minilm-ção" "$RUNNER_TEMP/overdrive-smoke/bin/overdrive-runtime" status \
+            | python3 -c 'import json,sys; s=json.load(sys.stdin); print(s); assert (s["embedder"], s["embedder_dim"]) == ("minilm", 384), "MiniLM did not run"'
+
+      - name: MiniLM from a fresh home (Windows)
+        if: matrix.native && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:OVERDRIVE_HOME = Join-Path $env:RUNNER_TEMP "overdrive-minilm-ção"
+          $status = & (Join-Path $env:RUNNER_TEMP "overdrive-smoke/bin/overdrive-runtime.exe") status | ConvertFrom-Json
+          $status
+          if ($status.embedder -ne "minilm" -or $status.embedder_dim -ne 384) { throw "MiniLM did not run" }
+
       - name: Upgrade with the Core running (Unix)
         if: matrix.native && runner.os != 'Windows'
         shell: bash

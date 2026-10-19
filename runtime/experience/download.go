@@ -156,11 +156,7 @@ func extractORTTarGz(archivePath, libDir string) error {
 		if err != nil {
 			return err
 		}
-		base := filepath.Base(hdr.Name)
-		if hdr.Typeflag != tar.TypeReg {
-			continue
-		}
-		if !strings.Contains(base, "onnxruntime") || !(strings.HasSuffix(base, ".so") || strings.HasSuffix(base, ".dylib")) {
+		if hdr.Typeflag != tar.TypeReg || !matchesORTTarEntry(hdr.Name) {
 			continue
 		}
 		dest := filepath.Join(libDir, ortLibName())

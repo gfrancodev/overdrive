@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 	"syscall"
 	"unsafe"
 
@@ -40,17 +41,21 @@ func (s *ortSession) init(api uintptr, modelPath string) error {
 	if err != nil {
 		return err
 	}
-	if status := ortCall(createEnv, ortLoggingLevelWarning, uintptr(unsafe.Pointer(logid)), uintptr(unsafe.Pointer(&s.env))); status != 0 {
+	status := ortCall(createEnv, ortLoggingLevelError, uintptr(unsafe.Pointer(logid)), uintptr(unsafe.Pointer(&s.env)))
+	runtime.KeepAlive(logid)
+	if status != 0 {
 		return ortStatusError(api, status)
 	}
 	if status := ortCall(createSessionOptions, uintptr(unsafe.Pointer(&s.sessionOptions))); status != 0 {
 		return ortStatusError(api, status)
 	}
-	modelC, err := syscall.BytePtrFromString(modelPath)
+	model, err := ortPathPtr(modelPath)
 	if err != nil {
 		return err
 	}
-	if status := ortCall(createSession, s.env, uintptr(unsafe.Pointer(modelC)), s.sessionOptions, uintptr(unsafe.Pointer(&s.session))); status != 0 {
+	status = ortCall(createSession, s.env, uintptr(model), s.sessionOptions, uintptr(unsafe.Pointer(&s.session)))
+	runtime.KeepAlive(model)
+	if status != 0 {
 		return ortStatusError(api, status)
 	}
 	if status := ortCall(createCpuMemoryInfo, ortDeviceAllocator, ortMemTypeDefault, uintptr(unsafe.Pointer(&s.memInfo))); status != 0 {
@@ -114,6 +119,9 @@ func (s *ortSession) Run(inputIDs, attentionMask, tokenTypeIDs []int64) ([]float
 	); status != 0 {
 		return nil, ortStatusError(api, status)
 	}
+	// The tensors point at these slices without copying them, and the call only holds their addresses.
+	runtime.KeepAlive(data)
+	runtime.KeepAlive(&namePtrs)
 	defer ortCall(releaseValue, outputTensor)
 
 	var dataPtr uintptr
@@ -139,6 +147,8 @@ func (s *ortSession) Close() {
 		s.sessionOptions = 0
 	}
 	if s.memInfo != 0 {
+		releaseMemInfo := apiFn(api, ortIdxReleaseMemoryInfo)
+		ortCall(releaseMemInfo, s.memInfo)
 		s.memInfo = 0
 	}
 	if s.env != 0 {

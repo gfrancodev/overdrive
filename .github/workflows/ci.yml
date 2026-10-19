@@ -56,6 +56,10 @@ jobs:
           go test -tags=overdrive_fake_ort -covermode=atomic -coverprofile=coverage.out ./...
           ../../scripts/go-coverage-gate.sh coverage.out
 
+      - name: Real ONNX Runtime and MiniLM
+        working-directory: runtime/experience
+        run: go test -tags=overdrive_ort_integration -run TestTheRealMiniLMTellsMeaningsApart -count=1 .
+
       - name: Run tray tests
         working-directory: runtime/tray
         run: go test ./...
